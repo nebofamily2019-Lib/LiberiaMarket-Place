@@ -1,0 +1,51 @@
+
+  🚀 Development Mode (Recommended)
+
+  Run this once and leave it running:
+
+  cd frontend
+  npm start
+
+  This starts the development server with hot reload - it automatically detects changes and refreshes the browser
+  for you! Just save your files and the changes appear instantly.
+
+  ---
+  📝 What Each Command Does
+
+  npm start (or npm run dev)
+
+  - ✅ Use this for development
+  - Starts dev server with hot reload
+  - Auto-refreshes on file changes
+  - Leave it running while you code
+
+  npm run build
+
+  - ❌ Don't use during development
+  - Only use when deploying to production
+  - Creates optimized production files
+  - Takes time to build
+
+  npm fund
+
+  - ❌ Optional/ignore
+  - Just shows funding info for packages
+  - Not needed for development
+
+  ---
+  ⚡ Quick Setup
+
+  Terminal 1 - Backend:
+  cd backend
+  npm run dev
+  Leave this running ✅
+
+  Terminal 2 - Frontend:
+  cd frontend
+  npm start
+  Leave this running ✅
+
+  Now just edit files and save - changes appear automatically! 🎉
+
+  ---
+  Pro Tip: Keep both terminals open while developing. Only restart if you install new packages with npm install.

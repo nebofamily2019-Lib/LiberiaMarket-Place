@@ -1,0 +1,128 @@
+Based on the Liberian context and current app state, here are my
+  recommended next steps for better UX and user adoption:
+
+  Priority 1: Localization & Cultural Adaptation 🇱🇷
+
+  1. Location Dropdown with Liberian Cities
+
+  Currently uses free text (AddProduct.tsx:325). Replace with:
+  - Dropdown with major cities: Monrovia, Paynesville, Gbarnga,
+  Buchanan, Kakata, Ganta, Zwedru, Voinjama, Harper, etc.
+  - Organized by counties for better discovery
+  - Optional text field for specific neighborhoods
+
+  Todos
+  ☐ Create Liberian locations data file with counties and cities
+  ☐ Create phone validation utility for Liberian numbers
+  ☐ Update AddProduct form with location dropdown
+  ☐ Add payment method preferences field
+  ☐ Add price negotiable toggle
+  ☐ Update Register form with phone validation
+  ☐ Update Login form styling for consistency
+
+  2. Phone Number Formatting
+
+  - Add Liberian phone validation (+231 format)
+  - Support local operators (Orange, Lonestar, Africell)
+  - Clear placeholder: "+231-XX-XXX-XXXX"
+
+  3. Mobile Money Integration
+
+  Most critical for Liberia:
+  - Add "Preferred Payment Method" field: Mobile Money (Orange Money,
+  MTN, etc.), Cash on Delivery
+  - Display payment icons buyers recognize
+  - Include "Price negotiable" toggle (common in Liberian markets)
+
+  Priority 2: Offline-First & Bandwidth Optimization
+
+  4. Image Optimization
+
+  - Compress images aggressively (target <100KB per image)
+  - Multiple image sizes (thumbnail, medium, full)
+  - Progressive loading with blur-up effect
+  - Camera capture directly from mobile (not just file upload)
+
+  5. Offline Support
+
+  - Service Worker for basic browsing when connection drops
+  - Save draft listings locally
+  - Queue actions when offline, sync when online
+  - Show clear "offline" indicator
+
+  6. Data-Saving Mode
+
+  - Toggle to load images on demand
+  - Text-only browse mode option
+  - Reduce API calls with smart caching
+
+  Priority 3: Trust & Safety Features
+
+  7. Seller Verification Badge
+
+  - Phone number verification via SMS
+  - Trusted seller badge after 5+ successful sales
+  - Show "Member since" date
+
+  8. Buyer Protection Info
+
+  - Safety tips on product detail page
+  - "Meet in public place" recommendations
+  - Report suspicious listing button
+
+  9. Community Moderation
+
+  - Simple flag/report system
+  - Basic profanity filter for Liberian English
+  - Community guidelines in plain language
+
+  Priority 4: Enhanced User Onboarding
+
+  10. Language Toggle
+
+  - English (default)
+  - Liberian Pidgin English option
+  - Simple, clear language throughout
+
+  11. First-Time User Guide
+
+  - Quick 3-step tutorial overlay
+  - How to buy/sell illustrations
+  - Safety tips prominently featured
+
+  12. Quick Registration
+
+  - Phone-first registration (email optional)
+  - Social login (Facebook - very popular in Liberia)
+  - Skip profile photo initially
+
+  Priority 5: Discovery & Engagement
+
+  13. Popular Searches Widget
+
+  - Show trending searches in Liberia
+  - Quick access to common categories
+
+  14. Featured/Promoted Listings
+
+  - Highlight quality sellers
+  - "Fresh Today" section for new listings
+
+  15. Messaging System
+
+  - In-app chat (not just phone calls)
+  - WhatsApp integration (very popular)
+  - SMS fallback option
+
+  Quick Wins You Can Implement Now:
+
+  1. Add Liberian locations dropdown (2 hours)
+  2. Phone validation for +231 (1 hour)
+  3. Mobile money payment options UI (2 hours)
+  4. Camera capture for images (3 hours)
+  5. "Price negotiable" checkbox (30 minutes)
+  6. Better image compression (2 hours)
+
+  Most Impact = Mobile Money + Phone Validation + Location Dropdown
+
+  Would you like me to implement any of these improvements?

@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(netstat -ano)",
+      "Bash(findstr :5000)",
+      "Bash(npm run dev)",
+      "Bash(taskkill /F /PID 21844)",
+      "Bash(taskkill //F //PID 21844)",
+      "Bash(taskkill //F //PID 7640)",
+      "Bash(dir \"C:\\Users\\Maeyen\\CommunityE-commerce-SPA-Liberia\\backend\\database\")",
+      "Bash(npm install --save-dev @testing-library/react @testing-library/jest-dom @testing-library/user-event vitest jsdom @vitest/ui)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

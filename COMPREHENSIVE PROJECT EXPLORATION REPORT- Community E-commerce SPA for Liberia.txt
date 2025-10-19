@@ -1,0 +1,896 @@
+ Response:
+       Perfect! Now I have all the information needed. Let me create a comprehensive document:
+
+       
+
+       EXECUTIVE SUMMARY
+
+       Project Name: LibMarket - Community E-commerce SPA for LiberiaType: Mobile-first, single-page application (SPA)Purpose: Empower commerce
+       activities in Liberia with a marketplace platform for buying/selling productsTech Stack:
+       - Frontend: React 19.1.1 + TypeScript + Vite + React Router v7
+       - Backend: Node.js + Express.js
+       - Database: PostgreSQL with Sequelize ORM
+       - Authentication: JWT-based with bcryptjs password hashing
+       - Deployment: Docker-ready (Dockerfile.backend, Dockerfile.frontend included)
+
+       ---
+       1. OVERALL PROJECT STRUCTURE
+
+       CommunityE-commerce-SPA-Liberia/
+       ├── frontend/                    # React TypeScript SPA
+       │   ├── src/
+       │   │   ├── components/         # Reusable UI components
+       │   │   ├── pages/              # Page components
+       │   │   ├── services/           # API service clients
+       │   │   ├── context/            # React context (Auth)
+       │   │   ├── App.tsx             # Main app component
+       │   │   └── main.tsx            # Entry point
+       │   ├── package.json            # Frontend dependencies
+       │   └── tsconfig.json
+       │
+       ├── backend/                     # Node.js/Express API
+       │   ├── src/
+       │   │   ├── routes/             # API endpoints
+       │   │   ├── controllers/        # Business logic
+       │   │   ├── models/             # Sequelize models
+       │   │   ├── middleware/         # Auth, error handling, file upload
+       │   │   ├── config/             # Database configuration
+       │   │   ├── tests/              # Test files (Jest)
+       │   │   └── server.js           # Express app setup
+       │   ├── package.json            # Backend dependencies
+       │   └── .env (not tracked)      # Environment variables
+       │
+       ├── database/                    # Database schemas
+       │   ├── schema.sql              # Main database schema
+       │   ├── messaging-schema.sql    # Messaging system schema
+       │   └── migrations/             # Schema migrations
+       │
+       ├── docker-compose.yml          # Docker orchestration
+       ├── docker-compose.dev.yml      # Development setup
+       └── nginx.conf                  # Nginx reverse proxy config
+
+       ---
+       2. IMPLEMENTED FEATURES & FUNCTIONALITY
+
+       Phase 1 (MVP) - COMPLETED:
+
+       A. User Management
+
+       - Registration: Phone-based registration (Liberian phone numbers: 9-digit format)
+         - Email is optional
+         - Password hashing with bcryptjs (12 rounds)
+         - User roles: user, seller, admin
+         - Phone normalization and validation
+       - Login: Phone + password authentication
+         - JWT token generation (expires in 7 days by default)
+         - Last login tracking
+         - Account active status checking
+       - User Profile Management:
+         - View current user profile
+         - Update profile information
+         - Upload avatar
+         - Store preferred payment methods
+         - Change password with current password verification
+       - Password Recovery:
+         - Forgot password with reset token (10-minute expiry)
+         - Reset password with token validation
+
+       B. Product Listing & Management
+
+       - Create Products:
+         - Title, description, price (decimal with 2 places)
+         - Category selection (required, must exist and be active)
+         - Condition options: new, like-new, good, fair, poor
+         - Location/county/city information
+         - Contact phone number
+         - Images/file upload support
+         - Negotiable flag
+         - Tags support
+         - Automatic slug generation
+         - Status: active, sold, inactive, pending
+       - Product Browsing:
+         - Get all products with pagination (default 12 per page)
+         - Filter by: price range, condition, location, category, negotiability
+         - Sort by: created_at, price, views, etc. (ASC/DESC)
+         - Increment view counter (skip if seller viewing own product)
+         - Get product details with seller & category info
+       - Product Search:
+         - Full-text search on title, description, location
+         - Case-insensitive matching
+         - Pagination support
+         - Filter by keyword
+       - Product Updates:
+         - Edit product details (owner only or admin)
+         - Update product status (mark as sold, inactive, etc.)
+         - Add/update images
+         - Update tags
+       - Product Deletion:
+         - Delete product (owner/admin only)
+         - Soft delete available via status updates
+
+       C. Category Management
+
+       - View Categories:
+         - Get all active categories
+         - Get category by ID or slug
+         - Includes icon, color, sort order
+         - Pagination support
+       - Admin Features:
+         - Create new categories (admin only)
+         - Update categories (admin only)
+         - Delete categories (admin only)
+         - Manage category visibility (isActive flag)
+       - Pre-seeded Categories:
+         - Electronics, Fashion, Home & Garden, Sports, Books, Vehicles, Services, Other
+
+       D. Rating & Review System
+
+       - Create Ratings:
+         - 1-5 star rating system
+         - Text review/comment
+         - Anonymous rating option
+         - Tracks transaction type (buying/selling)
+         - Prevents self-rating
+         - Prevents duplicate ratings from same rater
+       - View Ratings:
+         - Get all ratings for a specific user (public endpoint)
+         - Calculate average rating
+         - Get user's given and received ratings
+         - Pagination support
+         - Public ratings (isHidden = false)
+       - Manage Ratings:
+         - Update rating (rater only or admin)
+         - Delete rating (rater/admin only)
+         - Admin can verify/hide ratings
+       - Product-Seller Ratings:
+         - Get seller's ratings (displayed on product detail)
+         - Shows seller reputation/trustworthiness
+
+       E. User Authentication & Authorization
+
+       - JWT-based Authentication:
+         - Bearer token in Authorization header
+         - Token verification on protected routes
+         - User object attached to request
+       - Authorization Levels:
+         - protect: Requires valid JWT
+         - authorize('admin'): Admin-only endpoints
+         - optionalAuth: Token optional (anonymous browsing allowed)
+       - Protected Routes:
+         - Add product: requires auth
+         - Update/delete product: owner/admin only
+         - Update profile: requires auth
+         - Create rating: requires auth
+         - Admin category management: admin only
+
+       Phase 2 (Planned) - SCHEMA READY:
+
+       F. Messaging System (Schema Created, Not Yet Implemented)
+
+       - Conversations:
+         - One conversation per unique (buyer, seller, product) combo
+         - Prevents duplicate conversations
+         - Tracks last message for quick preview
+         - Unread message counters for both participants
+         - Soft delete flags (deleted_by_buyer, deleted_by_seller)
+         - Status: active, archived, blocked
+       - Messages:
+         - Text messages between buyers and sellers
+         - Message types: text, image, offer, system
+         - Read receipts (is_read, read_at)
+         - Soft delete capability
+         - JSON metadata for future expansion
+       - Database Triggers (Already Implemented):
+         - Auto-update conversation last message
+         - Increment unread message counters
+         - Decrement unread on message read
+         - Auto-update timestamps
+
+       ---
+       3. API ENDPOINTS & ROUTES
+
+       Authentication Routes (/api/auth)
+
+       POST   /api/auth/register           - Register new user
+       POST   /api/auth/login              - Login user (phone + password)
+       POST   /api/auth/logout             - Logout user
+       GET    /api/auth/me                 - Get current user (protected)
+       PUT    /api/auth/update-password    - Change password (protected)
+       POST   /api/auth/forgot-password    - Request password reset
+       PUT    /api/auth/reset-password/:token - Reset password with token
+
+       User Routes (/api/users)
+
+       GET    /api/users/profile           - Get logged-in user's profile (protected)
+       PUT    /api/users/profile           - Update user profile (protected)
+       PUT    /api/users/payment-preferences - Update payment preferences (protected)
+       POST   /api/users/avatar            - Upload avatar image (protected, multipart)
+       GET    /api/users                   - Get all users (admin only)
+       GET    /api/users/:id               - Get user by ID (admin only)
+       PUT    /api/users/:id               - Update user (admin only)
+       DELETE /api/users/:id               - Delete user (admin only)
+
+       Product Routes (/api/products)
+
+       GET    /api/products                - Get all products (paginated, filtered)
+       GET    /api/products/:id            - Get product by ID
+       GET    /api/products/search         - Search products by keyword
+       GET    /api/products/category/:categoryIdOrSlug - Get products by category
+       GET    /api/products/user/:userId   - Get user's products
+
+       POST   /api/products                - Create product (protected, multipart)
+       PUT    /api/products/:id            - Update product (protected, owner/admin)
+       DELETE /api/products/:id            - Delete product (protected, owner/admin)
+       PATCH  /api/products/:id/status     - Update product status (protected, owner/admin)
+
+       Category Routes (/api/categories)
+
+       GET    /api/categories              - Get all categories
+       GET    /api/categories/:idOrSlug    - Get category by ID or slug
+
+       POST   /api/categories              - Create category (admin only)
+       PUT    /api/categories/:id          - Update category (admin only)
+       DELETE /api/categories/:id          - Delete category (admin only)
+
+       Rating Routes (/api/ratings)
+
+       GET    /api/ratings                 - Get current user's ratings (protected)
+       GET    /api/ratings/user/:userId    - Get user's received ratings
+       GET    /api/ratings/product/:productId - Get product/seller ratings
+
+       POST   /api/ratings                 - Create rating (protected)
+       PUT    /api/ratings/:id             - Update rating (protected, owner/admin)
+       DELETE /api/ratings/:id             - Delete rating (protected, owner/admin)
+
+       Health & Info Routes
+
+       GET    /health                      - Health check endpoint
+       GET    /                            - Root info endpoint
+       GET    /uploads/*                   - Serve static uploaded files
+
+       ---
+       4. DATABASE MODELS & SCHEMAS
+
+       Users Table
+
+       Columns:
+       - id (UUID, PK)
+       - name (VARCHAR 50, NOT NULL)
+       - email (VARCHAR 255, UNIQUE, optional)
+       - phone (VARCHAR 20, UNIQUE, NOT NULL) - Liberian 9-digit format
+       - password (VARCHAR 255, hashed with bcrypt)
+       - location (VARCHAR 100, optional)
+       - avatar (VARCHAR 255, optional)
+       - role (ENUM: 'user', 'seller', 'admin', default: 'user')
+       - isActive (BOOLEAN, default: true)
+       - emailVerified (BOOLEAN, default: false)
+       - phoneVerified (BOOLEAN, default: false)
+       - lastLogin (TIMESTAMP, nullable)
+       - resetPasswordToken (VARCHAR 255)
+       - resetPasswordExpire (TIMESTAMP)
+       - emailVerificationToken (VARCHAR 255)
+       - preferredPaymentMethods (JSON)
+       - created_at, updated_at (TIMESTAMP)
+
+       Indexes:
+       - idx_users_email
+       - idx_users_role
+       - Auto-update trigger on updated_at
+
+       Categories Table
+
+       Columns:
+       - id (UUID, PK)
+       - name (VARCHAR 50, UNIQUE, NOT NULL)
+       - slug (VARCHAR 50, UNIQUE, NOT NULL)
+       - description (TEXT)
+       - icon (VARCHAR 100, emoji or icon name)
+       - color (VARCHAR 7, hex color format)
+       - isActive (BOOLEAN, default: true)
+       - sortOrder (INTEGER, default: 0)
+       - created_at, updated_at (TIMESTAMP)
+
+       Pre-seeded: 8 categories
+       - Electronics, Fashion, Home & Garden, Sports,
+         Books, Vehicles, Services, Other
+
+       Products Table
+
+       Columns:
+       - id (UUID, PK)
+       - title (VARCHAR 100, NOT NULL)
+       - description (TEXT, NOT NULL)
+       - slug (VARCHAR, auto-generated)
+       - price (DECIMAL 10,2, NOT NULL, >= 0)
+       - category_id (UUID, FK to Categories, NOT NULL)
+       - seller_id (UUID, FK to Users, NOT NULL)
+       - location (VARCHAR 100)
+       - condition (ENUM: 'new', 'like-new', 'good', 'fair', 'poor', default: 'good')
+       - images (TEXT[] / JSON)
+       - status (ENUM: 'active', 'sold', 'inactive', 'pending', default: 'active')
+       - views (INTEGER, default: 0)
+       - isFeatured (BOOLEAN, default: false)
+       - isNegotiable (BOOLEAN, default: true)
+       - tags (TEXT[] / JSON)
+       - specifications (JSON)
+       - contactPhone (VARCHAR 20)
+       - created_at, updated_at (TIMESTAMP)
+
+       Indexes:
+       - idx_products_seller
+       - idx_products_category
+       - idx_products_status
+       - idx_products_price
+       - idx_products_created
+       - Auto-update trigger on updated_at
+
+       Ratings Table
+
+       Columns:
+       - id (UUID, PK)
+       - rater_id (UUID, FK to Users)
+       - rated_user_id (UUID, FK to Users)
+       - rating (INTEGER, 1-5)
+       - review (TEXT)
+       - comment (TEXT)
+       - transaction_type (ENUM: 'buying', 'selling')
+       - isAnonymous (BOOLEAN, default: false)
+       - isVerified (BOOLEAN, default: false)
+       - isHidden (BOOLEAN, default: false)
+       - created_at, updated_at (TIMESTAMP)
+
+       Constraints:
+       - UNIQUE constraint on (rater_id, rated_user_id, transaction_type)
+       - Cannot rate self (rater_id != rated_user_id)
+
+       Indexes:
+       - idx_ratings_rater
+       - idx_ratings_rated_user
+
+       Conversations Table (Not Yet Implemented)
+
+       - id (UUID, PK)
+       - product_id (UUID, FK)
+       - buyer_id (UUID, FK)
+       - seller_id (UUID, FK)
+       - last_message_text (TEXT)
+       - last_message_sender_id (UUID)
+       - last_message_at (TIMESTAMP)
+       - buyer_unread_count (INTEGER)
+       - seller_unread_count (INTEGER)
+       - deleted_by_buyer (BOOLEAN)
+       - deleted_by_seller (BOOLEAN)
+       - status (ENUM: 'active', 'archived', 'blocked')
+       - created_at, updated_at (TIMESTAMP)
+
+       Constraints:
+       - UNIQUE(product_id, buyer_id, seller_id)
+       - buyer_id != seller_id
+
+       Messages Table (Not Yet Implemented)
+
+       - id (UUID, PK)
+       - conversation_id (UUID, FK)
+       - sender_id (UUID, FK)
+       - recipient_id (UUID, FK)
+       - content (TEXT)
+       - message_type (ENUM: 'text', 'image', 'offer', 'system')
+       - is_read (BOOLEAN)
+       - read_at (TIMESTAMP)
+       - deleted_by_sender (BOOLEAN)
+       - deleted_by_recipient (BOOLEAN)
+       - metadata (JSONB)
+       - created_at, updated_at (TIMESTAMP)
+
+       ---
+       5. AUTHENTICATION & AUTHORIZATION MECHANISMS
+
+       Authentication Flow
+
+       1. Registration:
+         - User provides: name, phone, password (email optional)
+         - Phone is normalized to 9-digit format
+         - Password is hashed using bcryptjs (salt rounds: 12)
+         - User object created in database
+         - JWT token generated and returned
+       2. Login:
+         - User provides: phone, password
+         - Phone normalized to 9-digit format
+         - Database query for user by phone
+         - Password compared with bcrypt
+         - JWT token generated if valid
+         - Last login timestamp updated
+       3. Token Management:
+         - JWT Secret: stored in environment variable
+         - Token expiry: 7 days (configurable)
+         - Token sent in Authorization: Bearer <token> header
+         - Verified on each protected request
+       4. Password Security:
+         - Passwords hashed before storage (never plain text)
+         - Password reset token: 20 random bytes, SHA256 hashed
+         - Reset token expires in 10 minutes
+         - Password change requires current password verification
+
+       Authorization Levels
+
+       Three middleware functions:
+       1. protect: Requires valid JWT token
+       2. authorize(...roles): Checks if user has specific role(s)
+       3. optionalAuth: Token optional, sets req.user if valid token provided
+
+       Role-Based Access Control (RBAC)
+
+       | Endpoint               | Public | User | Seller | Admin |
+       |------------------------|--------|------|--------|-------|
+       | Browse products        | YES    | YES  | YES    | YES   |
+       | Search/filter products | YES    | YES  | YES    | YES   |
+       | Create product         | NO     | YES  | YES    | YES   |
+       | View own profile       | NO     | YES  | YES    | YES   |
+       | Update own product     | NO     | YES* | YES*   | YES   |
+       | Delete own product     | NO     | YES* | YES*   | YES   |
+       | Create rating          | NO     | YES  | YES    | YES   |
+       | Manage categories      | NO     | NO   | NO     | YES   |
+       | Manage all users       | NO     | NO   | NO     | YES   |
+
+       *Owner only
+
+       Phone Number Validation (Liberian)
+
+       Valid prefixes (9-digit format):
+       - 77, 76, 88, 86, 87 (mobile carriers)
+       - 55, 44, 33, 22 (alternative codes)
+
+       Examples:
+       - Valid: 88123456789, 0881234567, +231881234567
+       - Invalid: 5123456789, 8812345 (too short)
+
+       ---
+       6. KEY USER FLOWS
+
+       Flow 1: User Registration & Login
+
+       1. User lands on /register page
+       2. Fill form: name, phone, password (email optional)
+       3. Click register
+       4. Frontend validates phone format
+       5. API validates and creates user
+       6. JWT token returned and stored in localStorage
+       7. User redirected to home or products page
+       8. Login page similar flow but with phone + password
+
+       Flow 2: Browse Products
+
+       1. User visits /products page
+       2. Products load with filters available:
+          - Category dropdown
+          - Price range slider
+          - Condition filter
+          - Location search
+          - Sort options
+       3. Products displayed in grid (pagination: 12 per page)
+       4. Click product card to view details
+       5. Product detail page shows:
+          - Images
+          - Description, price, condition
+          - Seller info with rating
+          - Contact button (message seller - future feature)
+          - Similar products
+
+       Flow 3: Seller Lists Product
+
+       1. Authenticated seller clicks "Add Product" or "Sell"
+       2. Navigate to /add-product page
+       3. Fill form:
+          - Title, description, price
+          - Select category (dropdown)
+          - Choose condition (new, like-new, good, fair, poor)
+          - Select location (county, city)
+          - Enter contact phone
+          - Optional: upload image
+          - Optional: mark negotiable, add tags
+       4. Submit form
+       5. Frontend validates all required fields
+       6. API creates product with seller_id = current user
+       7. Product status set to 'active'
+       8. Redirect to product detail or seller's products
+
+       Flow 4: Search Products
+
+       1. User enters search keyword (title, description, or location)
+       2. Click search or press enter
+       3. Query /api/products/search?q=keyword
+       4. Results filtered to active products only
+       5. Display matching products in grid
+       6. Support pagination for large result sets
+
+       Flow 5: Rate a Seller
+
+       1. User (buyer or previous seller) visits seller's profile
+       2. See existing ratings and average score
+       3. Click "Write a Review" or similar
+       4. Modal/form opens with:
+          - Star rating (1-5)
+          - Comment text
+          - Transaction type (buying/selling)
+          - Anonymous checkbox
+       5. Submit form
+       6. API validates (no self-rating, no duplicates)
+       7. Rating created and stored
+       8. Display updated on profile immediately
+       9. Average rating recalculated
+
+       Flow 6: Update Product Status (Mark as Sold)
+
+       1. Seller views their product on /products/[id]
+       2. Click "Mark as Sold" or status button
+       3. Confirm action
+       4. API updates product.status = 'sold'
+       5. Product no longer appears in active products list
+       6. Still visible on seller's profile if owner viewing
+       7. Buyers cannot contact about sold products
+
+       Flow 7: Admin Manage Categories
+
+       1. Admin user navigates to /admin/categories
+       2. See list of all categories
+       3. Can:
+          - Create new category (name, slug, icon, color)
+          - Edit existing category
+          - Delete category (if no products using it)
+          - Toggle active/inactive
+          - Reorder categories (sortOrder)
+       4. Changes reflected immediately on product forms
+
+       Flow 8: Payment Method Selection
+
+       1. During product creation, seller selects payment methods
+       2. Available methods stored in preferredPaymentMethods
+       3. Options: cash-on-pickup, cash-on-delivery, bank-transfer, etc.
+       4. Displayed on product detail for buyer reference
+       5. Future: integrate payment gateway
+
+       ---
+       7. EXISTING TEST FILES & TESTING SETUP
+
+       Test Framework & Setup
+
+       - Framework: Jest
+       - HTTP Testing: Supertest
+       - Test Database: SQLite (separate from production PostgreSQL)
+       - Setup File: backend/src/tests/setup.js
+         - Database sync before all tests (force: true)
+         - Clear tables after each test
+         - Close connection after all tests
+
+       Test Files Created (112 test cases)
+
+       1. Auth Tests (backend/src/tests/auth.test.js)
+
+       Test suites:
+       ✓ User registration validation
+       ✓ Login with valid/invalid credentials
+       ✓ Password hashing verification
+       ✓ Required field validation
+       ✓ Email format validation
+       ✓ Password length validation
+       ✓ Role assignment
+       ✓ User logout
+       ✓ Get current user (authenticated)
+       ✓ Get user without/with invalid token
+       ✓ Token expiration handling
+       ✓ JWT token structure validation
+
+       Total: ~25 test cases
+
+       2. Product Tests (backend/src/tests/products.test.js)
+
+       Test suites:
+       ✓ Create product validation
+       ✓ Authentication requirement
+       ✓ Required field validation
+       ✓ Price validation (positive only)
+       ✓ Condition enum validation
+       ✓ Get all products with pagination
+       ✓ Product filtering (price, condition, location, category)
+       ✓ Product sorting
+       ✓ Get single product by ID
+       ✓ View count increment
+       ✓ 404 for non-existent products
+       ✓ Update product authorization
+       ✓ Update product data validation
+       ✓ Prevent non-owner updates
+       ✓ Delete product authorization
+       ✓ Search products by keyword
+       ✓ Search by title, description, location
+       ✓ Get products by category
+       ✓ Get user's products (with visibility rules)
+       ✓ Update product status (active, sold, inactive, pending)
+       ✓ Status validation
+
+       Total: ~50+ test cases
+
+       3. Category Tests (backend/src/tests/categories.test.js)
+
+       Test suites:
+       ✓ Get all categories (public)
+       ✓ Create category (admin only)
+       ✓ Update category (admin only)
+       ✓ Delete category (admin only)
+       ✓ Filter by active status
+       ✓ Authorization checks
+
+       Total: ~37 test cases
+
+       Running Tests
+
+       # Run all tests
+       npm test
+
+       # Run tests in watch mode
+       npm run test:watch
+
+       # Run specific test file
+       npm test -- auth.test.js
+
+       Test Coverage Areas
+
+       - Authentication and authorization
+       - Input validation (email, phone, password, price, enums)
+       - Authorization rules (owner only, admin only)
+       - CRUD operations for all entities
+       - Filtering and pagination
+       - Error responses (400, 401, 403, 404, 500)
+       - Data integrity (no duplicates, relationships)
+       - Password hashing verification
+       - JWT token validation and expiration
+       - Soft deletes and status management
+
+       ---
+       8. FRONTEND COMPONENTS & PAGES
+
+       Core Components
+
+       Navbar                    - Top navigation (desktop)
+       BottomNav                - Bottom navigation (mobile)
+       ProtectedRoute           - Route wrapper for auth-required pages
+       ProductCard              - Single product display in grid
+       ProductGrid              - Grid layout for products
+       SearchHeader             - Search bar component
+       CategoryFilter           - Category filter dropdown
+       LocationSelector         - County/city selector
+       PhoneInput               - Liberian phone input with validation
+       PaymentMethodSelector    - Payment method checkboxes
+       PaymentMethodBadge       - Display selected payment methods
+       ProductMetaBadges        - Show condition, location, negotiable status
+
+       Pages
+
+       Home                     - Landing page with featured products
+       Login                    - Phone + password authentication
+       Register                 - User registration form
+       Products                 - Product listing with filters
+       ProductDetail            - Single product view
+       Profile                  - User profile (view/edit)
+       AddProduct               - Create new product form
+       admin/ManageCategories   - Admin category management
+
+       Frontend Services (API Clients)
+
+       authService.ts           - Login, register, password reset
+       productService.ts        - CRUD operations for products
+       categoryService.ts       - Get categories
+       ratingService.ts         - Create, update, delete ratings
+       userService.ts           - Get/update user profile
+       api.ts                   - Base Axios instance with defaults
+
+       Context API
+
+       AuthContext.tsx
+       - Provides: user, isAuthenticated, isLoading
+       - Functions: login, register, logout, refreshUser
+       - Persistence: localStorage (token + user JSON)
+       - Auto-initialization on app load
+
+       ---
+       9. MIDDLEWARE & UTILITIES
+
+       Backend Middleware
+
+       auth.js
+       - protect: Verify JWT and attach user to request
+       - authorize(...roles): Check user role
+       - optionalAuth: Optional JWT verification
+
+       upload.js
+       - Multer configuration for file uploads
+       - Destination: uploads/products/ or uploads/avatars/
+       - File size limits: 10MB
+
+       errorHandler.js
+       - Centralized error handling
+       - Format error responses
+
+       notFound.js
+       - 404 handler for undefined routes
+
+       Security Features Implemented
+
+       1. Helmet.js: Security headers
+       2. CORS: Configured origin, credentials, methods, headers
+       3. Rate Limiting: 100 requests per 15 minutes per IP
+       4. Password Hashing: bcryptjs (12 rounds)
+       5. JWT Signing: Signed with secret, expires 7 days
+       6. Data Validation: Input sanitization on all endpoints
+       7. SQL Injection Prevention: Sequelize parameterized queries
+       8. HTTPS Ready: Configured for production deployment
+
+       ---
+       10. DEPLOYMENT & INFRASTRUCTURE
+
+       Docker Setup
+
+       - Dockerfile.backend: Node.js production image
+       - Dockerfile.frontend: Multi-stage build, Vite production
+       - docker-compose.yml: Production setup
+       - docker-compose.dev.yml: Development setup with volumes
+       - nginx.conf: Reverse proxy configuration
+
+       Environment Variables Required
+
+       Backend:
+       - NODE_ENV: development|production|test
+       - PORT: 5000 (default)
+       - DATABASE_URL: PostgreSQL connection string
+       - JWT_SECRET: Secret for signing tokens
+       - JWT_EXPIRE: Token expiry time (7d default)
+       - BCRYPT_ROUNDS: Password hash rounds (12 default)
+       - FRONTEND_URL: Frontend origin for CORS
+       - UPLOAD_DIR: File upload directory
+
+       Frontend:
+       - VITE_API_URL: Backend API base URL
+
+       Database Setup
+
+       PostgreSQL required with:
+       - UUID extension enabled
+       - Tables auto-created by Sequelize sync
+       - Pre-seeded categories (8 default)
+       - Pre-created admin user (admin@libmarket.com)
+
+       ---
+       11. FEATURES READY FOR COMPREHENSIVE TESTING
+
+       Priority 1 - Core Features (Must Test)
+
+       - User Registration with phone validation
+       - User Login with JWT
+       - User Profile CRUD
+       - Product CRUD (create, read, update, delete)
+       - Product Search and Filtering
+       - Product Listing with Pagination
+       - Category Management
+       - Rating System
+       - Authorization & Access Control
+
+       Priority 2 - Integration Testing
+
+       - End-to-end user flows (register → create product → rate)
+       - Multi-user scenarios (buyer, seller, admin)
+       - File upload (images, avatars)
+       - Pagination edge cases
+       - Filter combinations
+       - Error scenarios and edge cases
+
+       Priority 3 - Performance & Load Testing
+
+       - Database query optimization
+       - Large dataset handling
+       - Concurrent user handling
+       - API response times
+
+       Priority 4 - Security Testing
+
+       - SQL injection attempts
+       - XSS protection
+       - CSRF protection
+       - JWT token validation
+       - Authorization bypass attempts
+       - Password reset token expiry
+
+       Priority 5 - Frontend Testing
+
+       - Component rendering
+       - Form validation
+       - Error handling
+       - Loading states
+       - Navigation flows
+       - Mobile responsiveness
+
+       Priority 6 - Future Features (Messaging - Schema Ready)
+
+       - Conversation creation
+       - Message CRUD
+       - Read receipts
+       - Unread message counters
+       - Soft delete conversations
+
+       ---
+       12. SUMMARY OF WHAT NEEDS TO BE TESTED
+
+       Backend API Testing (112 existing test cases, expandable to 200+)
+
+       1. Authentication (25+ cases)
+         - Registration validation, login, logout, password handling
+         - JWT verification, expiration, renewal
+       2. Products (50+ cases)
+         - CRUD operations, filtering, sorting, search
+         - Authorization, visibility rules, view counting
+         - Image handling, pagination
+       3. Categories (20+ cases)
+         - Admin operations, visibility, dependencies
+       4. Ratings (15+ cases)
+         - Creation, updates, authorization, calculations
+       5. Users (10+ cases)
+         - Profile management, avatar upload, preferences
+
+       Frontend Component Testing (Currently: 0, Recommended: 50+ cases)
+
+       - Setup: Jest + React Testing Library (not yet configured)
+       - Components: Navbar, ProductCard, Forms, Auth flows
+       - Services: API calls, error handling
+       - Context: Auth state management
+
+       Integration Testing (Currently: 0, Recommended: 30+ cases)
+
+       - End-to-end user workflows
+       - Multi-user interactions
+       - Data consistency across tables
+       - Real file uploads
+
+       E2E Testing (Currently: 0, Recommended: Cypress/Playwright, 40+ cases)
+
+       - Complete user journeys
+       - Browser automation
+       - Mobile responsiveness
+       - Cross-browser compatibility
+
+       ---
+       KEY FILES BY LOCATION
+
+       Backend Source Code
+
+       - Server: /backend/src/server.js
+       - Models: /backend/src/models/{User,Product,Category,Rating}.js
+       - Controllers: /backend/src/controllers/{auth,product,category,rating,user}Controller.js
+       - Routes: /backend/src/routes/{auth,products,categories,ratings,users}.js
+       - Middleware: /backend/src/middleware/{auth,upload,errorHandler}.js
+       - Tests: /backend/src/tests/{auth,products,categories}.test.js
+
+       Frontend Source Code
+
+       - Entry: /frontend/src/main.tsx
+       - App: /frontend/src/App.tsx
+       - Pages: /frontend/src/pages/{Login,Register,Products,ProductDetail,Profile,AddProduct}.tsx
+       - Components: /frontend/src/components/{Navbar,ProductCard,ProductGrid,etc}.tsx
+       - Services: /frontend/src/services/{authService,productService,categoryService,etc}.ts
+       - Context: /frontend/src/context/AuthContext.tsx
+
+       Database Schemas
+
+       - Main: /database/schema.sql
+       - Messaging (not yet implemented): /database/messaging-schema.sql
+       - Migrations: /database/migrations/
+
+       Configuration
+
+       - Docker: docker-compose.yml, docker-compose.dev.yml
+       - Nginx: nginx.conf
+       - Dependencies: backend/package.json, frontend/package.json
+
+       ---
+       This comprehensive overview covers all implemented features, infrastructure, API endpoints, database structure, and existing tests. The project
+       is well
+  ⎿  Done (38 tool uses · 78.4k tokens · 8m 59s)
+
+● Now I'll create a comprehensive test plan document focused on MVP features:

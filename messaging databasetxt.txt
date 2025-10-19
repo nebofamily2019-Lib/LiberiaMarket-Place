@@ -1,0 +1,106 @@
+Perfect! I've created a comprehensive messaging database schema. Let
+  me explain the architecture in detail:
+
+  📊 Database Schema Explanation
+
+  1. CONVERSATIONS Table
+
+  This is the "chat thread" between a buyer and seller about a specific
+  product.
+
+  Key Fields:
+  - product_id - Which product they're discussing (links to Products
+  table)
+  - buyer_id - Person interested in buying
+  - seller_id - Person who listed the product
+  - last_message_text - Preview of the last message (for inbox list)
+  - last_message_at - When was the last message sent (for sorting)
+  - buyer_unread_count / seller_unread_count - Notification badges (like
+   "5 unread")
+  - deleted_by_buyer / deleted_by_seller - Soft delete (hides from user
+  but keeps data)
+
+  Why this design?
+  - One conversation per product-buyer-seller combo - Prevents duplicate
+   chats
+  - Cached last message - Speeds up inbox loading (no need to query all
+  messages)
+  - Unread counters - Fast notifications without counting messages every
+   time
+  - Soft deletes - Users can "delete" chats, but we keep data for
+  disputes
+
+  2. MESSAGES Table
+
+  Individual messages within a conversation.
+
+  Key Fields:
+  - conversation_id - Which chat thread this belongs to
+  - sender_id - Who sent this message
+  - recipient_id - Who receives it
+  - content - The actual message text
+  - message_type - Text, image, offer, or system message
+  - is_read / read_at - Read receipts (like WhatsApp "seen")
+  - metadata - JSON for extra data (image URLs, price offers, etc.)
+
+  Why this design?
+  - Separate table from Conversations - Allows unlimited messages per
+  conversation
+  - recipient_id field - Makes "show my unread messages" queries fast
+  - Read receipts - Users can see when their message was read
+  - Message types - Allows future features (send images, make offers)
+  - Metadata JSON - Flexible storage for different message types
+
+  3. Smart Triggers (Automatic Updates)
+
+  Trigger 1: Update Last Message
+  When new message is sent → Automatically update conversation's
+  last_message_text
+  This keeps your inbox preview always showing the latest message!
+
+  Trigger 2: Increment Unread Count
+  When new message arrives → Increment recipient's unread counter
+  Automatically shows notification badges without manual counting!
+
+  Trigger 3: Decrement on Read
+  When user opens conversation → Mark messages as read → Decrement
+  unread count
+  Badge numbers go down automatically!
+
+  Trigger 4: Update Timestamps
+  When any record updates → Automatically set updated_at to now
+
+  4. Performance Indexes
+
+  I added 9 indexes to make queries lightning-fast even on slow mobile
+  networks:
+
+  - Find my conversations (as buyer or seller)
+  - Find conversation for a specific product
+  - Sort by most recent activity
+  - Load all messages in a conversation
+  - Count unread messages
+  - Filter by conversation status (active/archived)
+
+  📐 System Flow Example
+
+  Scenario: John wants to buy Mary's phone
+
+  1. John clicks "Message Seller" on Mary's iPhone listing
+  2. Backend checks: Does a conversation already exist for (John, Mary,
+  iPhone)?
+    - If NO: Create new Conversation
+    - If YES: Return existing Conversation
+  3. John types: "Is this still available?"
+  4. Backend creates Message in Messages table
+  5. Trigger fires automatically:
+    - Updates Conversation.last_message_text = "Is this still
+  available?"
+    - Increments Conversation.seller_unread_count = 1
+  6. Mary opens her inbox → sees "1 unread message" badge
+  7. Mary opens the conversation
+  8. Backend marks all messages as read
+  9. Trigger fires automatically:
+    - Decrements Conversation.seller_unread_count = 0
+
+  All of this happens automatically thanks to the triggers!
