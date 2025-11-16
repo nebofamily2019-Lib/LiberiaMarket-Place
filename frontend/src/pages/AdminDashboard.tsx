@@ -29,16 +29,19 @@ const AdminDashboard = () => {
   const fetchStats = async () => {
     try {
       setLoading(true)
-      // TODO: Create admin stats endpoint
-      // For now, using placeholder data
-      setStats({
-        totalUsers: 125,
-        totalProducts: 48,
-        totalCategories: 12,
-        activeProducts: 42
-      })
+      const response = await api.get('/dashboard/stats')
+      if (response.data.success) {
+        setStats(response.data.data)
+      }
     } catch (err) {
       console.error('Error fetching stats:', err)
+      // Fallback to empty stats on error
+      setStats({
+        totalUsers: 0,
+        totalProducts: 0,
+        totalCategories: 0,
+        activeProducts: 0
+      })
     } finally {
       setLoading(false)
     }
