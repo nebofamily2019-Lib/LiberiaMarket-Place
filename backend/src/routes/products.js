@@ -1,31 +1,26 @@
 const express = require('express')
+const router = express.Router()
 const {
   getProducts,
   getProduct,
   createProduct,
   updateProduct,
   deleteProduct,
-  searchProducts,
-  getProductsByCategory,
-  getUserProducts,
-  updateProductStatus
+  getUserProducts
 } = require('../controllers/productController')
-const { protect, optionalAuth } = require('../middleware/auth')
-const upload = require('../middleware/upload')
-
-const router = express.Router()
+const { protect, authorize, checkOwnership } = require('../middleware/auth')
+const { Product } = require('../models')
 
 // Public routes
-router.get('/', optionalAuth, getProducts)
-router.get('/search', searchProducts)
-router.get('/category/:categoryIdOrSlug', getProductsByCategory)
-router.get('/:id', optionalAuth, getProduct)
-
-// Protected routes
-router.post('/', protect, upload.single('image'), createProduct)
-router.put('/:id', protect, upload.single('image'), updateProduct)
-router.delete('/:id', protect, deleteProduct)
+router.get('/', getProducts)
+router.get('/:id', getProduct)
 router.get('/user/:userId', getUserProducts)
-router.patch('/:id/status', protect, updateProductStatus)
+
+// Protected routes - authentication required
+router.post('/', protect, authorize('seller', 'admin'), createProduct)
+
+// Protected routes - ownership check required
+router.put('/:id', protect, checkOwnership(Product, 'id', 'seller_id'), updateProduct)
+router.delete('/:id', protect, checkOwnership(Product, 'id', 'seller_id'), deleteProduct)
 
 module.exports = router

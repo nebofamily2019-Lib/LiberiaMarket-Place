@@ -1,25 +1,27 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import authService, { User, LoginCredentials, RegisterData } from '../services/authService'
+import api from '../utils/api'
+
+interface User {
+  id: string
+  name: string
+  phone: string
+  email?: string
+  role: string
+  roles: string[] // Multiple roles
+  isActive: boolean
+  isPhoneVerified?: boolean
+}
 
 interface AuthContextType {
   user: User | null
   isAuthenticated: boolean
-  isLoading: boolean
-  login: (credentials: LoginCredentials) => Promise<void>
-  register: (data: RegisterData) => Promise<void>
+  loading: boolean
+  login: (phone: string, password: string) => Promise<any>
   logout: () => Promise<void>
-  refreshUser: () => Promise<void>
+  checkAuth: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
-
-export const useAuth = () => {
-  const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider')
-  }
-  return context
-}
 
 interface AuthProviderProps {
   children: ReactNode
@@ -27,86 +29,95 @@ interface AuthProviderProps {
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [loading, setLoading] = useState(true)
 
-  // Initialize auth state from localStorage
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        const storedUser = authService.getStoredUser()
-        const token = authService.getStoredToken()
-
-        if (storedUser && token) {
-          // Verify token is still valid by fetching current user
-          try {
-            const currentUser = await authService.getCurrentUser()
-            setUser(currentUser)
-          } catch (error) {
-            // Token invalid, clear storage
-            localStorage.removeItem('token')
-            localStorage.removeItem('user')
-            setUser(null)
-          }
-        }
-      } catch (error) {
-        console.error('Auth initialization error:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    initAuth()
-  }, [])
-
-  const login = async (credentials: LoginCredentials) => {
+  const checkAuth = async () => {
     try {
-      const response = await authService.login(credentials)
-      setUser(response.user)
-    } catch (error) {
-      throw error
+      const response = await api.get('/auth/me')
+      
+      if (response.data.success && response.data.data) {
+        // Ensure roles is always an array
+        const userData = response.data.data;
+        if (!userData.roles) {
+          userData.roles = [userData.role];
+        }
+        setUser(userData)
+        setIsAuthenticated(true)
+      } else {
+        setUser(null)
+        setIsAuthenticated(false)
+      }
+    } catch (err: any) {
+      // Silent fail - 401 is expected when not logged in
+      setUser(null)
+      setIsAuthenticated(false)
+    } finally {
+      setLoading(false)
     }
   }
 
-  const register = async (data: RegisterData) => {
+  useEffect(() => {
+    checkAuth()
+  }, [])
+
+  const login = async (phone: string, password: string) => {
     try {
-      const response = await authService.register(data)
-      setUser(response.user)
-    } catch (error) {
-      throw error
+      // Remove spaces from phone
+      const cleanedPhone = phone.replace(/\s/g, '')
+      
+      const response = await api.post('/auth/login', { 
+        phone: cleanedPhone, 
+        password 
+      })
+      
+      if (response.data.success && response.data.user) {
+        setUser(response.data.user)
+        setIsAuthenticated(true)
+        console.log('✅ Login successful:', response.data.user.name)
+        return response.data
+      }
+      
+      throw new Error('Login failed')
+    } catch (err: any) {
+      console.error('❌ Login error:', err.response?.data?.error || err.message)
+      setUser(null)
+      setIsAuthenticated(false)
+      throw err
     }
   }
 
   const logout = async () => {
     try {
-      await authService.logout()
+      await api.post('/auth/logout')
+    } catch (err) {
+      console.error('Logout error:', err)
+    } finally {
       setUser(null)
-    } catch (error) {
-      console.error('Logout error:', error)
-      // Still clear local state even if API call fails
-      setUser(null)
+      setIsAuthenticated(false)
     }
   }
 
-  const refreshUser = async () => {
-    try {
-      const currentUser = await authService.getCurrentUser()
-      setUser(currentUser)
-      localStorage.setItem('user', JSON.stringify(currentUser))
-    } catch (error) {
-      console.error('Refresh user error:', error)
-      throw error
-    }
-  }
-
-  const value: AuthContextType = {
+  const value = {
     user,
-    isAuthenticated: !!user,
-    isLoading,
+    isAuthenticated,
+    loading,
     login,
-    register,
     logout,
-    refreshUser
+    checkAuth
   }
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  )
+}
+
+export const useAuth = () => {
+  const context = useContext(AuthContext)
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
+  return context
 }

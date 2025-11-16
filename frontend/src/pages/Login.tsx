@@ -1,10 +1,11 @@
-import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 const Login = () => {
   const navigate = useNavigate()
-  const { login } = useAuth()
+  const location = useLocation()
+  const { login, isAuthenticated } = useAuth()
   const [formData, setFormData] = useState({
     phone: '',
     password: ''
@@ -62,40 +63,36 @@ const Login = () => {
     if (error) setError('')
   }
 
+  // Get the page user was trying to access before redirect
+  const from = (location.state as any)?.from?.pathname || '/dashboard'
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-
-    // Validate phone
-    const phoneValidation = validatePhone(formData.phone)
-    if (!phoneValidation.isValid) {
-      setError(phoneValidation.message || 'Please enter a valid phone number')
-      return
-    }
-
-    // Validate password
-    if (!formData.password) {
-      setError('Please enter your password')
-      return
-    }
-
     setLoading(true)
 
     try {
-      const cleanPhone = formData.phone.replace(/\s/g, '')
+      const response = await login(formData.phone, formData.password)
 
-      await login({
-        phone: cleanPhone,
-        password: formData.password
-      })
-
-      navigate('/products')
+      // Redirect based on user role or previous location
+      if (response.user.role === 'admin') {
+        navigate('/admin/dashboard')
+      } else {
+        navigate(from, { replace: true })
+      }
     } catch (err: any) {
-      setError(err.message || 'Login failed. Please check your phone and password.')
+      setError(err.response?.data?.error || 'Invalid credentials')
     } finally {
       setLoading(false)
     }
   }
+
+  // Redirect to home if already logged in
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard')
+    }
+  }, [isAuthenticated, navigate])
 
   const phoneDigits = formData.phone.replace(/\D/g, '').length
   const phoneValidation = validatePhone(formData.phone)
@@ -278,7 +275,7 @@ const Login = () => {
             gap: 'var(--space-md)'
           }}>
             <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--color-border)' }} />
-            <span style={{ color: 'var(--color-text-tertiary)', fontSize: 'var(--font-size-sm)' }}>
+            <span style={{ color: 'var(--color-text-tertiary', fontSize: 'var(--font-size-sm)' }}>
               New to LibMarket?
             </span>
             <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--color-border)' }} />

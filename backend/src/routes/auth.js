@@ -1,32 +1,40 @@
 const express = require('express')
+const router = express.Router()
+const rateLimit = require('express-rate-limit')
 const {
   register,
   login,
   logout,
   getMe,
+  updatePassword,
   forgotPassword,
   resetPassword,
-  updatePassword
+  sendVerificationCode,
+  verifyPhone
 } = require('../controllers/authController')
 const { protect } = require('../middleware/auth')
 
-const router = express.Router()
-
-// Debug middleware to log all auth requests
-router.use((req, res, next) => {
-  console.log(`[AUTH ROUTE] ${req.method} ${req.path}`)
-  next()
+// Rate limiter specifically for auth routes
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 attempts
+  message: 'Too many attempts, please try again after 15 minutes',
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true, // Don't count successful requests
 })
 
 // Public routes
-router.post('/register', register)
-router.post('/login', login)
+router.post('/register', authLimiter, register)
+router.post('/login', authLimiter, login)
 router.post('/logout', logout)
-router.post('/forgot-password', forgotPassword)
+router.post('/forgot-password', authLimiter, forgotPassword)
 router.put('/reset-password/:resettoken', resetPassword)
 
 // Protected routes
 router.get('/me', protect, getMe)
 router.put('/update-password', protect, updatePassword)
+router.post('/send-verification', protect, sendVerificationCode)
+router.post('/verify-phone', protect, verifyPhone)
 
 module.exports = router

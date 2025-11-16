@@ -1,370 +1,346 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import productService from '../services/productService'
-import VoiceButton from '../components/VoiceButton'
+import api from '../utils/api'
+import HamburgerMenu from '../components/HamburgerMenu'
+import TopNav from '../components/TopNav'
+import '../styles/Dashboard.css'
 
-interface DashboardStats {
-  totalListings: number
-  activeListings: number
-  soldItems: number
-  messages: number
-  notifications: number
+interface Product {
+  id: string
+  title: string
+  description: string
+  price: number
+  status: string
+  location: string
+  createdAt: string
+  category?: {
+    name: string
+    icon: string
+    color: string
+  }
 }
 
-/**
- * LibMarket Dashboard - Unified for Buyers and Sellers
- * Shows: Browse All, Jobs, Notifications, Inbox, Buying & Selling modules
- */
 const Dashboard = () => {
-  const { user, isAuthenticated, logout } = useAuth()
+  const { user } = useAuth()
   const navigate = useNavigate()
-  const [stats, setStats] = useState<DashboardStats>({
-    totalListings: 0,
-    activeListings: 0,
-    soldItems: 0,
-    messages: 0,
-    notifications: 3 // Placeholder
-  })
+  const [stats, setStats] = useState<any>(null)
+  const [myProducts, setMyProducts] = useState<Product[]>([])
+  const [myPurchases, setMyPurchases] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  // const [isAuth, setIsAuth] = useState<boolean>(Boolean(localStorage.getItem('token')))
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      navigate('/login')
-      return
-    }
+    fetchDashboardData()
+  }, [])
 
-    const fetchStats = async () => {
-      try {
-        setLoading(true)
-        if (user?.id) {
-          // Fetch user's products
-          const productsResponse = await productService.getUserProducts(user.id, 1, 100)
-          const products = productsResponse.data
+  // Helper to check if user has a role
+  const hasRole = (role: string) => {
+    if (!user) return false;
+    return user.roles?.includes(role) || user.roles?.includes('admin');
+  };
 
-          setStats({
-            totalListings: products.length,
-            activeListings: products.filter((p: any) => p.status === 'active').length,
-            soldItems: products.filter((p: any) => p.status === 'sold').length,
-            messages: 0, // Placeholder - will implement messaging
-            notifications: 3 // Placeholder
-          })
-        }
-      } catch (error) {
-        console.error('Error fetching dashboard stats:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchStats()
-  }, [user, isAuthenticated, navigate])
-
-  const handleLogout = async () => {
+  const fetchDashboardData = async () => {
     try {
-      await logout()
-    } catch (err) {
-      console.error('Logout failed:', err)
+      setLoading(true)
+      
+      // Fetch stats
+      const statsRes = await api.get('/dashboard/stats')
+      if (statsRes.data.success) {
+        setStats(statsRes.data.data)
+      }
+
+      // Fetch seller's products if user is a seller
+      if (hasRole('seller')) {
+        const productsRes = await api.get('/dashboard/my-products?limit=5')
+        if (productsRes.data.success) {
+          setMyProducts(productsRes.data.data)
+        }
+      }
+
+      // Fetch buyer's purchases if user is a buyer
+      if (hasRole('buyer')) {
+        const purchasesRes = await api.get('/dashboard/my-purchases')
+        if (purchasesRes.data.success) {
+          setMyPurchases(purchasesRes.data.data)
+        }
+      }
+    } catch (err: any) {
+      console.error('Error fetching dashboard data:', err)
+      // Use placeholder data on error
+      setStats({
+        totalProducts: 0,
+        activeProducts: 0,
+        totalCategories: 0
+      })
     } finally {
-      navigate('/login')
+      setLoading(false)
+    }
+  }
+
+  const handleMyProducts = () => {
+    if (user?.role === 'seller' || user?.role === 'admin') {
+      // Sellers go to their listed products
+      navigate('/my-products')
+    } else {
+      // Buyers go to their purchases
+      navigate('/my-purchases')
     }
   }
 
   if (loading) {
     return (
-      <div className="container" style={{ paddingTop: '40px', textAlign: 'center' }}>
-        <h2>Loading your dashboard...</h2>
+      <div className="dashboard-container">
+        <HamburgerMenu />
+        <TopNav />
+        <div className="loading-state">
+          <div className="spinner">⏳</div>
+          <p>Loading your dashboard...</p>
+        </div>
       </div>
     )
   }
 
-  const dashboardModules = [
-    {
-      id: 'browse',
-      title: 'Browse All',
-      icon: '🏪',
-      description: 'Explore all products in marketplace',
-      link: '/products',
-      color: '#007bff',
-      voiceText: 'Browse all products in the marketplace'
-    },
-    {
-      id: 'jobs',
-      title: 'Jobs',
-      icon: '💼',
-      description: 'Post or find jobs',
-      link: '/jobs',
-      color: '#28a745',
-      badge: 'New',
-      voiceText: 'Post or find jobs'
-    },
-    {
-      id: 'notifications',
-      title: 'Notifications',
-      icon: '🔔',
-      description: 'Stay updated',
-      link: '/notifications',
-      color: '#ffc107',
-      badge: stats.notifications > 0 ? stats.notifications.toString() : undefined,
-      voiceText: `You have ${stats.notifications} notifications`
-    },
-    {
-      id: 'inbox',
-      title: 'Inbox',
-      icon: '💬',
-      description: 'Your messages',
-      link: '/inbox',
-      color: '#17a2b8',
-      badge: stats.messages > 0 ? stats.messages.toString() : undefined,
-      voiceText: `You have ${stats.messages} messages`
-    },
-    {
-      id: 'selling',
-      title: 'My Products',
-      icon: '📦',
-      description: 'Manage your listings',
-      link: '/profile?tab=products',
-      color: '#6f42c1',
-      voiceText: `You have ${stats.activeListings} active listings`
-    },
-    {
-      id: 'add-product',
-      title: 'Sell Item',
-      icon: '➕',
-      description: 'Create new listing',
-      link: '/add-product',
-      color: '#fd7e14',
-      voiceText: 'Create a new product listing'
-    }
-  ]
-
   return (
-    <div className="container" style={{ paddingTop: '40px', paddingBottom: '80px' }}>
-      {/* Welcome Header */}
-      <div className="card" style={{ marginBottom: 'var(--space-xl)', background: 'linear-gradient(135deg, var(--color-primary) 0%, #0056b3 100%)', color: 'white' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h1 style={{ fontSize: 'var(--font-size-3xl)', marginBottom: 'var(--space-sm)', color: 'white' }}>
-              Welcome, {user?.name}! 👋
-            </h1>
-            <p style={{ fontSize: 'var(--font-size-lg)', opacity: 0.9, marginBottom: 0 }}>
-              Your LibMarket Dashboard
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <VoiceButton
-              text={`Welcome ${user?.name}. This is your LibMarket dashboard. You have ${stats.activeListings} active listings, ${stats.soldItems} sold items, and ${stats.notifications} notifications.`}
-              size="large"
-              ariaLabel="Listen to dashboard summary"
-            />
-            {/* Logout quick action */}
-            <button
-              onClick={handleLogout}
-              aria-label="Logout"
-              title="Logout"
-              style={{
-                background: '#fff',
-                color: '#007bff',
-                border: '1px solid rgba(255,255,255,0.2)',
-                padding: '8px 12px',
-                borderRadius: 8,
-                cursor: 'pointer',
-                fontWeight: 700
-              }}
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Stats */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-        gap: 'var(--space-md)',
-        marginBottom: 'var(--space-xl)'
-      }}>
-        <div className="card" style={{ textAlign: 'center', padding: 'var(--space-lg)', backgroundColor: '#e3f2fd' }}>
-          <div style={{ fontSize: 'var(--font-size-3xl)', fontWeight: 'bold', color: '#007bff', marginBottom: 'var(--space-xs)' }}>
-            {stats.activeListings}
-          </div>
-          <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
-            Active Listings
-          </div>
-        </div>
-
-        <div className="card" style={{ textAlign: 'center', padding: 'var(--space-lg)', backgroundColor: '#e8f5e9' }}>
-          <div style={{ fontSize: 'var(--font-size-3xl)', fontWeight: 'bold', color: '#28a745', marginBottom: 'var(--space-xs)' }}>
-            {stats.soldItems}
-          </div>
-          <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
-            Items Sold
-          </div>
-        </div>
-
-        <div className="card" style={{ textAlign: 'center', padding: 'var(--space-lg)', backgroundColor: '#fff3e0' }}>
-          <div style={{ fontSize: 'var(--font-size-3xl)', fontWeight: 'bold', color: '#ff9800', marginBottom: 'var(--space-xs)' }}>
-            {stats.messages}
-          </div>
-          <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
-            Messages
-          </div>
-        </div>
-      </div>
-
-      {/* Dashboard Modules */}
-      <h2 style={{ fontSize: 'var(--font-size-2xl)', marginBottom: 'var(--space-lg)', fontWeight: 'bold' }}>
-        Quick Access
-      </h2>
-
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-        gap: 'var(--space-lg)'
-      }}>
-        {dashboardModules.map((module) => (
-          <Link
-            key={module.id}
-            to={module.link}
-            style={{ textDecoration: 'none' }}
-          >
-            <div
-              className="card"
-              style={{
-                padding: 'var(--space-xl)',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                border: '2px solid var(--color-border)',
-                position: 'relative',
-                overflow: 'hidden',
-                minHeight: '160px'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-4px)'
-                e.currentTarget.style.boxShadow = 'var(--shadow-lg)'
-                e.currentTarget.style.borderColor = module.color
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)'
-                e.currentTarget.style.boxShadow = 'var(--shadow-sm)'
-                e.currentTarget.style.borderColor = 'var(--color-border)'
-              }}
-            >
-              {/* Icon Background */}
-              <div style={{
-                position: 'absolute',
-                top: '-20px',
-                right: '-20px',
-                fontSize: '120px',
-                opacity: 0.05,
-                pointerEvents: 'none'
-              }}>
-                {module.icon}
-              </div>
-
-              {/* Badge */}
-              {module.badge && (
-                <div style={{
-                  position: 'absolute',
-                  top: '12px',
-                  right: '12px',
-                  backgroundColor: module.color,
-                  color: 'white',
-                  padding: '4px 12px',
-                  borderRadius: '12px',
-                  fontSize: 'var(--font-size-xs)',
-                  fontWeight: 'bold'
-                }}>
-                  {module.badge}
+    <div className="dashboard-container">
+      <HamburgerMenu />
+      <TopNav />
+      
+      <div className="dashboard-content">
+        <h1>Welcome, {user?.name}! 👋</h1>
+        
+        {/* Stats Grid */}
+        <div className="stats-grid">
+          {user?.role === 'admin' && (
+            <>
+              <div className="stat-card">
+                <div className="stat-icon">👥</div>
+                <div className="stat-info">
+                  <h3>{stats?.totalUsers || 0}</h3>
+                  <p>Total Users</p>
                 </div>
-              )}
-
-              {/* Content */}
-              <div style={{ position: 'relative', zIndex: 1 }}>
-                <div style={{
-                  fontSize: '3rem',
-                  marginBottom: 'var(--space-md)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-sm)'
-                }}>
-                  <span>{module.icon}</span>
-                  <VoiceButton
-                    text={module.voiceText}
-                    size="small"
-                    ariaLabel={`Listen to ${module.title}`}
-                  />
-                </div>
-
-                <h3 style={{
-                  fontSize: 'var(--font-size-xl)',
-                  marginBottom: 'var(--space-sm)',
-                  color: module.color,
-                  fontWeight: 'bold'
-                }}>
-                  {module.title}
-                </h3>
-
-                <p style={{
-                  fontSize: 'var(--font-size-sm)',
-                  color: 'var(--color-text-secondary)',
-                  margin: 0
-                }}>
-                  {module.description}
-                </p>
               </div>
+              <div className="stat-card">
+                <div className="stat-icon">📦</div>
+                <div className="stat-info">
+                  <h3>{stats?.totalProducts || 0}</h3>
+                  <p>Total Products</p>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon">✅</div>
+                <div className="stat-info">
+                  <h3>{stats?.activeProducts || 0}</h3>
+                  <p>Active Products</p>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon">📂</div>
+                <div className="stat-info">
+                  <h3>{stats?.totalCategories || 0}</h3>
+                  <p>Categories</p>
+                </div>
+              </div>
+            </>
+          )}
+
+          {user?.role === 'seller' && (
+            <>
+              <div className="stat-card">
+                <div className="stat-icon">📦</div>
+                <div className="stat-info">
+                  <h3>{stats?.myProducts || 0}</h3>
+                  <p>My Products</p>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon">✅</div>
+                <div className="stat-info">
+                  <h3>{stats?.activeProducts || 0}</h3>
+                  <p>Active Listings</p>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon">⏳</div>
+                <div className="stat-info">
+                  <h3>{stats?.pendingProducts || 0}</h3>
+                  <p>Pending</p>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon">👁️</div>
+                <div className="stat-info">
+                  <h3>{stats?.totalViews || 0}</h3>
+                  <p>Total Views</p>
+                </div>
+              </div>
+            </>
+          )}
+
+          {user?.role === 'buyer' && (
+            <>
+              <div className="stat-card">
+                <div className="stat-icon">🛍️</div>
+                <div className="stat-info">
+                  <h3>{stats?.totalProducts || 0}</h3>
+                  <p>Products Available</p>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon">📂</div>
+                <div className="stat-info">
+                  <h3>{stats?.totalCategories || 0}</h3>
+                  <p>Categories</p>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon">🆕</div>
+                <div className="stat-info">
+                  <h3>{stats?.newListings || 0}</h3>
+                  <p>New This Week</p>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Seller Section */}
+        {hasRole('seller') && (
+          <div className="dashboard-section">
+            <div className="section-header">
+              <h2>📦 My Products</h2>
+              <button 
+                className="view-all-btn"
+                onClick={handleMyProducts}
+              >
+                View All →
+              </button>
             </div>
-          </Link>
-        ))}
-      </div>
 
-      {/* Recent Activity Section */}
-      <div style={{ marginTop: 'var(--space-3xl)' }}>
-        <h2 style={{ fontSize: 'var(--font-size-2xl)', marginBottom: 'var(--space-lg)', fontWeight: 'bold' }}>
-          Recent Activity
-        </h2>
+            {myProducts.length > 0 ? (
+              <>
+                <div className="products-list">
+                  {myProducts.map((product) => (
+                    <div key={product.id} className="product-item">
+                      <div className="product-info">
+                        <h3>{product.title}</h3>
+                        <p className="product-description">{product.description}</p>
+                        <div className="product-meta">
+                          <span className="product-price">${product.price}</span>
+                          <span className={`product-status status-${product.status}`}>
+                            {product.status}
+                          </span>
+                          <span className="product-location">📍 {product.location}</span>
+                        </div>
+                        {product.category && (
+                          <div className="product-category">
+                            {product.category.icon} {product.category.name}
+                          </div>
+                        )}
+                      </div>
+                      <div className="product-actions">
+                        <button 
+                          className="btn-edit"
+                          onClick={() => navigate(`/products/${product.id}/edit`)}
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="empty-state">
+                <div className="empty-icon">📦</div>
+                <p>You haven't listed any products yet</p>
+                <button 
+                  className="btn-primary"
+                  onClick={() => navigate('/products/add')}
+                >
+                  List Your First Product
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
-        <div className="card" style={{ padding: 'var(--space-xl)', textAlign: 'center' }}>
-          <div style={{ fontSize: '3rem', marginBottom: 'var(--space-md)' }}>📊</div>
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-lg)' }}>
-            Your recent activity will appear here
-          </p>
-          <Link to="/products" className="btn btn-primary" style={{ marginTop: 'var(--space-md)' }}>
-            Start Browsing
-          </Link>
-        </div>
-      </div>
+        {/* Buyer Section */}
+        {hasRole('buyer') && (
+          <div className="dashboard-section">
+            <div className="section-header">
+              <h2>🛍️ My Purchases</h2>
+              <button 
+                className="view-all-btn"
+                onClick={handleMyProducts}
+              >
+                View All →
+              </button>
+            </div>
 
-      {/* Help Section */}
-      <div className="card" style={{
-        marginTop: 'var(--space-xl)',
-        padding: 'var(--space-xl)',
-        backgroundColor: '#f8f9fa',
-        borderLeft: '4px solid var(--color-primary)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'start', gap: 'var(--space-md)' }}>
-          <div style={{ fontSize: '2rem' }}>💡</div>
-          <div style={{ flex: 1 }}>
-            <h3 style={{ fontSize: 'var(--font-size-lg)', marginBottom: 'var(--space-sm)', fontWeight: 'bold' }}>
-              Need Help?
-            </h3>
-            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)', marginBottom: 'var(--space-md)' }}>
-              Tap the speaker icons (🔉) to hear instructions. Use the microphone (🎤) to search with your voice.
-            </p>
-            <button
-              onClick={() => {
-                const helpText = `Welcome to LibMarket dashboard. Here you can browse all products, post or find jobs, check notifications, read messages, manage your products, and sell new items. Tap any card to access that feature. Tap speaker icons to hear more information.`
-                const utterance = new SpeechSynthesisUtterance(helpText)
-                utterance.rate = 0.9
-                window.speechSynthesis.speak(utterance)
-              }}
-              className="btn btn-secondary"
-              style={{ fontSize: 'var(--font-size-sm)' }}
-            >
-              🔉 Hear Dashboard Guide
+            {myPurchases.length > 0 ? (
+              <div className="purchases-list">
+                {myPurchases.map((purchase) => (
+                  <div key={purchase.id} className="product-item">
+                    <div className="product-info">
+                      <h3>{purchase.title}</h3>
+                      <p className="product-description">{purchase.description}</p>
+                      <div className="product-meta">
+                        <span className="product-price">${purchase.price}</span>
+                        <span className="product-date">
+                          Purchased: {new Date(purchase.purchasedAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="product-actions">
+                      <button 
+                        className="btn-view"
+                        onClick={() => navigate(`/products/${purchase.id}`)}
+                      >
+                        View Details
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">
+                <div className="empty-icon">🛍️</div>
+                <p>You haven't made any purchases yet</p>
+                <button 
+                  className="btn-primary"
+                  onClick={() => navigate('/products')}
+                >
+                  Start Shopping
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Quick Actions */}
+        <div className="quick-actions">
+          <h2>Quick Actions</h2>
+          <div className="actions-grid">
+            <button onClick={() => window.location.href = '/products'}>
+              <span>🛍️</span>
+              <span>Browse Products</span>
             </button>
+            {(user?.role === 'seller' || user?.role === 'admin') && (
+              <button onClick={() => window.location.href = '/products/add'}>
+                <span>➕</span>
+                <span>Add Product</span>
+              </button>
+            )}
+            <button onClick={() => window.location.href = '/categories'}>
+              <span>📂</span>
+              <span>View Categories</span>
+            </button>
+            {user?.role === 'admin' && (
+              <button onClick={() => window.location.href = '/admin/dashboard'}>
+                <span>⚙️</span>
+                <span>Admin Panel</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

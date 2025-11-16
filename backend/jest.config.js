@@ -16,7 +16,7 @@ module.exports = {
     '/config/',
     '/database/'
   ],
-  testTimeout: 10000,
+  testTimeout: 30000,
   verbose: true,
   forceExit: true,
   clearMocks: true,

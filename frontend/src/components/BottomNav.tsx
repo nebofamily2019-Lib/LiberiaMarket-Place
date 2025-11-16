@@ -18,37 +18,39 @@ const BottomNav = () => {
     return location.pathname.startsWith(path) ? 'active' : ''
   }
 
+  const navItems = [
+    {
+      path: '/',
+      icon: '🏠',
+      label: 'Home',
+      authRequired: false
+    },
+    {
+      path: '/add-product',
+      icon: '➕',
+      label: 'Sell',
+      authRequired: true
+    },
+    {
+      path: '/profile',
+      icon: '👤',
+      label: 'Profile',
+      authRequired: true
+    }
+  ]
+
   return (
     <nav className="bottom-nav">
-      {/* Home / Marketplace */}
-      <Link to="/" className={`bottom-nav-item ${isActive('/')}`}>
-        <span className="bottom-nav-icon">🏠</span>
-        <span>Home</span>
-      </Link>
-
-      {/* Browse Products */}
-      <Link to="/products" className={`bottom-nav-item ${isActive('/products')}`}>
-        <span className="bottom-nav-icon">🔍</span>
-        <span>Browse</span>
-      </Link>
-
-      {/* Sell / Add Product */}
-      <Link
-        to={isAuthenticated ? "/add-product" : "/login"}
-        className={`bottom-nav-item ${isActive('/add-product')}`}
-      >
-        <span className="bottom-nav-icon">➕</span>
-        <span>Sell</span>
-      </Link>
-
-      {/* Profile / Account */}
-      <Link
-        to={isAuthenticated ? "/profile" : "/login"}
-        className={`bottom-nav-item ${isActive('/profile')}`}
-      >
-        <span className="bottom-nav-icon">👤</span>
-        <span>{isAuthenticated ? 'Profile' : 'Login'}</span>
-      </Link>
+      {navItems.map(item => (
+        <Link
+          key={item.path}
+          to={item.path}
+          className={`bottom-nav-item ${isActive(item.path)}`}
+        >
+          <span className="bottom-nav-icon">{item.icon}</span>
+          <span>{item.label}</span>
+        </Link>
+      ))}
     </nav>
   )
 }

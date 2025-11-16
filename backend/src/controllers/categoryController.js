@@ -5,18 +5,19 @@ const { Category, Product } = require('../models');
 // @access  Public
 const getCategories = async (req, res, next) => {
   try {
-    // Option to include inactive categories (admin only)
-    const includeInactive = req.query.includeInactive === 'true' && req.user?.role === 'admin';
-
-    const where = includeInactive ? {} : { isActive: true };
-
+    const { includeInactive } = req.query
+    
+    // Build query conditions
+    const whereClause = {}
+    
+    // Only show active categories unless admin requests inactive
+    if (!includeInactive || (req.user && req.user.role !== 'admin')) {
+      whereClause.isActive = true
+    }
+    
     const categories = await Category.findAll({
-      where,
-      order: [
-        ['sortOrder', 'ASC'],
-        ['name', 'ASC']
-      ],
-      // Optionally include product count
+      where: whereClause,
+      order: [['sortOrder', 'ASC'], ['name', 'ASC']],
       attributes: {
         include: [
           [
@@ -32,13 +33,16 @@ const getCategories = async (req, res, next) => {
         ]
       }
     });
-
+    
+    console.log(`Found ${categories.length} categories`) // Debug log
+    
     res.status(200).json({
       success: true,
       count: categories.length,
       data: categories
     });
   } catch (error) {
+    console.error('Error in getCategories:', error)
     next(error);
   }
 };
@@ -100,7 +104,7 @@ const getCategory = async (req, res, next) => {
 // @access  Private/Admin
 const createCategory = async (req, res, next) => {
   try {
-    const { name, description, icon, color, sortOrder } = req.body;
+    const { name, description, icon, color, slug, sortOrder, isActive } = req.body;
 
     // Check if category with same name exists
     const existingCategory = await Category.findOne({ where: { name } });
@@ -111,24 +115,44 @@ const createCategory = async (req, res, next) => {
       });
     }
 
+    // Create category
     const category = await Category.create({
       name,
       description,
       icon,
       color,
-      sortOrder: sortOrder || 0,
-      isActive: true
-    });
+      slug,
+      sortOrder: sortOrder !== undefined ? sortOrder : 0,
+      isActive: isActive !== undefined ? isActive : true
+    })
 
     res.status(201).json({
       success: true,
       message: 'Category created successfully',
       data: category
-    });
+    })
   } catch (error) {
-    next(error);
+    // Handle Sequelize validation errors
+    if (error.name === 'SequelizeValidationError') {
+      const messages = error.errors.map(e => e.message)
+      return res.status(400).json({
+        success: false,
+        error: messages.join(', ')
+      })
+    }
+    
+    // Handle unique constraint errors
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(400).json({
+        success: false,
+        error: 'A category with this name or slug already exists'
+      })
+    }
+
+    console.error('Error creating category:', error)
+    next(error)
   }
-};
+}
 
 // @desc    Update category
 // @route   PUT /api/categories/:id
@@ -168,15 +192,31 @@ const updateCategory = async (req, res, next) => {
 
     await category.update(updates);
 
-    const updatedCategory = await Category.findByPk(req.params.id);
-
     res.status(200).json({
       success: true,
       message: 'Category updated successfully',
-      data: updatedCategory
-    });
+      data: category
+    })
   } catch (error) {
-    next(error);
+    // Handle Sequelize validation errors
+    if (error.name === 'SequelizeValidationError') {
+      const messages = error.errors.map(e => e.message)
+      return res.status(400).json({
+        success: false,
+        error: messages.join(', ')
+      })
+    }
+    
+    // Handle unique constraint errors
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(400).json({
+        success: false,
+        error: 'A category with this name or slug already exists'
+      })
+    }
+
+    console.error('Error updating category:', error)
+    next(error)
   }
 };
 

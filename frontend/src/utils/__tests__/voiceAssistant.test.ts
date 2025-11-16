@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest'
-import { speakPrompt, setDefaultLang, getAvailablePrompts } from '../voiceAssistant'
+import { speakPrompt, getAvailablePrompts } from '../voiceAssistant'
 
 describe('voiceAssistant speakPrompt / templates', () => {
   let originalSpeechSynthesis: any

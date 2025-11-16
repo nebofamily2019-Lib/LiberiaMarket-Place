@@ -2,7 +2,6 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import VoiceInput from '../VoiceInput'
 import * as voiceAssistant from '../../utils/voiceAssistant'
 import { vi, describe, it, beforeEach, afterEach, expect } from 'vitest'
-import { stopSpeaking } from '../../utils/voiceAssistant'
 
 describe('VoiceInput speaking indicator', () => {
   const fakeStop = vi.fn()

@@ -1,69 +1,60 @@
-const { sequelize } = require('../config/database')
-const UserModel = require('./User')
-const CategoryModel = require('./Category')
-const ProductModel = require('./Product')
-const RatingModel = require('./Rating')
+const { Sequelize } = require('sequelize');
+const { sequelize } = require('../config/database');
 
-// Initialize models
-const User = UserModel(sequelize)
-const Category = CategoryModel(sequelize)
-const Product = ProductModel(sequelize)
-const Rating = RatingModel(sequelize)
+// Import model classes
+const UserModel = require('./User');
+const CategoryModel = require('./Category');
+const ProductModel = require('./Product');
+const JobModel = require('./Job');
+const NotificationModel = require('./Notification');
+const MessageModel = require('./Message');
 
-// Define associations
-// User associations
-User.hasMany(Product, {
-  foreignKey: 'seller_id',
-  as: 'products',
-  onDelete: 'CASCADE'
-})
+// Initialize models with sequelize instance
+const User = UserModel.init(sequelize);
+const Category = CategoryModel.init(sequelize);
+const Product = ProductModel.init(sequelize);
+const Job = JobModel.init(sequelize);
+const Notification = NotificationModel.init(sequelize);
+const Message = MessageModel.init(sequelize);
 
-User.hasMany(Rating, {
-  foreignKey: 'rater_id',
-  as: 'givenRatings',
-  onDelete: 'CASCADE'
-})
-
-User.hasMany(Rating, {
-  foreignKey: 'rated_user_id',
-  as: 'receivedRatings',
-  onDelete: 'CASCADE'
-})
-
-// Product associations
-Product.belongsTo(User, {
-  foreignKey: 'seller_id',
-  as: 'seller'
-})
-
-Product.belongsTo(Category, {
-  foreignKey: 'category_id',
-  as: 'category'
-})
-
-// Category associations
-Category.hasMany(Product, {
-  foreignKey: 'category_id',
-  as: 'products',
-  onDelete: 'SET NULL'
-})
-
-// Rating associations
-Rating.belongsTo(User, {
-  foreignKey: 'rater_id',
-  as: 'rater'
-})
-
-Rating.belongsTo(User, {
-  foreignKey: 'rated_user_id',
-  as: 'ratedUser'
-})
-
-// Export models and sequelize instance
-module.exports = {
-  sequelize,
+// Create models object
+const models = {
   User,
   Category,
   Product,
-  Rating
-}
+  Job,
+  Notification,
+  Message
+};
+
+// Set up associations
+Object.keys(models).forEach(modelName => {
+  if (models[modelName].associate) {
+    models[modelName].associate(models);
+  }
+});
+
+// Sync database
+const syncDatabase = async () => {
+  try {
+    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+      await sequelize.sync({ alter: false });
+      console.log('✅ Database models synced');
+    }
+  } catch (error) {
+    console.error('❌ Database sync error:', error);
+  }
+};
+
+// Export everything
+module.exports = {
+  sequelize,
+  Sequelize,
+  User,
+  Category,
+  Product,
+  Job,
+  Notification,
+  Message,
+  syncDatabase
+};

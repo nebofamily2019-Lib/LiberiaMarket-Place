@@ -9,7 +9,12 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:5000',
         changeOrigin: true,
-      },
-    },
+        secure: false
+      }
+    }
   },
+  build: {
+    sourcemap: false, // Disable sourcemaps to reduce 401 noise
+  },
+  logLevel: 'warn' // Only show warnings and errors, not every 401
 })

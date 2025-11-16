@@ -76,130 +76,57 @@ export interface CreateProductData {
 }
 
 const productService = {
-  // Get all products with filters
-  getProducts: async (filters?: ProductFilters): Promise<ProductListResponse> => {
-    const params = new URLSearchParams()
-
-    if (filters) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          params.append(key, value.toString())
-        }
-      })
-    }
-
-    const response = await api.get<ProductListResponse>(`/products?${params.toString()}`)
+  // Get all products with optional filters
+  getProducts: async (page = 1, limit = 20, filters = {}): Promise<ProductListResponse> => {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+      ...filters
+    })
+    const response = await api.get<ProductListResponse>(`/products?${params}`)
     return response.data
   },
 
-  // Get single product by ID
+  // Get single product
   getProduct: async (id: string): Promise<Product> => {
     const response = await api.get<ProductResponse>(`/products/${id}`)
     return response.data.data
   },
 
-  // Search products
-  searchProducts: async (query: string, page = 1, limit = 12): Promise<ProductListResponse> => {
-    const response = await api.get<ProductListResponse>('/products/search', {
-      params: { q: query, page, limit }
-    })
-    return response.data
-  },
-
-  // Get products by category
-  getProductsByCategory: async (
-    categoryId: string,
-    page = 1,
-    limit = 12
-  ): Promise<ProductListResponse> => {
-    const response = await api.get<ProductListResponse>(`/products/category/${categoryId}`, {
-      params: { page, limit }
-    })
-    return response.data
-  },
-
   // Get user's products
-  getUserProducts: async (userId: string, page = 1, limit = 12): Promise<ProductListResponse> => {
-    const response = await api.get<ProductListResponse>(`/products/user/${userId}`, {
-      params: { page, limit }
-    })
+  getUserProducts: async (userId: string, page = 1, limit = 100): Promise<ProductListResponse> => {
+    const response = await api.get<ProductListResponse>(`/products/user/${userId}?page=${page}&limit=${limit}`)
     return response.data
   },
 
-  // Create new product
-  createProduct: async (productData: CreateProductData, image?: File): Promise<Product> => {
-    const formData = new FormData()
-
-    // Append product data
-    Object.entries(productData).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        if (Array.isArray(value)) {
-          formData.append(key, JSON.stringify(value))
-        } else {
-          formData.append(key, value.toString())
+  // Create product
+  createProduct: async (productData: FormData): Promise<Product> => {
+    try {
+      console.log('Creating product via API...')
+      const response = await api.post('/products', productData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
         }
-      }
-    })
-
-    // Append image if provided
-    if (image) {
-      formData.append('image', image)
+      })
+      console.log('Product created successfully:', response.data)
+      return response.data
+    } catch (error: any) {
+      console.error('Error in createProduct:', error)
+      console.error('Error response:', error.response)
+      throw error
     }
-
-    const response = await api.post<ProductResponse>('/products', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    })
-
-    return response.data.data
   },
 
   // Update product
-  updateProduct: async (
-    id: string,
-    productData: Partial<CreateProductData>,
-    image?: File
-  ): Promise<Product> => {
-    const formData = new FormData()
-
-    // Append product data
-    Object.entries(productData).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        if (Array.isArray(value)) {
-          formData.append(key, JSON.stringify(value))
-        } else {
-          formData.append(key, value.toString())
-        }
-      }
-    })
-
-    // Append image if provided
-    if (image) {
-      formData.append('image', image)
-    }
-
-    const response = await api.put<ProductResponse>(`/products/${id}`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    })
-
+  updateProduct: async (id: string, productData: any): Promise<Product> => {
+    const response = await api.put<ProductResponse>(`/products/${id}`, productData)
     return response.data.data
   },
 
   // Delete product
   deleteProduct: async (id: string): Promise<void> => {
-    await api.delete(`/products/${id}`)
-  },
-
-  // Update product status
-  updateProductStatus: async (
-    id: string,
-    status: 'active' | 'sold' | 'inactive' | 'pending'
-  ): Promise<Product> => {
-    const response = await api.patch<ProductResponse>(`/products/${id}/status`, { status })
-    return response.data.data
+    const response = await api.delete(`/products/${id}`)
+    return response.data
   }
 }
 

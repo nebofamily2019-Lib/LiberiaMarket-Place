@@ -12,9 +12,8 @@ export const mockUser: User = {
   phone: '881234567',
   role: 'user',
   isActive: true,
-  avatar: null,
+  avatar: undefined,
   location: 'Monrovia',
-  createdAt: '2025-01-01T00:00:00.000Z',
 }
 
 export const mockSeller: User = {
@@ -26,7 +25,6 @@ export const mockSeller: User = {
   isActive: true,
   avatar: '/uploads/avatars/jane.jpg',
   location: 'Paynesville',
-  createdAt: '2025-01-01T00:00:00.000Z',
 }
 
 export const mockAdmin: User = {
@@ -36,9 +34,8 @@ export const mockAdmin: User = {
   phone: '881111111',
   role: 'admin',
   isActive: true,
-  avatar: null,
+  avatar: undefined,
   location: 'Monrovia',
-  createdAt: '2025-01-01T00:00:00.000Z',
 }
 
 // Mock Products

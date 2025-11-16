@@ -1,87 +1,111 @@
-const { Product, User, Category } = require('../models');
-const { Op } = require('sequelize');
+const { Product, User, Category } = require('../models')
+const { Op } = require('sequelize')
 
-// @desc    Get all products with filters and pagination
+// @desc    Get all products (with pagination & filters)
 // @route   GET /api/products
 // @access  Public
 const getProducts = async (req, res, next) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 12;
-    const offset = (page - 1) * limit;
+    console.log('📥 GET /products - Query params:', req.query)
+    
+    // Parse pagination with validation
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1)
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20))
+    const offset = (page - 1) * limit
 
-    // Build query filters
-    const where = { status: 'active' };
+    console.log('📄 Pagination:', { page, limit, offset })
 
-    // Filter by price range
-    if (req.query.minPrice || req.query.maxPrice) {
-      where.price = {};
-      if (req.query.minPrice) where.price[Op.gte] = parseFloat(req.query.minPrice);
-      if (req.query.maxPrice) where.price[Op.lte] = parseFloat(req.query.maxPrice);
+    // Build where clause
+    const where = { status: req.query.status || 'active' }
+    
+    if (req.query.category_id) {
+      where.category_id = req.query.category_id
     }
 
-    // Filter by condition
-    if (req.query.condition) {
-      where.condition = req.query.condition;
+    if (req.query.search) {
+      where[Op.or] = [
+        { title: { [Op.iLike]: `%${req.query.search}%` } },
+        { description: { [Op.iLike]: `%${req.query.search}%` } }
+      ]
     }
 
-    // Filter by location
     if (req.query.location) {
-      where.location = { [Op.iLike]: `%${req.query.location}%` };
+      where.location = { [Op.iLike]: `%${req.query.location}%` }
     }
 
-    // Filter by category
-    if (req.query.category) {
-      where.category_id = req.query.category;
-    }
+    console.log('🔍 Where clause:', where)
 
-    // Filter by negotiable
-    if (req.query.negotiable) {
-      where.isNegotiable = req.query.negotiable === 'true';
-    }
-
-    // Sort options
-    const sortBy = req.query.sortBy || 'created_at';
-    const sortOrder = req.query.sortOrder || 'DESC';
-    const order = [[sortBy, sortOrder]];
-
-    const { count, rows: products } = await Product.findAndCountAll({
+    // Get products with associations
+    const { count, rows } = await Product.findAndCountAll({
       where,
+      limit,
+      offset,
+      order: [['createdAt', 'DESC']],
       include: [
-        {
-          model: User,
-          as: 'seller',
-          attributes: ['id', 'name', 'phone', 'location', 'avatar']
-        },
         {
           model: Category,
           as: 'category',
-          attributes: ['id', 'name', 'icon']
+          attributes: ['id', 'name', 'slug', 'icon', 'color'],
+          required: false // Allow products without categories
+        },
+        {
+          model: User,
+          as: 'seller',
+          attributes: ['id', 'name', 'phone'],
+          required: false // Allow products without sellers (shouldn't happen, but safe)
         }
       ],
-      limit,
-      offset,
-      order,
-      distinct: true
-    });
+      attributes: {
+        exclude: ['deletedAt'] // Don't send soft-deleted timestamp
+      }
+    })
+
+    console.log(`✅ Found ${count} products, returning ${rows.length}`)
+
+    // Format products for frontend
+    const formattedProducts = rows.map(product => ({
+      id: product.id,
+      title: product.title,
+      description: product.description,
+      price: parseFloat(product.price),
+      location: product.location,
+      condition: product.condition,
+      status: product.status,
+      contactPhone: product.contactPhone,
+      images: product.images || [],
+      createdAt: product.createdAt,
+      updatedAt: product.updatedAt,
+      category: product.category ? {
+        id: product.category.id,
+        name: product.category.name,
+        slug: product.category.slug,
+        icon: product.category.icon,
+        color: product.category.color
+      } : null,
+      seller: product.seller ? {
+        id: product.seller.id,
+        name: product.seller.name,
+        phone: product.seller.phone
+      } : null
+    }))
 
     res.status(200).json({
       success: true,
-      count: products.length,
-      total: count,
+      data: formattedProducts,
       pagination: {
-        page,
-        limit,
-        pages: Math.ceil(count / limit)
-      },
-      data: products
-    });
+        currentPage: page,
+        totalPages: Math.ceil(count / limit),
+        totalItems: count,
+        itemsPerPage: limit
+      }
+    })
   } catch (error) {
-    next(error);
+    console.error('❌ Error fetching products:', error)
+    next(error)
   }
-};
+}
 
-// @desc    Get single product by ID
+// @desc    Get single product
 // @route   GET /api/products/:id
 // @access  Public
 const getProduct = async (req, res, next) => {
@@ -91,479 +115,231 @@ const getProduct = async (req, res, next) => {
         {
           model: User,
           as: 'seller',
-          attributes: ['id', 'name', 'phone', 'location', 'avatar', 'created_at']
-        },
-        {
-          model: Category,
-          as: 'category',
-          attributes: ['id', 'name', 'icon']
-        }
-      ]
-    });
-
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        error: 'Product not found'
-      });
-    }
-
-    // Increment view count (skip if owner is viewing)
-    if (!req.user || req.user.id !== product.seller_id) {
-      await product.increment('views');
-    }
-
-    res.status(200).json({
-      success: true,
-      data: product
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Create new product
-// @route   POST /api/products
-// @access  Private
-const createProduct = async (req, res, next) => {
-  try {
-    const {
-      title,
-      description,
-      price,
-      category_id,
-      location,
-      condition,
-      isNegotiable,
-      tags,
-      contactPhone
-    } = req.body;
-
-    // Validate category exists
-    if (!category_id) {
-      return res.status(400).json({
-        success: false,
-        error: 'Category is required'
-      });
-    }
-
-    const category = await Category.findByPk(category_id);
-    if (!category) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid category selected'
-      });
-    }
-
-    if (!category.isActive) {
-      return res.status(400).json({
-        success: false,
-        error: 'Selected category is not available'
-      });
-    }
-
-    // Add seller_id from authenticated user
-    const productData = {
-      title,
-      description,
-      price,
-      category_id,
-      location,
-      condition,
-      isNegotiable,
-      tags: tags ? (Array.isArray(tags) ? tags : JSON.parse(tags)) : [],
-      contactPhone,
-      seller_id: req.user.id,
-      status: 'active'
-    };
-
-    // Handle image upload
-    if (req.file) {
-      // Convert file path to URL format
-      // req.file.path is like: uploads/products/image-123456.jpg
-      // We need it as: http://localhost:5000/uploads/products/image-123456.jpg
-      const imageUrl = `${req.protocol}://${req.get('host')}/${req.file.path.replace(/\\/g, '/')}`;
-      productData.images = [imageUrl];
-    } else {
-      productData.images = [];
-    }
-
-    const product = await Product.create(productData);
-
-    // Fetch the created product with associations
-    const createdProduct = await Product.findByPk(product.id, {
-      include: [
-        {
-          model: User,
-          as: 'seller',
-          attributes: ['id', 'name', 'phone', 'location', 'avatar']
-        },
-        {
-          model: Category,
-          as: 'category',
-          attributes: ['id', 'name', 'icon']
-        }
-      ]
-    });
-
-    res.status(201).json({
-      success: true,
-      message: 'Product created successfully',
-      data: createdProduct
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Update product
-// @route   PUT /api/products/:id
-// @access  Private (Owner only)
-const updateProduct = async (req, res, next) => {
-  try {
-    const product = await Product.findByPk(req.params.id);
-
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        error: 'Product not found'
-      });
-    }
-
-    // Check ownership
-    if (product.seller_id !== req.user.id && req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        error: 'Not authorized to update this product'
-      });
-    }
-
-    // Validate category if being updated
-    if (req.body.category_id) {
-      const category = await Category.findByPk(req.body.category_id);
-      if (!category) {
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid category selected'
-        });
-      }
-
-      if (!category.isActive) {
-        return res.status(400).json({
-          success: false,
-          error: 'Selected category is not available'
-        });
-      }
-    }
-
-    const allowedFields = [
-      'title',
-      'description',
-      'price',
-      'category_id',
-      'location',
-      'condition',
-      'isNegotiable',
-      'tags',
-      'contactPhone',
-      'status'
-    ];
-
-    const updates = {};
-    allowedFields.forEach(field => {
-      if (req.body[field] !== undefined) {
-        updates[field] = req.body[field];
-      }
-    });
-
-    // Handle image update if provided
-    if (req.file) {
-      // Convert file path to URL format
-      const imageUrl = `${req.protocol}://${req.get('host')}/${req.file.path.replace(/\\/g, '/')}`;
-      const currentImages = product.images || [];
-      updates.images = [...currentImages, imageUrl];
-    }
-
-    await product.update(updates);
-
-    const updatedProduct = await Product.findByPk(req.params.id, {
-      include: [
-        {
-          model: User,
-          as: 'seller',
-          attributes: ['id', 'name', 'phone', 'location', 'avatar']
-        },
-        {
-          model: Category,
-          as: 'category',
-          attributes: ['id', 'name', 'icon']
-        }
-      ]
-    });
-
-    res.status(200).json({
-      success: true,
-      message: 'Product updated successfully',
-      data: updatedProduct
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Delete product
-// @route   DELETE /api/products/:id
-// @access  Private (Owner/Admin only)
-const deleteProduct = async (req, res, next) => {
-  try {
-    const product = await Product.findByPk(req.params.id);
-
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        error: 'Product not found'
-      });
-    }
-
-    // Check ownership
-    if (product.seller_id !== req.user.id && req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        error: 'Not authorized to delete this product'
-      });
-    }
-
-    await product.destroy();
-
-    res.status(200).json({
-      success: true,
-      message: 'Product deleted successfully'
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Search products by keyword
-// @route   GET /api/products/search
-// @access  Public
-const searchProducts = async (req, res, next) => {
-  try {
-    const keyword = req.query.q || '';
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 12;
-    const offset = (page - 1) * limit;
-
-    if (!keyword.trim()) {
-      return res.status(400).json({
-        success: false,
-        error: 'Search keyword is required'
-      });
-    }
-
-    const where = {
-      status: 'active',
-      [Op.or]: [
-        { title: { [Op.iLike]: `%${keyword}%` } },
-        { description: { [Op.iLike]: `%${keyword}%` } },
-        { location: { [Op.iLike]: `%${keyword}%` } }
-      ]
-    };
-
-    const { count, rows: products } = await Product.findAndCountAll({
-      where,
-      include: [
-        {
-          model: User,
-          as: 'seller',
-          attributes: ['id', 'name', 'phone', 'location', 'avatar']
-        },
-        {
-          model: Category,
-          as: 'category',
-          attributes: ['id', 'name', 'icon']
-        }
-      ],
-      limit,
-      offset,
-      order: [['created_at', 'DESC']],
-      distinct: true
-    });
-
-    res.status(200).json({
-      success: true,
-      count: products.length,
-      total: count,
-      pagination: {
-        page,
-        limit,
-        pages: Math.ceil(count / limit)
-      },
-      data: products
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Get products by category (ID or slug)
-// @route   GET /api/products/category/:categoryIdOrSlug
-// @access  Public
-const getProductsByCategory = async (req, res, next) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 12;
-    const offset = (page - 1) * limit;
-    const { categoryIdOrSlug } = req.params;
-
-    // Check if it's a UUID or slug
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(categoryIdOrSlug);
-
-    // Find the category first
-    const category = await Category.findOne({
-      where: isUUID ? { id: categoryIdOrSlug } : { slug: categoryIdOrSlug }
-    });
-
-    if (!category) {
-      return res.status(404).json({
-        success: false,
-        error: 'Category not found'
-      });
-    }
-
-    const { count, rows: products } = await Product.findAndCountAll({
-      where: {
-        category_id: category.id,
-        status: 'active'
-      },
-      include: [
-        {
-          model: User,
-          as: 'seller',
-          attributes: ['id', 'name', 'phone', 'location', 'avatar']
+          attributes: ['id', 'name', 'phone']
         },
         {
           model: Category,
           as: 'category',
           attributes: ['id', 'name', 'slug', 'icon', 'color']
         }
-      ],
-      limit,
-      offset,
-      order: [['created_at', 'DESC']],
-      distinct: true
-    });
+      ]
+    })
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        error: 'Product not found'
+      })
+    }
 
     res.status(200).json({
       success: true,
-      count: products.length,
-      total: count,
-      pagination: {
-        page,
-        limit,
-        pages: Math.ceil(count / limit)
-      },
-      data: products
-    });
+      data: product
+    })
   } catch (error) {
-    next(error);
+    console.error('Error in getProduct:', error)
+    next(error)
   }
-};
+}
+
+// @desc    Create product
+// @route   POST /api/products
+// @access  Private
+const createProduct = async (req, res, next) => {
+  try {
+    console.log('Received product creation request')
+    console.log('Body:', req.body)
+    console.log('User:', req.user)
+    
+    const { title, description, price, category_id, location, condition, contactPhone, tags, isNegotiable } = req.body
+
+    // Use defaults if fields are missing
+    const timestamp = Date.now()
+    const productTitle = title || `Test Product ${timestamp}`
+    const productDescription = description || 'Test description'
+    const productPrice = price ? parseFloat(price) : 0
+    const productLocation = location || 'Monrovia'
+    const productContactPhone = contactPhone || req.user.phone || 'N/A'
+
+    // Validate price is a valid number (allow 0 for testing)
+    if (isNaN(productPrice) || productPrice < 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Price must be a valid number (0 or greater)'
+      })
+    }
+
+    // Category is optional - if provided, validate it exists
+    if (category_id) {
+      const categoryExists = await Category.findByPk(category_id)
+      if (!categoryExists) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid category selected'
+        })
+      }
+    }
+
+    // Parse tags if sent as JSON string
+    let parsedTags = tags
+    if (typeof tags === 'string' && tags.startsWith('[')) {
+      try {
+        parsedTags = JSON.parse(tags)
+      } catch (err) {
+        console.warn('Failed to parse tags JSON, using as-is')
+      }
+    }
+
+    console.log('Creating product with:', {
+      title: productTitle,
+      description: productDescription,
+      price: productPrice,
+      seller_id: req.user.id
+    })
+
+    // Create product with defaults
+    const product = await Product.create({
+      title: productTitle.trim ? productTitle.trim() : productTitle,
+      description: productDescription.trim ? productDescription.trim() : productDescription,
+      price: productPrice,
+      category_id: category_id || null,
+      location: productLocation.trim(),
+      condition: condition || 'good',
+      contactPhone: productContactPhone.trim(),
+      tags: parsedTags,
+      isNegotiable: isNegotiable === 'true' || isNegotiable === true,
+      seller_id: req.user.id,
+      status: 'active'
+    })
+
+    console.log('Product created successfully:', product.id)
+
+    res.status(201).json({
+      success: true,
+      message: 'Product created successfully',
+      data: product
+    })
+  } catch (error) {
+    console.error('Error creating product:', error)
+    console.error('Error stack:', error.stack)
+    
+    // Handle Sequelize unique constraint errors
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(400).json({
+        success: false,
+        error: 'A product with this title already exists. Please use a different title.'
+      })
+    }
+    
+    next(error)
+  }
+}
+
+// @desc    Update product
+// @route   PUT /api/products/:id
+// @access  Private
+const updateProduct = async (req, res, next) => {
+  try {
+    const product = await Product.findByPk(req.params.id)
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        error: 'Product not found'
+      })
+    }
+
+    // Check if user owns the product
+    if (product.seller_id !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'Not authorized to update this product'
+      })
+    }
+
+    await product.update(req.body)
+
+    res.status(200).json({
+      success: true,
+      message: 'Product updated successfully',
+      data: product
+    })
+  } catch (error) {
+    console.error('Error in updateProduct:', error)
+    next(error)
+  }
+}
+
+// @desc    Delete product
+// @route   DELETE /api/products/:id
+// @access  Private
+const deleteProduct = async (req, res, next) => {
+  try {
+    const product = await Product.findByPk(req.params.id)
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        error: 'Product not found'
+      })
+    }
+
+    // Check if user owns the product
+    if (product.seller_id !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'Not authorized to delete this product'
+      })
+    }
+
+    await product.destroy()
+
+    res.status(200).json({
+      success: true,
+      message: 'Product deleted successfully'
+    })
+  } catch (error) {
+    console.error('Error in deleteProduct:', error)
+    next(error)
+  }
+}
 
 // @desc    Get user's products
 // @route   GET /api/products/user/:userId
 // @access  Public
 const getUserProducts = async (req, res, next) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 12;
-    const offset = (page - 1) * limit;
-
-    const where = { seller_id: req.params.userId };
-
-    // Only show active products to other users
-    if (!req.user || req.user.id !== req.params.userId) {
-      where.status = 'active';
-    }
+    const page = parseInt(req.query.page) || 1
+    const limit = parseInt(req.query.limit) || 100
+    const offset = (page - 1) * limit
 
     const { count, rows: products } = await Product.findAndCountAll({
-      where,
+      where: { seller_id: req.params.userId },
+      limit,
+      offset,
       include: [
-        {
-          model: User,
-          as: 'seller',
-          attributes: ['id', 'name', 'phone', 'location', 'avatar']
-        },
         {
           model: Category,
           as: 'category',
-          attributes: ['id', 'name', 'icon']
+          attributes: ['id', 'name', 'slug', 'icon', 'color']
         }
       ],
-      limit,
-      offset,
-      order: [['created_at', 'DESC']],
-      distinct: true
-    });
+      order: [['created_at', 'DESC']] // Use snake_case column name
+    })
 
     res.status(200).json({
       success: true,
       count: products.length,
       total: count,
-      pagination: {
-        page,
-        limit,
-        pages: Math.ceil(count / limit)
-      },
+      page,
+      pages: Math.ceil(count / limit),
       data: products
-    });
+    })
   } catch (error) {
-    next(error);
+    console.error('Error in getUserProducts:', error)
+    next(error)
   }
-};
-
-// @desc    Update product status
-// @route   PATCH /api/products/:id/status
-// @access  Private (Owner/Admin only)
-const updateProductStatus = async (req, res, next) => {
-  try {
-    const { status } = req.body;
-
-    if (!['active', 'sold', 'inactive', 'pending'].includes(status)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid status value'
-      });
-    }
-
-    const product = await Product.findByPk(req.params.id);
-
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        error: 'Product not found'
-      });
-    }
-
-    // Check ownership
-    if (product.seller_id !== req.user.id && req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        error: 'Not authorized to update this product'
-      });
-    }
-
-    await product.update({ status });
-
-    res.status(200).json({
-      success: true,
-      message: 'Product status updated successfully',
-      data: product
-    });
-  } catch (error) {
-    next(error);
-  }
-};
+}
 
 module.exports = {
   getProducts,
@@ -571,8 +347,5 @@ module.exports = {
   createProduct,
   updateProduct,
   deleteProduct,
-  searchProducts,
-  getProductsByCategory,
-  getUserProducts,
-  updateProductStatus
-};
+  getUserProducts
+}

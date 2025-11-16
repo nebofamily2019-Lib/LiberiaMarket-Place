@@ -1,5 +1,17 @@
 import { useState, useRef } from 'react'
-import { startListening, speakPrompt, speakThenListen, stopSpeaking, getDefaultLang } from '../utils/voiceAssistant'
+import { speakPrompt, speakThenListen, stopSpeaking, getDefaultLang, speak } from '../utils/voiceAssistant'
+
+interface VoiceInputProps {
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  label?: string
+  helpText?: string
+  multiline?: boolean
+  rows?: number
+  required?: boolean
+  onFocus?: () => void
+}
 
 const VoiceInput = ({
   value,
@@ -41,7 +53,7 @@ const VoiceInput = ({
           // short confirmation
           speakPrompt('successShort')
         },
-        (error) => {
+        () => {
           speakPrompt('errorShort')
           setIsListening(false)
           setStopFn(null)

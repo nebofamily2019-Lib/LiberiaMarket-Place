@@ -37,7 +37,7 @@ const LocationSelector = ({
     }
   }, [selectedCounty])
 
-  // GPS Location - Auto-detect using geolocation
+  // GPS Location - Auto-detect using geolocation with improved accuracy
   const useMyLocation = async () => {
     setGettingLocation(true)
     setLocationError('')
@@ -53,31 +53,112 @@ const LocationSelector = ({
         const { latitude, longitude } = position.coords
 
         try {
-          // Use reverse geocoding to get location
-          // For MVP, we'll use a simple approach: default to Montserrado (most common)
-          // In production, use actual reverse geocoding API
+          // Use OpenStreetMap Nominatim for reverse geocoding (free and reliable)
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10&addressdetails=1`,
+            {
+              headers: {
+                'User-Agent': 'LibMarket/1.0 (Community E-commerce for Liberia)'
+              }
+            }
+          )
 
-          // For now, auto-select Montserrado County (capital region)
-          onCountyChange('montserrado')
+          if (response.ok) {
+            const data = await response.json()
+            const address = data.address
 
-          // Give user feedback
-          alert('📍 Location detected! Auto-selected Montserrado County. Please select your city.')
+            // Try to match detected location with Liberian counties
+            let detectedCounty = ''
+            let detectedCity = ''
+
+            // Look for Liberia in the country field
+            if (address.country_code === 'lr' || address.country?.toLowerCase().includes('liberia')) {
+              // Try to match county from detected address
+              const detectedRegion = address.state || address.county || address.region || ''
+              
+              // Simple matching logic for common counties
+              const countyMatches = {
+                'montserrado': 'montserrado',
+                'margibi': 'margibi', 
+                'nimba': 'nimba',
+                'bong': 'bong',
+                'lofa': 'lofa',
+                'grand bassa': 'grand-bassa',
+                'cape mount': 'cape-mount',
+                'grand cape mount': 'cape-mount'
+              }
+
+              for (const [keyword, countyId] of Object.entries(countyMatches)) {
+                if (detectedRegion.toLowerCase().includes(keyword)) {
+                  detectedCounty = countyId
+                  break
+                }
+              }
+
+              // Try to get city/town
+              detectedCity = address.city || address.town || address.village || ''
+            }
+
+            // Auto-select detected county or default to Montserrado
+            const finalCounty = detectedCounty || 'montserrado'
+            onCountyChange(finalCounty)
+
+            // If we detected a city, try to select it
+            if (detectedCity) {
+              // Wait for cities to load, then select
+              setTimeout(() => {
+                onCityChange(detectedCity)
+              }, 100)
+            }
+
+            // User feedback with more details
+            const locationName = detectedCity 
+              ? `${detectedCity}, ${counties.find(c => c.id === finalCounty)?.name || 'Montserrado'}`
+              : counties.find(c => c.id === finalCounty)?.name || 'Montserrado County'
+            
+            alert(`📍 Location detected: ${locationName}. Please verify and adjust if needed.`)
+
+          } else {
+            // Fallback to Montserrado if geocoding fails
+            onCountyChange('montserrado')
+            alert('📍 Location detected! Auto-selected Montserrado County. Please select your city.')
+          }
 
         } catch (error) {
-          setLocationError('Could not determine location')
+          console.error('Reverse geocoding error:', error)
+          // Fallback to Montserrado
+          onCountyChange('montserrado')
+          alert('📍 Location detected! Auto-selected Montserrado County. Please select your city.')
         } finally {
           setGettingLocation(false)
         }
       },
       (error) => {
         console.error('GPS error:', error)
-        setLocationError('Please enable GPS in your browser settings')
+        let errorMessage = 'Could not get your location. '
+        
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage += 'Please allow location access in your browser.'
+            break
+          case error.POSITION_UNAVAILABLE:
+            errorMessage += 'Location information unavailable.'
+            break
+          case error.TIMEOUT:
+            errorMessage += 'Location request timed out.'
+            break
+          default:
+            errorMessage += 'Unknown location error.'
+            break
+        }
+        
+        setLocationError(errorMessage)
         setGettingLocation(false)
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
+        timeout: 15000, // Increased timeout for better accuracy
+        maximumAge: 300000 // Cache location for 5 minutes
       }
     )
   }

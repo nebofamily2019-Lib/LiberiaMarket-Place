@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: libmarket-backend
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: DB_HOST
+        fromDatabase:
+          name: libmarket-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: libmarket-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: libmarket-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: libmarket-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: libmarket-db
+          property: password
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRE
+        value: 7d
+      - key: JWT_COOKIE_EXPIRE
+        value: 7
+      - key: CORS_ORIGIN
+        value: https://your-netlify-app.netlify.app
+
+databases:
+  - name: libmarket-db
+    plan: free

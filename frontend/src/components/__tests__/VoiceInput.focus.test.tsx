@@ -4,7 +4,7 @@ import * as voiceAssistant from '../../utils/voiceAssistant'
 import { vi, describe, it, beforeEach, afterEach, expect } from 'vitest'
 
 describe('VoiceInput focus triggers speakPrompt', () => {
-  const speakPromptSpy = vi.spyOn(voiceAssistant, 'speakPrompt').mockImplementation(() => {})
+  const speakPromptSpy = vi.spyOn(voiceAssistant, 'speakPrompt').mockImplementation(() => Promise.resolve())
 
   beforeEach(() => {
     speakPromptSpy.mockClear()

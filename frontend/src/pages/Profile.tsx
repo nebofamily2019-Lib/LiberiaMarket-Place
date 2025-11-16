@@ -142,7 +142,7 @@ const Profile = () => {
   const handleMarkAsSold = async (productId: string) => {
     setError('')
     try {
-      const updatedProduct = await productService.updateProductStatus(productId, 'sold')
+      await productService.updateProductStatus(productId, 'sold')
 
       // Update product in local state
       setUserProducts(prev => prev.map(p =>
@@ -157,7 +157,7 @@ const Profile = () => {
   const handleMarkAsActive = async (productId: string) => {
     setError('')
     try {
-      const updatedProduct = await productService.updateProductStatus(productId, 'active')
+      await productService.updateProductStatus(productId, 'active')
 
       // Update product in local state
       setUserProducts(prev => prev.map(p =>

@@ -17,6 +17,8 @@ interface PhoneInputProps {
   showCarrier?: boolean
   label?: string
   id?: string
+  onFocus?: () => void
+  'aria-label'?: string
 }
 
 const PhoneInput = ({
@@ -29,7 +31,9 @@ const PhoneInput = ({
   showValidation = true,
   showCarrier = true,
   label = 'Phone Number',
-  id = 'phone'
+  id = 'phone',
+  onFocus,
+  'aria-label': ariaLabel
 }: PhoneInputProps) => {
   const [validationResult, setValidationResult] = useState<PhoneValidationResult | null>(null)
   const [touched, setTouched] = useState(false)
@@ -72,6 +76,9 @@ const PhoneInput = ({
     } else {
       setInputValue(cleaned)
     }
+
+    // Call the optional onFocus callback
+    onFocus?.()
   }
 
   const showError = touched && showValidation && !validationResult?.isValid && inputValue.length > 0
@@ -100,6 +107,7 @@ const PhoneInput = ({
           placeholder={placeholder}
           required={required}
           disabled={disabled}
+          aria-label={ariaLabel || label}
           className={`
             form-control w-full p-2 border rounded
             ${showError ? 'border-red-500' : ''}

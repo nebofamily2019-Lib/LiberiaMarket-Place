@@ -24,6 +24,9 @@ const Navbar = () => {
             <li><Link to="/products">Browse</Link></li>
             {isAuthenticated ? (
               <>
+                <li><Link to="/dashboard">Dashboard</Link></li>
+                <li><Link to="/jobs">Jobs</Link></li>
+                <li><Link to="/inbox">Messages</Link></li>
                 <li><Link to="/add-product">Sell</Link></li>
                 <li><Link to="/profile">Profile</Link></li>
                 <li>

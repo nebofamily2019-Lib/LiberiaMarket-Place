@@ -1,10 +1,14 @@
-import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import api from '../utils/api' // Adjust the import based on your project structure
 
 const Register = () => {
   const navigate = useNavigate()
-  const { register } = useAuth()
+  const { register, isAuthenticated } = useAuth()
+  const [searchParams] = useSearchParams()
+  const roleFromURL = searchParams.get('role') // 'buyer' or 'seller'
+
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -14,6 +18,16 @@ const Register = () => {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+
+  // Set default role based on URL
+  const [role, setRole] = useState(roleFromURL || 'buyer')
+
+  // Redirect to home if already logged in
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/')
+    }
+  }, [isAuthenticated, navigate])
 
   // Simple phone validation for Liberian phone numbers
   const validatePhone = (phone: string): { isValid: boolean; message?: string } => {
@@ -66,46 +80,34 @@ const Register = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-
-    // Validate name
-    if (!formData.name.trim() || formData.name.trim().length < 2) {
-      setError('Please enter your full name')
-      return
-    }
-
-    // Validate phone
-    const phoneValidation = validatePhone(formData.phone)
-    if (!phoneValidation.isValid) {
-      setError(phoneValidation.message || 'Invalid phone number')
-      return
-    }
-
-    // Validate password
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters')
-      return
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match')
-      return
-    }
-
     setLoading(true)
 
     try {
-      const cleanPhone = formData.phone.replace(/\s/g, '')
-
-      await register({
-        name: formData.name.trim(),
-        phone: cleanPhone,
+      // Remove spaces from phone before sending
+      const cleanedPhone = formData.phone.replace(/\s/g, '')
+      
+      const response = await api.post('/auth/register', {
+        name: formData.name,
+        phone: cleanedPhone,
         password: formData.password,
-        role: 'user'
+        email: formData.email || undefined,
+        role: 'buyer'
       })
 
-      navigate('/products')
+     // Check if response is successful
+     if (response.status === 201 && response.data.success) {
+       console.log('✅ Registration successful:', response.data.user)
+       // Auto-login successful, redirect to dashboard
+       navigate('/dashboard')
+     } else {
+       throw new Error(response.data.error || 'Registration failed')
+     }
     } catch (err: any) {
-      setError(err.message || 'Registration failed. Please try again.')
+     // Only log actual errors (not successful 201s)
+     if (err.response?.status !== 201) {
+       console.error('❌ Registration error:', err)
+       setError(err.response?.data?.error || 'Registration failed. Please try again.')
+     }
     } finally {
       setLoading(false)
     }
@@ -301,6 +303,28 @@ const Register = () => {
               />
             </div>
 
+            {/* Role selection (pre-selected if from Home page) */}
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+                I want to: {roleFromURL && <span style={{ color: '#28a745', fontSize: '0.8rem' }}>(Selected from home)</span>}
+              </label>
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '16px'
+                }}
+              >
+                <option value="buyer">Buy products (Buyer)</option>
+                <option value="seller">Sell products (Seller)</option>
+                <option value="both">Both buy and sell</option>
+              </select>
+            </div>
+
             {/* Submit Button */}
             <button
               type="submit"
@@ -328,7 +352,7 @@ const Register = () => {
             gap: 'var(--space-md)'
           }}>
             <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--color-border)' }} />
-            <span style={{ color: 'var(--color-text-tertiary)', fontSize: 'var(--font-size-sm)' }}>
+            <span style={{ color: 'var(--color-text-tertiary', fontSize: 'var(--font-size-sm)' }}>
               Already have an account?
             </span>
             <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--color-border)' }} />

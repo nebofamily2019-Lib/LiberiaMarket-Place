@@ -1,56 +1,50 @@
-const jwt = require('jsonwebtoken')
-const { User } = require('../models')
+const jwt = require('jsonwebtoken');
+const { User } = require('../models');
 
-// Protect routes - require valid JWT token
+// Protect routes - require authentication
 const protect = async (req, res, next) => {
-  try {
-    let token
+  let token;
 
-    // Check for token in Authorization header
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-      token = req.headers.authorization.split(' ')[1]
-    }
-
-    // Make sure token exists
-    if (!token) {
-      return res.status(401).json({
-        success: false,
-        error: 'Access denied. No token provided.'
-      })
-    }
-
-    try {
-      // Verify token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-      // Get user from database
-      const user = await User.findByPk(decoded.id, {
-        attributes: { exclude: ['password'] }
-      })
-
-      if (!user) {
-        return res.status(401).json({
-          success: false,
-          error: 'User not found'
-        })
-      }
-
-      // Add user to request
-      req.user = user
-      next()
-    } catch (error) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid token'
-      })
-    }
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      error: 'Server error in authentication'
-    })
+  // 1. Check cookies first (primary method for web apps)
+  if (req.cookies?.token) {
+    token = req.cookies.token;
   }
-}
+  // 2. Fallback to Authorization header (for API clients)
+  else if (req.headers.authorization?.startsWith('Bearer ')) {
+    token = req.headers.authorization.split(' ')[1];
+  }
+
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      error: 'Not authorized to access this route'
+    });
+  }
+
+  try {
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Get user from token
+    req.user = await User.findByPk(decoded.id, {
+      attributes: { exclude: ['password'] }
+    });
+
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      error: 'Not authorized to access this route'
+    });
+  }
+};
 
 // Grant access to specific roles
 const authorize = (...roles) => {
@@ -58,54 +52,56 @@ const authorize = (...roles) => {
     if (!req.user) {
       return res.status(401).json({
         success: false,
-        error: 'Access denied. Please authenticate first.'
-      })
+        error: 'Not authorized to access this route'
+      });
     }
 
-    if (!roles.includes(req.user.role)) {
+    // Check if user has any of the required roles
+    const userRoles = req.user.roles || [req.user.role];
+    const hasRequiredRole = roles.some(role => userRoles.includes(role));
+    
+    if (!hasRequiredRole) {
       return res.status(403).json({
         success: false,
-        error: `Access denied. Role '${req.user.role}' is not authorized to access this resource.`
-      })
+        error: `User roles [${userRoles.join(', ')}] not authorized. Required: ${roles.join(', ')}`
+      });
     }
 
-    next()
-  }
-}
+    next();
+  };
+};
 
-// Optional authentication - sets req.user if token is valid, but doesn't require it
-const optionalAuth = async (req, res, next) => {
-  try {
-    let token
+// Check resource ownership
+const checkOwnership = (Model) => {
+  return async (req, res, next) => {
+    try {
+      const resource = await Model.findByPk(req.params.id);
 
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-      token = req.headers.authorization.split(' ')[1]
-    }
-
-    if (token) {
-      try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-        const user = await User.findByPk(decoded.id, {
-          attributes: { exclude: ['password'] }
-        })
-
-        if (user) {
-          req.user = user
-        }
-      } catch (error) {
-        // Invalid token, but continue without user
-        console.log('Invalid token in optional auth:', error.message)
+      if (!resource) {
+        return res.status(404).json({
+          success: false,
+          error: 'Resource not found'
+        });
       }
+
+      // Admin can access everything
+      if (req.user.role === 'admin') {
+        return next();
+      }
+
+      // Check if user owns the resource
+      if (resource.seller_id !== req.user.id && resource.userId !== req.user.id) {
+        return res.status(403).json({
+          success: false,
+          error: 'Not authorized to access this resource'
+        });
+      }
+
+      next();
+    } catch (error) {
+      next(error);
     }
+  };
+};
 
-    next()
-  } catch (error) {
-    next()
-  }
-}
-
-module.exports = {
-  protect,
-  authorize,
-  optionalAuth
-}
+module.exports = { protect, authorize, checkOwnership };

@@ -163,7 +163,7 @@ export const createVoiceInput = (
           onResult(text)
           listening = false
         },
-        (error) => {
+        () => {
           speak('Sorry, I could not understand. Please try again.')
           listening = false
         }

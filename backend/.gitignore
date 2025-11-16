@@ -1,0 +1,172 @@
+# ==============================================
+# LibMarket API - Git Ignore Configuration
+# ==============================================
+
+# ============================================
+# Environment Variables & Secrets
+# ============================================
+# ⚠️ CRITICAL: Never commit these files
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
+
+# ============================================
+# Dependencies
+# ============================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+package-lock.json
+
+# ============================================
+# Database Files
+# ============================================
+# SQLite databases
+*.sqlite
+*.sqlite3
+*.db
+database.sqlite
+
+# Database dumps
+*.sql
+*.dump
+backups/
+
+# ============================================
+# Logs
+# ============================================
+logs/
+*.log
+
+# ============================================
+# Testing & Coverage
+# ============================================
+coverage/
+.nyc_output/
+*.lcov
+.jest-cache/
+
+# ============================================
+# Build Output
+# ============================================
+dist/
+build/
+
+# ============================================
+# Uploaded Files
+# ============================================
+# User uploads (should use cloud storage)
+uploads/
+public/uploads/
+
+# ============================================
+# OS Files
+# ============================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# ============================================
+# IDE & Editors
+# ============================================
+# VSCode
+.vscode/
+.vscode/settings.json
+.vscode/tasks.json
+.vscode/launch.json
+.vscode/extensions.json
+*.code-workspace
+
+# WebStorm / IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# ============================================
+# SSL Certificates & Keys
+# ============================================
+# ⚠️ CRITICAL: Never commit certificates/keys
+*.pem
+*.key
+*.cert
+*.crt
+*.csr
+*.p12
+*.pfx
+ssl/
+certs/
+
+# ============================================
+# Backup Files
+# ============================================
+*.bak
+*.backup
+*.old
+*.orig
+*.save
+
+# ============================================
+# Miscellaneous
+# ============================================
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+.npm/
+.yarn/
+
+# ============================================
+# Security Scanning Reports
+# ============================================
+security-reports/
+vulnerability-scans/
+penetration-test-results/
+
+# ============================================
+# Documentation Build
+# ============================================
+docs/_build/
+site/
+
+# ============================================
+# Environment-Specific
+# ============================================
+# Local configuration overrides
+config.local.js
+config.local.json
+
+# Development scripts
+scripts/dev/
+scripts/local/

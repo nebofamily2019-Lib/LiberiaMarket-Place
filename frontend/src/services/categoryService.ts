@@ -28,8 +28,14 @@ export interface UpdateCategoryData {
 const categoryService = {
   // Get all categories
   getCategories: async (): Promise<Category[]> => {
-    const response = await api.get<CategoryResponse>('/categories')
-    return response.data.data
+    try {
+      const response = await api.get<CategoryResponse>('/categories')
+      console.log('Categories response:', response.data) // Debug log
+      return response.data.data
+    } catch (error) {
+      console.error('Error fetching categories:', error)
+      throw error
+    }
   },
 
   // Get single category by ID

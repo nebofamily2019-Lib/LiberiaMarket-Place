@@ -1,130 +1,130 @@
 import { Link } from 'react-router-dom'
-import VoiceButton from './VoiceButton'
-import LowLiteracyCard from './LowLiteracyCard'
-import { useState } from 'react'
+import { designSystem } from '../styles/designSystem'
 
-/**
- * Product type definition
- */
-export interface Product {
-  id: number
-  title: string
-  price: number
-  location?: string
-  imageUrl?: string
-  category?: string
-}
-
-/**
- * ProductCard Component
- * - Image-first design (square 1:1 aspect ratio)
- * - Optimized for mobile grid layout
- * - Similar to Facebook Marketplace card design
- */
 interface ProductCardProps {
-  product: Product
+  product: {
+    id: string
+    title: string
+    price: number
+    image?: string
+    condition?: string
+    location?: string
+    isNegotiable?: boolean
+  }
 }
 
 const ProductCard = ({ product }: ProductCardProps) => {
-  const { id, title, price, location, imageUrl } = product
-  const [simpleView, setSimpleView] = useState(false)
-
-  // Format price in Liberian Dollars
-  const formatPrice = (price: number) => {
-    return `L$${price.toLocaleString()}`
-  }
-
-  // Create voice-friendly text
-  const voiceText = `${title}. Price: ${price} Liberian dollars. ${location ? `Location: ${location}` : ''}`
-
-  const handleVoiceClick = (e: React.MouseEvent) => {
-    e.preventDefault() // Prevent navigation
-    e.stopPropagation()
-  }
-
   return (
-    <Link to={`/products/${id}`} className="product-card" style={{ position: 'relative' }}>
-      {/* Product Image - Square aspect ratio */}
-      <img
-        src={imageUrl || 'https://via.placeholder.com/300x300?text=No+Image'}
-        alt={title}
-        className="product-card-image"
-        loading="lazy"
-      />
-
-      {/* Voice Button - Floating on top right of image */}
+    <Link to={`/products/${product.id}`} style={{ textDecoration: 'none' }}>
       <div
-        onClick={handleVoiceClick}
         style={{
-          position: 'absolute',
-          top: '8px',
-          right: '8px',
-          zIndex: 10
+          background: 'white',
+          borderRadius: designSystem.borderRadius.lg,
+          overflow: 'hidden',
+          boxShadow: designSystem.shadows.md,
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          cursor: 'pointer'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'translateY(-4px)'
+          e.currentTarget.style.boxShadow = designSystem.shadows.xl
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'translateY(0)'
+          e.currentTarget.style.boxShadow = designSystem.shadows.md
         }}
       >
-        <VoiceButton text={voiceText} size="medium" ariaLabel={`Listen to ${title} details`} />
-      </div>
-
-      {/* Small toggle for low-literacy users to switch to simple card */}
-      <div style={{ position: 'absolute', left: '8px', bottom: '8px', zIndex: 20 }}>
-        <button
-          onClick={(e) => { e.preventDefault(); setSimpleView(!simpleView) }}
-          aria-label="Toggle simple view"
+        {/* Image */}
+        <div
           style={{
-            background: 'rgba(0,0,0,0.6)',
-            color: 'white',
-            border: 'none',
-            padding: '6px 8px',
-            borderRadius: 8,
-            fontSize: '0.9rem',
-            cursor: 'pointer'
+            height: '200px',
+            background: product.image
+              ? `url(${product.image}) center/cover`
+              : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            position: 'relative'
           }}
         >
-          {simpleView ? 'Standard' : 'Simple'}
-        </button>
-      </div>
-
-      {/* Render LowLiteracyCard when toggled */}
-      {simpleView && (
-        <div style={{ marginTop: '12px' }}>
-          <LowLiteracyCard
-            icon={moduleIconFor(product.category)}
-            title={title}
-            subtitle={location ? `📍 ${location}` : ''}
-            voiceText={voiceText}
-            onClick={() => { /* navigate or keep default link behaviour */ }}
-            ariaLabel={`Simple view for ${title}`}
-          />
+          {product.condition && (
+            <div
+              style={{
+                position: 'absolute',
+                top: designSystem.spacing.md,
+                right: designSystem.spacing.md,
+                background: 'rgba(255,255,255,0.95)',
+                padding: '6px 12px',
+                borderRadius: designSystem.borderRadius.full,
+                fontSize: designSystem.typography.fontSize.xs,
+                fontWeight: designSystem.typography.fontWeight.semibold,
+                color: designSystem.colors.neutral[900],
+                backdropFilter: 'blur(10px)'
+              }}
+            >
+              {product.condition}
+            </div>
+          )}
         </div>
-      )}
 
-      {/* Product Info */}
-      <div className="product-card-content">
-        {/* Price - Most prominent */}
-        <div className="product-card-price">{formatPrice(price)}</div>
+        {/* Content */}
+        <div style={{ padding: designSystem.spacing.md }}>
+          <h3
+            style={{
+              fontSize: designSystem.typography.fontSize.lg,
+              fontWeight: designSystem.typography.fontWeight.bold,
+              color: designSystem.colors.neutral[900],
+              marginBottom: designSystem.spacing.sm,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {product.title}
+          </h3>
 
-        {/* Title - 2 lines max with ellipsis */}
-        <div className="product-card-title">{title}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: designSystem.spacing.sm, marginBottom: designSystem.spacing.md }}>
+            <span style={{ fontSize: designSystem.typography.fontSize.sm, color: designSystem.colors.neutral[500] }}>
+              📍 {product.location || 'Monrovia'}
+            </span>
+          </div>
 
-        {/* Location - Secondary info */}
-        {location && (
-          <div className="product-card-location">📍 {location}</div>
-        )}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{
+                fontSize: designSystem.typography.fontSize['2xl'],
+                fontWeight: designSystem.typography.fontWeight.extrabold,
+                color: designSystem.colors.primary[500]
+              }}>
+                L${product.price}
+              </span>
+              {product.isNegotiable && (
+                <span style={{
+                  fontSize: designSystem.typography.fontSize.xs,
+                  color: designSystem.colors.accent.green,
+                  fontWeight: designSystem.typography.fontWeight.semibold
+                }}>
+                  Negotiable
+                </span>
+              )}
+            </div>
+
+            <button
+              style={{
+                background: designSystem.colors.primary[500],
+                color: 'white',
+                border: 'none',
+                borderRadius: designSystem.borderRadius.sm,
+                padding: '8px 16px',
+                fontSize: designSystem.typography.fontSize.sm,
+                fontWeight: designSystem.typography.fontWeight.semibold,
+                cursor: 'pointer'
+              }}
+            >
+              View
+            </button>
+          </div>
+        </div>
       </div>
     </Link>
   )
-}
-
-// Minimal helper (inline) to pick icon based on category name
-function moduleIconFor(category?: string) {
-  if (!category) return '📦'
-  const map: Record<string, string> = {
-    electronics: '📱',
-    fashion: '👗',
-    'home & garden': '🏡',
-    books: '📚'
-  }
-  return map[(category || '').toLowerCase()] || '📦'
 }
 
 export default ProductCard

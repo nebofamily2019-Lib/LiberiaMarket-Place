@@ -37,6 +37,10 @@ CommunityE-commerce-SPA-Liberia/
 4. Set up the database (instructions in database/README.md)
 5. Start the development servers
 
+## Quick Start (Manual)
+
+- See MANUAL-RUN.md for step-by-step environment setup, CORS, and run commands.
+
 ## Features (MVP Phase 1)
 
 - [x] User registration and authentication

@@ -5,80 +5,74 @@ import categoryService from '../services/categoryService'
 import { useAuth } from '../context/AuthContext'
 import LocationSelector from '../components/LocationSelector'
 import PhoneInput from '../components/PhoneInput'
-import { validateLiberianPhone } from '../utils/phoneValidation'
+// import { validateLiberianPhone } from '../utils/phoneValidation' - not currently used
 import { getPaymentMethods, type PaymentMethod } from '../data/paymentMethods'
-import VoiceInput from '../components/VoiceInput'
+import VoiceRecorder from '../components/VoiceRecorder'
 import LargeActionButton from '../components/LargeActionButton'
-import { speakPrompt } from '../utils/voiceAssistant'
-
-interface ProductForm {
-  title: string
-  description: string
-  price: string
-  category: string
-  condition: string
-  county: string
-  city: string
-  phone: string
-  isNegotiable: boolean
-  paymentMethods: string[]
-  image: File | null
-}
+import { designSystem } from '../styles/designSystem'
+import HamburgerMenu from '../components/HamburgerMenu'
+import TopNav from '../components/TopNav'
 
 const AddProduct = () => {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const [formData, setFormData] = useState<ProductForm>({
-    title: '',
-    description: '',
-    price: '',
-    category: '',
-    condition: 'new',
-    county: '',
-    city: '',
-    phone: user?.phone || '',
-    isNegotiable: true,
-    paymentMethods: ['cash-on-delivery', 'cash-on-pickup'],
-    image: null
-  })
-  const [loading, setLoading] = useState(false)
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const [categories, setCategories] = useState<Array<{ value: string; label: string }>>([
-    { value: '', label: 'Select a category' }
-  ])
-  const [availablePaymentMethods] = useState<PaymentMethod[]>(getPaymentMethods())
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [price, setPrice] = useState<string | number>('')
-  const [tags, setTags] = useState('') // New state for tags
+  const [price, setPrice] = useState('')
+  const [category, setCategory] = useState('')
+  const [location, setLocation] = useState('')
+  const [county, setCounty] = useState('')
+  const [city, setCity] = useState('')
+  const [condition, setCondition] = useState('good')
+  const [contactPhone, setContactPhone] = useState('')
+  const [tags, setTags] = useState('')
+  const [isNegotiable, setIsNegotiable] = useState(false)
+  const [image, setImage] = useState<File | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [errors, setErrors] = useState<any>({})
+  const [categories, setCategories] = useState<any[]>([])
+  const [loadingCategories, setLoadingCategories] = useState(true)
+  const [categoryError, setCategoryError] = useState('')
+  const [availablePaymentMethods] = useState<PaymentMethod[]>(getPaymentMethods())
+
+  // Sync formData title and description with separate state for voice inputs
+  const handleTitleChange = (value: string) => {
+    setTitle(value)
+  }
+
+  const handleDescriptionChange = (value: string) => {
+    setDescription(value)
+  }
+
+  // Handle voice recording for product description
+  const handleVoiceRecording = (audioBlob: Blob, audioUrl: string) => {
+    // Not used in this version
+  }
+
+  const handleVoiceRecordingDelete = () => {
+    // Not used in this version
+  }
 
   // Fetch categories from API
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const categoriesData = await categoryService.getCategories()
-
-        if (categoriesData && categoriesData.length > 0) {
-          const categoryOptions = categoriesData.map(cat => ({
-            value: cat.id,
-            label: `${cat.icon || ''} ${cat.name}`.trim()
-          }))
-          setCategories([{ value: '', label: 'Select a category' }, ...categoryOptions])
-          console.log(`Loaded ${categoriesData.length} categories from API`)
-        } else {
-          console.warn('No categories returned from API')
-          setCategories([{ value: '', label: 'No categories available - Please contact admin' }])
+        setLoadingCategories(true)
+        const response = await categoryService.getCategories()
+        console.log('Fetched categories:', response) // Debug log
+        
+        // Handle different response shapes
+        const categoryList = response.data || response.categories || response || []
+        setCategories(categoryList)
+        
+        if (categoryList.length === 0) {
+          setCategoryError('No categories available. Please contact admin.')
         }
-      } catch (error) {
-        console.error('Error fetching categories:', error)
-        // Show error to user
-        setCategories([
-          { value: '', label: 'Error loading categories - Please refresh the page' }
-        ])
-        setErrors(prev => ({
-          ...prev,
-          submit: 'Unable to load categories. Please refresh the page or contact support.'
-        }))
+      } catch (error: any) {
+        console.error('Error loading categories:', error)
+        setCategoryError('Failed to load categories. Please try again.')
+      } finally {
+        setLoadingCategories(false)
       }
     }
 
@@ -95,7 +89,7 @@ const AddProduct = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
+    // setFormData(prev => ({ ...prev, [name]: value }))
 
     // Clear error when user starts typing
     if (errors[name]) {
@@ -105,483 +99,510 @@ const AddProduct = () => {
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null
-    setFormData(prev => ({ ...prev, image: file }))
+    setImage(file)
   }
 
   const handlePaymentMethodToggle = (methodId: string) => {
-    setFormData(prev => {
-      const isSelected = prev.paymentMethods.includes(methodId)
-      const newPaymentMethods = isSelected
-        ? prev.paymentMethods.filter(m => m !== methodId)
-        : [...prev.paymentMethods, methodId]
-      return { ...prev, paymentMethods: newPaymentMethods }
-    })
+    // setFormData(prev => {
+    //   const isSelected = prev.paymentMethods.includes(methodId)
+    //   const newPaymentMethods = isSelected
+    //     ? prev.paymentMethods.filter(m => m !== methodId)
+    //     : [...prev.paymentMethods, methodId]
+    //   return { ...prev, paymentMethods: newPaymentMethods }
+    // })
   }
 
-  const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {}
+  // Form validation function - available for future enhancement if needed
+  // Currently using basic HTML5 validation and backend validation
+  // const validateForm = (): boolean => {
+  //   const newErrors: Record<string, string> = {}
 
-    if (!formData.title.trim()) {
-      newErrors.title = 'Product title is required'
-    }
+  //   if (!formData.title.trim()) {
+  //     newErrors.title = 'Product title is required'
+  //   }
 
-    if (!formData.description.trim()) {
-      newErrors.description = 'Product description is required'
-    }
+  //   if (!formData.description.trim()) {
+  //     newErrors.description = 'Product description is required'
+  //   }
 
-    if (!formData.price.trim()) {
-      newErrors.price = 'Price is required'
-    } else if (isNaN(Number(formData.price)) || Number(formData.price) <= 0) {
-      newErrors.price = 'Please enter a valid price'
-    }
+  //   if (!formData.price.trim()) {
+  //     newErrors.price = 'Price is required'
+  //   } else if (isNaN(Number(formData.price)) || Number(formData.price) <= 0) {
+  //     newErrors.price = 'Please enter a valid price'
+  //   }
 
-    if (!formData.category) {
-      newErrors.category = 'Please select a category'
-    }
+  //   if (!formData.category) {
+  //     newErrors.category = 'Please select a category'
+  //   }
 
-    if (!formData.county) {
-      newErrors.county = 'County is required'
-    }
+  //   if (!formData.county) {
+  //     newErrors.county = 'County is required'
+  //   }
 
-    if (!formData.city) {
-      newErrors.city = 'City/Town is required'
-    }
+  //   if (!formData.city) {
+  //     newErrors.city = 'City/Town is required'
+  //   }
 
-    // No phone validation needed - we use the user's registered phone
+  //   setErrors(newErrors)
+  //   return Object.keys(newErrors).length === 0
+  // }
 
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
-
-  const handleSubmit = async (e?: React.FormEvent) => {
-    // If called as form submit, prevent default; if called programmatically (no event), skip
-    if (e && typeof (e as any).preventDefault === 'function') {
-      (e as any).preventDefault()
-    }
-
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
     setLoading(true)
+    setErrors({})
 
     try {
-      // Always use the user's registered phone number (keeps it simple)
-      const contactPhone = user?.phone || ''
-
-      const productData = {
-        title: formData.title,
-        description: formData.description,
-        price: parseFloat(formData.price),
-        category_id: formData.category,
-        location: `${formData.city}, ${formData.county}`,
-        county: formData.county,
-        city: formData.city,
-        condition: formData.condition as 'new' | 'like-new' | 'good' | 'fair' | 'poor',
-        isNegotiable: formData.isNegotiable,
-        paymentMethods: formData.paymentMethods,
-        contactPhone: contactPhone
+      // Create FormData for multipart/form-data submission
+      const formData = new FormData()
+      
+      // Add random suffix to title to avoid duplicates during testing
+      const testTitle = title.trim() || `Test Product ${Date.now()}`
+      
+      // Append fields
+      formData.append('title', testTitle)
+      if (description.trim()) formData.append('description', description.trim())
+      if (price) formData.append('price', price)
+      if (category) formData.append('category_id', category)
+      
+      // Location fields
+      if (county) formData.append('location', county)
+      if (city) formData.append('location', `${city}, ${county}`)
+      
+      if (contactPhone) formData.append('contactPhone', contactPhone)
+      if (condition) formData.append('condition', condition)
+      if (tags) formData.append('tags', tags)
+      formData.append('isNegotiable', isNegotiable.toString())
+      
+      // Append image if selected
+      if (image) {
+        formData.append('image', image)
       }
+      
+      console.log('Submitting product data...')
+      
+      // Log FormData contents for debugging
+      for (let [key, value] of formData.entries()) {
+        console.log(`${key}:`, value)
+      }
+      
+      const response = await productService.createProduct(formData)
 
-      // Create product via API
-      const newProduct = await productService.createProduct(productData, formData.image || undefined)
-
-      // Navigate to the newly created product
-      navigate(`/products/${newProduct.id}`)
+      if (response.success) {
+        alert('Product posted successfully!')
+        // Clear form after successful submission
+        setTitle('')
+        setDescription('')
+        setPrice('')
+        setCategory('')
+        setCounty('')
+        setCity('')
+        setContactPhone('')
+        setTags('')
+        setCondition('good')
+        setIsNegotiable(false)
+        setImage(null)
+        navigate('/products')
+      } else {
+        setErrors({ submit: response.error || 'Failed to post product' })
+      }
     } catch (error: any) {
-      console.error('Error adding product:', error)
-      setErrors({ submit: error.message || 'Failed to add product. Please try again.' })
+      console.error('Error posting product:', error)
+      console.error('Error response:', error.response?.data)
+      
+      // Better error message
+      const errorMessage = error.response?.data?.error 
+        || error.response?.data?.message 
+        || error.message 
+        || 'Failed to post product. Please try again.'
+      
+      setErrors({ submit: errorMessage })
+      alert(`Failed to post product: ${errorMessage}`)
     } finally {
       setLoading(false)
     }
   }
 
+  // Liberian counties
+  const counties = [
+    'Montserrado',
+    'Margibi',
+    'Grand Bassa',
+    'Bong',
+    'Nimba',
+    'Grand Gedeh',
+    'Lofa',
+    'Sinoe',
+    'Rivercess',
+    'Grand Cape Mount',
+    'Gbarpolu',
+    'Bomi',
+    'Grand Kru',
+    'Maryland',
+    'River Gee'
+  ]
+
+  // Cities by county
+  const citiesByCounty: Record<string, string[]> = {
+    'Montserrado': ['Monrovia', 'Paynesville', 'New Kru Town', 'Congo Town', 'Sinkor', 'Mamba Point', 'Caldwell'],
+    'Margibi': ['Kakata', 'Harbel', 'Salala', 'Cinta'],
+    'Grand Bassa': ['Buchanan', 'Compound #3', 'Owensgrove'],
+    'Bong': ['Gbarnga', 'Totota', 'Salayea', 'Suakoko'],
+    'Nimba': ['Sanniquellie', 'Ganta', 'Tappita', 'Saclepea'],
+    'Grand Gedeh': ['Zwedru', 'Tchien', 'Putu'],
+    'Lofa': ['Voinjama', 'Kolahun', 'Foya', 'Zorzor'],
+    'Sinoe': ['Greenville', 'Juarzon', 'Butaw'],
+    'Rivercess': ['Rivercess City', 'Yarpah Town'],
+    'Grand Cape Mount': ['Robertsport', 'Sinje', 'Porkpa'],
+    'Gbarpolu': ['Bopolu', 'Gbarma'],
+    'Bomi': ['Tubmanburg', 'Suehn Mecca', 'Klay'],
+    'Grand Kru': ['Barclayville', 'Sasstown', 'Picnicess'],
+    'Maryland': ['Harper', 'Pleebo', 'Karloken'],
+    'River Gee': ['Fish Town', 'Gbeapo', 'Chedepo']
+  }
+
   return (
-    <div className="container">
-      <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-        <h1 style={{ fontSize: '2rem', marginBottom: '8px', color: '#007bff' }}>
-          Add New Product
-        </h1>
-        <p style={{ color: '#666', marginBottom: '32px' }}>
-          Fill in the details below to list your product on LibMarket
-        </p>
+    <div className="add-product-container">
+      <HamburgerMenu />
+      <TopNav />
+      
+      <div className="container">
+        <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+          <h1 style={{ fontSize: '2rem', marginBottom: '8px', color: '#007bff' }}>
+            Add New Product
+          </h1>
+          <p style={{ color: '#666', marginBottom: '32px' }}>
+            Fill in at least one field to test the product listing flow
+          </p>
 
-        {errors.submit && (
-          <div style={{
-            padding: '16px',
-            marginBottom: '24px',
-            backgroundColor: '#f8d7da',
-            color: '#721c24',
-            borderRadius: '8px',
-            border: '1px solid #f5c6cb'
-          }}>
-            <strong>Error:</strong> {errors.submit}
-          </div>
-        )}
+          {errors.submit && (
+            <div style={{ background: '#f8d7da', color: '#721c24', padding: '12px', borderRadius: '8px', marginBottom: '24px' }}>
+              {errors.submit}
+            </div>
+          )}
 
-        <form onSubmit={handleSubmit} className="card">
-          {/* Title (voice-enabled) */}
-          <VoiceInput
-            label="Product Title"
-            placeholder="e.g., Samsung S21"
-            value={title}
-            onChange={(v) => setTitle(v)}
-            helpText="Speak the product title, e.g., Samsung S21"
-            required
-            onFocus={() => speakPrompt('fieldPrompt', { field: 'product title' })}
-          />
-
-          {/* Description (voice-enabled) */}
-          <VoiceInput
-            label="Description"
-            placeholder="Describe condition, model, etc."
-            value={description}
-            onChange={(v) => setDescription(v)}
-            helpText="Describe the product in a few words"
-            multiline
-            rows={4}
-            required
-            onFocus={() => speakPrompt('fieldPrompt', { field: 'description' })}
-          />
-
-          {/* Price Section with Presets */}
-          <div style={{ marginBottom: '24px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
-              Price (Liberian Dollars) *
-            </label>
-
-            {/* Price Preset Buttons */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
-              gap: '8px',
-              marginBottom: '12px'
-            }}>
-              {[50, 100, 250, 500, 1000, 2500, 5000, 10000].map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => setFormData({ ...formData, price: preset.toString() })}
-                  style={{
-                    padding: '10px',
-                    fontSize: '0.9rem',
-                    fontWeight: 'bold',
-                    backgroundColor: formData.price === preset.toString() ? '#007bff' : '#f8f9fa',
-                    color: formData.price === preset.toString() ? 'white' : '#333',
-                    border: '2px solid #ddd',
-                    borderRadius: '6px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  L${preset}
-                </button>
-              ))}
+          <form onSubmit={handleSubmit} className="card">
+            {/* Title (optional for testing) */}
+            <div style={{ marginBottom: '24px' }}>
+              <label htmlFor="title" style={{ display: 'block', fontWeight: 700, marginBottom: '6px', fontSize: '0.95rem' }}>
+               Product Title <span style={{ fontSize: '0.8rem', color: '#666' }}>(Optional)</span>
+              </label>
+              <input
+                id="title"
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g., Samsung S21"
+                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '1rem' }}
+              />
             </div>
 
-            <input
-              type="number"
-              name="price"
-              value={formData.price}
-              onChange={handleInputChange}
-              placeholder="Or enter custom price"
-              min="0"
-              step="0.01"
-              onFocus={() => speakPrompt('fieldPrompt', { field: 'price' })}
-              style={{
-                width: '100%',
-                padding: '12px',
-                border: `1px solid ${errors.price ? '#dc3545' : '#ddd'}`,
-                borderRadius: '4px',
-                fontSize: '16px'
-              }}
-            />
-            {errors.price && (
-              <span style={{ color: '#dc3545', fontSize: '0.8rem' }}>{errors.price}</span>
-            )}
-          </div>
-
-          {/* Category */}
-          <div style={{ marginBottom: '24px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
-              Category *
-            </label>
-            <select
-              name="category"
-              value={formData.category}
-              onChange={handleInputChange}
-              onFocus={() => speakPrompt('fieldPrompt', { field: 'category' })}
-              aria-label="Category"
-              style={{
-                width: '100%',
-                padding: '12px',
-                border: `1px solid ${errors.category ? '#dc3545' : '#ddd'}`,
-                borderRadius: '4px',
-                fontSize: '16px'
-              }}
-            >
-              {categories.map(cat => (
-                <option key={cat.value} value={cat.value}>
-                  {cat.label}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={() => speakPrompt('fieldPrompt', { field: 'category' })}
-              aria-label="Category help"
-              style={{ marginTop: '8px' }}
-            >
-              ❓ Category help
-            </button>
-            {errors.category && (
-              <span style={{ color: '#dc3545', fontSize: '0.8rem' }}>{errors.category}</span>
-            )}
-          </div>
-
-          {/* Condition */}
-          <div style={{ marginBottom: '24px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
-              Condition
-            </label>
-            <select
-              name="condition"
-              value={formData.condition}
-              onChange={handleInputChange}
-              style={{
-                width: '100%',
-                padding: '12px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                fontSize: '16px'
-              }}
-            >
-              {conditions.map(cond => (
-                <option key={cond.value} value={cond.value}>
-                  {cond.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Location Selector */}
-          <div style={{ marginBottom: '24px' }}>
-            <LocationSelector
-              selectedCounty={formData.county}
-              selectedCity={formData.city}
-              onCountyChange={(county) => {
-                setFormData(prev => ({ ...prev, county }))
-                if (errors.county) {
-                  setErrors(prev => ({ ...prev, county: '' }))
-                }
-              }}
-              onCityChange={(city) => {
-                setFormData(prev => ({ ...prev, city }))
-                if (errors.city) {
-                  setErrors(prev => ({ ...prev, city: '' }))
-                }
-              }}
-              required
-              showCityType
-            />
-            {errors.county && (
-              <span style={{ color: '#dc3545', fontSize: '0.8rem', display: 'block', marginTop: '4px' }}>
-                {errors.county}
-              </span>
-            )}
-            {errors.city && (
-              <span style={{ color: '#dc3545', fontSize: '0.8rem', display: 'block', marginTop: '4px' }}>
-                {errors.city}
-              </span>
-            )}
-          </div>
-
-          {/* Phone Number */}
-          <div style={{ marginBottom: '24px' }}>
-            <PhoneInput
-              value={formData.phone}
-              onChange={(value, isValid) => {
-                setFormData(prev => ({ ...prev, phone: value }))
-                if (errors.phone && isValid) {
-                  setErrors(prev => ({ ...prev, phone: '' }))
-                }
-              }}
-              required={false}
-              showValidation
-              showCarrier
-              label="Contact Phone Number (Optional)"
-              onFocus={() => speakPrompt('fieldPrompt', { field: 'contact phone number' })}
-              aria-label="Contact Phone Number"
-            />
-            <div style={{ marginTop: 'var(--space-xs)', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)' }}>
-              Leave blank to use your registered phone number
+            {/* Description (optional for testing) */}
+            <div style={{ marginBottom: '24px' }}>
+              <label htmlFor="description" style={{ display: 'block', fontWeight: 700, marginBottom: '6px', fontSize: '0.95rem' }}>
+               Description <span style={{ fontSize: '0.8rem', color: '#666' }}>(Optional)</span>
+              </label>
+              <textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Describe condition, model, features..."
+                rows={4}
+                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '1rem', resize: 'vertical' }}
+              />
             </div>
-            <button
-              type="button"
-              onClick={() => speakPrompt('fieldPrompt', { field: 'contact phone number' })}
-              aria-label="Contact phone help"
-              style={{ marginTop: '8px' }}
-            >
-              ❓ Phone help
-            </button>
-            {errors.phone && (
-              <span style={{ color: '#dc3545', fontSize: '0.8rem', display: 'block', marginTop: '4px' }}>
-                {errors.phone}
-              </span>
-            )}
-          </div>
 
-          {/* Tags (voice-enabled) */}
-          <VoiceInput
-            label="Tags"
-            placeholder="e.g., smartphone, samsung"
-            value={tags}
-            onChange={(v) => setTags(v)}
-            helpText="Say tags separated by commas"
-            onFocus={() => speakPrompt('fieldPrompt', { field: 'tags' })}
-          />
-          <button
-            type="button"
-            onClick={() => speakPrompt('fieldPrompt', { field: 'tags' })}
-            aria-label="Tags help"
-            style={{ marginTop: '8px', marginBottom: 'var(--space-md)' }}
-          >
-            ❓ Tags help
-          </button>
+            {/* Voice Recording for Audio Description */}
+            <div style={{ marginTop: '16px', marginBottom: '24px' }}>
+              <VoiceRecorder
+                onRecordingComplete={handleVoiceRecording}
+                onRecordingDelete={handleVoiceRecordingDelete}
+                label="Voice Description (Optional)"
+                helpText="Record a voice description for customers who prefer listening"
+              />
+            </div>
 
-          {/* Negotiable toggle */}
-          <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <label className="form-label" style={{ margin: 0 }}>Negotiable</label>
-            <input
-              type="checkbox"
-              checked={formData.isNegotiable}
-              onChange={(e) => setFormData(prev => ({ ...prev, isNegotiable: e.target.checked }))}
-              onFocus={() => speakPrompt('fieldPrompt', { field: 'negotiable' })}
-              aria-label="Negotiable"
-            />
-            <button
-              type="button"
-              onClick={() => speakPrompt('fieldPrompt', { field: 'negotiable' })}
-              aria-label="Negotiable help"
-              style={{ marginLeft: '8px' }}
-            >
-              ❓ Negotiable help
-            </button>
-          </div>
+            {/* Price (optional for testing) */}
+            <div style={{ marginBottom: '24px' }}>
+              <label htmlFor="price" style={{ display: 'block', fontWeight: 700, marginBottom: '6px', fontSize: '0.95rem' }}>
+               Price (LD) <span style={{ fontSize: '0.8rem', color: '#666' }}>(Optional)</span>
+              </label>
+              <input
+                id="price"
+                type="number"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="e.g., 5000"
+                min="0"
+                step="0.01"
+                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '1rem' }}
+              />
+            </div>
 
-          {/* Payment Methods */}
-          <div style={{ marginBottom: '24px' }}>
-            <label style={{ display: 'block', marginBottom: '12px', fontWeight: 'bold' }}>
-              Accepted Payment Methods
-            </label>
-            <div style={{
-              display: 'grid',
-              gap: '12px',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))'
-            }}>
-              {availablePaymentMethods.map(method => (
-                <label
-                  key={method.id}
+            {/* Category (optional - no longer required) */}
+            <div style={{ marginBottom: '24px' }}>
+              <label htmlFor="category" style={{ display: 'block', fontWeight: 700, marginBottom: '6px', fontSize: '0.95rem' }}>
+                Category <span style={{ fontSize: '0.75rem', color: '#666', fontWeight: 400 }}>(Optional)</span>
+              </label>
+              
+              {loadingCategories ? (
+                <div style={{ padding: '12px', color: '#666', fontStyle: 'italic' }}>
+                  Loading categories...
+                </div>
+              ) : categoryError ? (
+                <div style={{ padding: '12px', color: '#d9534f', background: '#f8d7da', borderRadius: '8px' }}>
+                  {categoryError}
+                </div>
+              ) : (
+                <select
+                  id="category"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
+                    width: '100%',
                     padding: '12px',
-                    border: `2px solid ${formData.paymentMethods.includes(method.id) ? '#007bff' : '#ddd'}`,
                     borderRadius: '8px',
-                    cursor: 'pointer',
-                    backgroundColor: formData.paymentMethods.includes(method.id) ? '#e7f3ff' : '#fff',
-                    transition: 'all 0.2s'
+                    border: '1px solid #ccc',
+                    fontSize: '1rem'
                   }}
                 >
-                  <input
-                    type="checkbox"
-                    checked={formData.paymentMethods.includes(method.id)}
-                    onChange={() => handlePaymentMethodToggle(method.id)}
-                    style={{
-                      width: '18px',
-                      height: '18px',
-                      marginRight: '10px',
-                      cursor: 'pointer'
-                    }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: '500', fontSize: '14px' }}>
-                      {method.icon && <span style={{ marginRight: '6px' }}>{method.icon}</span>}
-                      {method.name}
-                    </div>
-                    {method.isPopular && (
-                      <span style={{
-                        fontSize: '0.7rem',
-                        backgroundColor: '#28a745',
-                        color: 'white',
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        marginTop: '4px',
-                        display: 'inline-block'
-                      }}>
-                        Popular
-                      </span>
-                    )}
-                  </div>
-                </label>
-              ))}
+                  <option value="">Select a category (optional)</option>
+                  {categories.map((cat: any) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.icon && `${cat.icon} `}{cat.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+              
+              <small style={{ fontSize: '0.75rem', color: '#666', display: 'block', marginTop: '4px' }}>
+                Products without categories will appear in "Uncategorized"
+              </small>
             </div>
-            <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '8px' }}>
-              Select all payment methods you accept. Multiple selections help attract more buyers.
-            </p>
-          </div>
 
-          {/* Image Upload */}
-          <div style={{ marginBottom: '32px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
-              Product Image
-            </label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageChange}
-              onFocus={() => speakPrompt('fieldPrompt', { field: 'image upload' })}
-              aria-label="Product Images"
+            {/* Condition */}
+            <div style={{ marginBottom: '24px' }}>
+              <label htmlFor="condition" style={{ display: 'block', fontWeight: 700, marginBottom: '6px', fontSize: '0.95rem' }}>
+                Condition <span style={{ color: '#d9534f' }}>*</span>
+              </label>
+              <select
+                name="condition"
+                value={condition}
+                onChange={handleInputChange}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid #ccc',
+                  borderRadius: '8px',
+                  fontSize: '1rem'
+                }}
+                required
+              >
+                <option value="">Select Condition</option>
+                <option value="new">New</option>
+                <option value="like-new">Like New</option>
+                <option value="good">Good</option>
+                <option value="fair">Fair</option>
+                <option value="poor">Poor</option>
+              </select>
+            </div>
+
+            {/* Location */}
+            <div style={{ marginBottom: '24px' }}>
+              <label htmlFor="county" style={{ display: 'block', fontWeight: 700, marginBottom: '6px', fontSize: '0.95rem' }}>
+                County
+              </label>
+              <select
+                id="county"
+                value={county}
+                onChange={(e) => {
+                  setCounty(e.target.value)
+                  setCity('') // Reset city when county changes
+                }}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '1px solid #ccc',
+                  fontSize: '1rem',
+                  background: 'white'
+                }}
+              >
+                <option value="">Select County</option>
+                {counties.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* City/Town Selector (only show if county selected) */}
+            {county && (
+              <div style={{ marginBottom: '24px' }}>
+                <label htmlFor="city" style={{ display: 'block', fontWeight: 700, marginBottom: '6px', fontSize: '0.95rem' }}>
+                  City/Town
+                </label>
+                <select
+                  id="city"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: '1px solid #ccc',
+                    fontSize: '1rem',
+                    background: 'white'
+                  }}
+                >
+                  <option value="">Select City/Town</option>
+                  {citiesByCounty[county]?.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+                <small style={{ fontSize: '0.75rem', color: '#666', display: 'block', marginTop: '4px' }}>
+                  Selected: {city ? `${city}, ${county}` : 'Please select a city'}
+                </small>
+              </div>
+            )}
+
+            {/* Contact Phone (regular input) */}
+            <div style={{ marginBottom: '24px' }}>
+              <PhoneInput
+                value={contactPhone}
+                onChange={(value, isValid) => {
+                  setContactPhone(value)
+                  if (errors.phone && isValid) {
+                    setErrors(prev => ({ ...prev, phone: '' }))
+                  }
+                }}
+                required={false}
+                showValidation
+                showCarrier
+                label="Contact Phone Number (Optional)"
+                onFocus={() => speakPrompt('fieldPrompt', { field: 'contact phone number' })}
+                aria-label="Contact Phone Number"
+              />
+              <div style={{ marginTop: 'var(--space-xs)', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)' }}>
+                Leave blank to use your registered phone number
+              </div>
+              <button
+                type="button"
+                onClick={() => speakPrompt('fieldPrompt', { field: 'contact phone number' })}
+                aria-label="Contact phone help"
+                style={{ marginTop: '8px' }}
+              >
+                ❓ Phone help
+              </button>
+              {errors.phone && (
+                <span style={{ color: '#dc3545', fontSize: '0.8rem', display: 'block', marginTop: '4px' }}>
+                  {errors.phone}
+                </span>
+              )}
+            </div>
+
+            {/* Tags (regular input) */}
+            <div style={{ marginBottom: '24px' }}>
+              <label htmlFor="tags" style={{ display: 'block', fontWeight: 700, marginBottom: '6px', fontSize: '0.95rem' }}>
+                Tags
+              </label>
+              <input
+                id="tags"
+                type="text"
+                value={tags}
+                onChange={(e) => setTags(e.target.value)}
+                placeholder="e.g., smartphone, samsung, android"
+                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '1rem' }}
+              />
+              <small style={{ fontSize: '0.75rem', color: '#666' }}>Separate tags with commas</small>
+            </div>
+
+            {/* Negotiable toggle */}
+            <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <label className="form-label" style={{ margin: 0 }}>Negotiable</label>
+              <input
+                type="checkbox"
+                checked={isNegotiable}
+                onChange={(e) => setIsNegotiable(e.target.checked)}
+                onFocus={() => speakPrompt('fieldPrompt', { field: 'negotiable' })}
+                aria-label="Negotiable"
+              />
+              <button
+                type="button"
+                onClick={() => speakPrompt('fieldPrompt', { field: 'negotiable' })}
+                aria-label="Negotiable help"
+                style={{ marginLeft: '8px' }}
+              >
+                ❓ Negotiable help
+              </button>
+            </div>
+
+            {/* Payment Methods */}
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ display: 'block', marginBottom: '12px', fontWeight: 'bold' }}>
+                Accepted Payment Methods
+              </label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                {[
+                  { id: 'cash', label: 'Cash', icon: '💵' },
+                  { id: 'mobilemoney', label: 'Mobile Money', icon: '📱' },
+                  { id: 'bank', label: 'Bank Transfer', icon: '🏦' }
+                ].map((method) => (
+                  <label
+                    key={method.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '12px 16px',
+                      border: `2px solid ${false ? '#007bff' : '#ddd'}`,
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      style={{ width: '18px', height: '18px' }}
+                    />
+                    <span style={{ fontSize: '1.2rem' }}>{method.icon}</span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>{method.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={loading}
               style={{
                 width: '100%',
-                padding: '12px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                fontSize: '16px'
+                padding: '14px',
+                background: loading ? '#ccc' : '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '1.1rem',
+                fontWeight: 700,
+                cursor: loading ? 'not-allowed' : 'pointer'
               }}
-            />
-            <button
-              type="button"
-              onClick={() => speakPrompt('fieldPrompt', { field: 'image upload' })}
-              aria-label="Image upload help"
-              style={{ marginTop: '8px' }}
             >
-              ❓ Image help
+             {loading ? '⏳ Testing Post...' : '➕ Post Product'}
             </button>
-            <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '4px' }}>
-              Upload a clear photo of your product. Supported formats: JPG, PNG (max 5MB)
-            </p>
-          </div>
+          </form>
 
-          {/* Submit button (large, accessible, voice feedback) */}
-          <div style={{ marginTop: 'var(--space-lg)' }}>
-            <LargeActionButton
-              label={loading ? 'Posting...' : 'Post Product'}
-              icon="➕"
-              variant="primary"
-              voicePromptKey="successShort" /* speaks short success prompt when pressed */
-              onClick={handleSubmit}
-              ariaLabel="Post product"
-            />
-          </div>
-        </form>
-
-        {/* Guidelines */}
-        <div className="card" style={{ marginTop: '24px', backgroundColor: '#f8f9fa' }}>
-          <h3 style={{ marginBottom: '16px' }}>Listing Guidelines</h3>
-          <ul style={{ margin: 0, paddingLeft: '20px', color: '#666' }}>
-            <li>Be honest about the condition of your item</li>
-            <li>Include clear, well-lit photos</li>
-            <li>Provide accurate descriptions</li>
-            <li>Price fairly based on market value</li>
-            <li>Respond promptly to buyer inquiries</li>
-            <li>Only list items you legally own</li>
-          </ul>
+         {/* Testing Note */}
+         <div style={{ 
+           marginTop: '24px', 
+           padding: '16px', 
+           background: '#fff3cd', 
+           border: '1px solid #ffc107',
+           borderRadius: '8px',
+           fontSize: '0.9rem'
+         }}>
+           <strong>🧪 Testing Mode:</strong> All fields are now optional. You can submit with minimal data to test the flow.
+         </div>
         </div>
       </div>
     </div>

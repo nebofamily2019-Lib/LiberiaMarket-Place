@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+// import userEvent from '@testing-library/user-event' - not currently used
 import { render } from '../test/test-utils'
 import Navbar from './Navbar'
 
@@ -53,7 +53,7 @@ describe('Navbar', () => {
   describe('when user logs in (via button click)', () => {
     it('toggles to show authenticated menu items', async () => {
       render(<Navbar />)
-      const user = userEvent.setup()
+      // const user = userEvent.setup() - not used in this test
 
       // Initially shows Login/Sign Up
       expect(screen.getByText('Login')).toBeInTheDocument()

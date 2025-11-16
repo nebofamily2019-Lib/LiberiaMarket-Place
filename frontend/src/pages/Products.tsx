@@ -1,9 +1,36 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import api from '../utils/api'
+import HamburgerMenu from '../components/HamburgerMenu'
+import '../styles/Products.css'
 import SearchHeader from '../components/SearchHeader'
 import CategoryFilter from '../components/CategoryFilter'
 import ProductGrid from '../components/ProductGrid'
-import { Product } from '../components/ProductCard'
-import productService from '../services/productService'
+import ProductCard from '../components/ProductCard'
+import SkeletonCard from '../components/SkeletonCard'
+import { designSystem } from '../styles/designSystem'
+import FilterSheet from '../components/FilterSheet'
+import TopNav from '../components/TopNav'
+
+interface Product {
+  id: string
+  title: string
+  description: string
+  price: number
+  location: string
+  category?: {
+    name: string
+    icon: string
+    color: string
+  }
+  seller?: {
+    name: string
+    phone: string
+  }
+  images?: string[]
+  status: string
+  createdAt: string
+}
 
 /**
  * Products Page - Browse All Products
@@ -12,71 +39,58 @@ import productService from '../services/productService'
  */
 const Products = () => {
   const [products, setProducts] = useState<Product[]>([])
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [minPrice, setMinPrice] = useState<string>('')
-  const [maxPrice, setMaxPrice] = useState<string>('')
+  const [error, setError] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageLimit] = useState(20)
+  const [totalPages, setTotalPages] = useState(1)
   const [showFilters, setShowFilters] = useState(false)
+  const [minPrice, setMinPrice] = useState('')
+  const [maxPrice, setMaxPrice] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+
+  const navigate = useNavigate()
 
   // Fetch products from API
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         setLoading(true)
-        setError('')
+        setError(null)
+        
+        console.log('Fetching products from API...')
+        const response = await api.get(`/products?page=${currentPage}&limit=${pageLimit}`)
+        
+        console.log('API Response:', response.data)
 
-        let response
-
-        // Build filters object
-        const filters: any = {}
-
-        // Add price filters if set
-        if (minPrice) {
-          filters.minPrice = parseFloat(minPrice)
-        }
-        if (maxPrice) {
-          filters.maxPrice = parseFloat(maxPrice)
-        }
-
-        if (searchQuery) {
-          // Search products
-          response = await productService.searchProducts(searchQuery)
-        } else if (selectedCategory) {
-          // Get products by category with filters
-          filters.category = selectedCategory
-          response = await productService.getProducts(filters)
+        if (response.data.success) {
+          setProducts(response.data.data || [])
+          setTotalPages(response.data.pagination?.totalPages || 1)
         } else {
-          // Get all products with filters
-          response = await productService.getProducts(filters)
+          throw new Error(response.data.error || 'Failed to fetch products')
         }
-
-        // Transform API data to match ProductCard interface
-        const transformedProducts = response.data.map((product: any) => ({
-          id: product.id,
-          title: product.title,
-          price: Number(product.price),
-          location: product.location,
-          imageUrl: product.images?.[0] || 'https://via.placeholder.com/300x300?text=No+Image',
-          category: product.category?.name || 'general'
-        }))
-
-        setProducts(transformedProducts)
       } catch (err: any) {
         console.error('Error fetching products:', err)
-        setError(err.message || 'Failed to load products')
+        const errorMessage = err.response?.data?.error || err.message || 'Failed to load products'
+        setError(errorMessage)
+        setProducts([])
       } finally {
         setLoading(false)
       }
     }
 
     fetchProducts()
-  }, [searchQuery, selectedCategory, minPrice, maxPrice])
+  }, [currentPage])
 
   const handleClearFilters = () => {
     setMinPrice('')
     setMaxPrice('')
+  }
+
+  const handleApplyFilters = (newFilters: any) => {
+    setFilters(newFilters)
+    // Apply filters to product list
+    // ...filter logic...
   }
 
   const hasActiveFilters = minPrice || maxPrice
@@ -95,34 +109,32 @@ const Products = () => {
     setMaxPrice(max)
   }
 
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   if (loading) {
     return (
-      <div className="container text-center mt-xl">
-        <p className="text-secondary">Loading products...</p>
+      <div className="products-container">
+        <HamburgerMenu />
+        <div className="loading-state">
+          <div className="spinner">⏳</div>
+          <p>Loading products...</p>
+        </div>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="container text-center mt-xl">
-        <div style={{
-          padding: '20px',
-          backgroundColor: '#f8d7da',
-          color: '#721c24',
-          borderRadius: '8px',
-          border: '1px solid #f5c6cb',
-          maxWidth: '500px',
-          margin: '0 auto'
-        }}>
-          <h3>Error Loading Products</h3>
+      <div className="products-container">
+        <HamburgerMenu />
+        <div className="error-state">
+          <div className="error-icon">❌</div>
           <p>{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="btn btn-primary"
-            style={{ marginTop: '12px' }}
-          >
-            Retry
+          <button onClick={() => fetchProducts()} className="retry-button">
+            Try Again
           </button>
         </div>
       </div>
@@ -130,198 +142,49 @@ const Products = () => {
   }
 
   return (
-    <>
-      {/* Search Header - Sticky */}
-      <SearchHeader
-        onSearch={setSearchQuery}
-        placeholder="Search products..."
-      />
+    <div className="products-container">
+      <HamburgerMenu />
+      <TopNav />
 
-      {/* Main Content */}
-      <div className="container-fluid">
-        {/* Category Filters */}
-        <CategoryFilter onCategoryChange={setSelectedCategory} />
+      {/* Header with Navigation */}
+      <div className="products-header">
+        <div className="header-content">
+          <h1>🛍️ Browse Products</h1>
+          <p className="subtitle">Discover amazing products from local sellers</p>
+        </div>
+      </div>
 
-        {/* Price Filters */}
-        <div style={{ marginTop: 'var(--space-md)', marginBottom: 'var(--space-md)' }}>
-          {/* Filter Toggle Button */}
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="btn btn-secondary"
-            style={{
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: 'var(--space-md)',
-              marginBottom: 'var(--space-sm)'
-            }}
+      {products.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-icon">📦</div>
+          <h2>No products available</h2>
+          <p>Check back later for new listings</p>
+          <button 
+            onClick={() => navigate('/dashboard')} 
+            className="back-button"
           >
-            <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
-              <span>💰</span>
-              <span style={{ fontWeight: '600' }}>Price Filter</span>
-              {hasActiveFilters && (
-                <span style={{
-                  fontSize: 'var(--font-size-xs)',
-                  backgroundColor: 'var(--color-primary)',
-                  color: 'white',
-                  padding: '2px 8px',
-                  borderRadius: '12px',
-                  fontWeight: '600'
-                }}>
-                  Active
-                </span>
-              )}
-            </span>
-            <span>{showFilters ? '▲' : '▼'}</span>
+            ← Back to Dashboard
           </button>
-
-          {/* Filter Panel */}
-          {showFilters && (
-            <div className="card" style={{ padding: 'var(--space-md)' }}>
-              {/* Quick Presets */}
-              <div style={{ marginBottom: 'var(--space-md)' }}>
-                <label style={{
-                  display: 'block',
-                  marginBottom: 'var(--space-sm)',
-                  fontWeight: '600',
-                  fontSize: 'var(--font-size-sm)'
-                }}>
-                  Quick Select
-                </label>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-                  gap: 'var(--space-sm)'
-                }}>
-                  {pricePresets.map((preset, index) => {
-                    const isActive = minPrice === preset.min && maxPrice === preset.max
-                    return (
-                      <button
-                        key={index}
-                        type="button"
-                        onClick={() => handlePresetClick(preset.min, preset.max)}
-                        className="btn"
-                        style={{
-                          padding: '8px 12px',
-                          fontSize: 'var(--font-size-sm)',
-                          backgroundColor: isActive ? 'var(--color-primary)' : 'var(--color-bg-secondary)',
-                          color: isActive ? 'white' : 'var(--color-text-primary)',
-                          border: `2px solid ${isActive ? 'var(--color-primary)' : 'var(--color-border)'}`,
-                          fontWeight: isActive ? '600' : 'normal'
-                        }}
-                      >
-                        {preset.label}
-                      </button>
-                    )
-                  })}
-                </div>
+        </div>
+      ) : (
+        <>
+          <div className="products-grid">
+            {products.map((product) => (
+              <div key={product.id} className="product-card">
+                {/* ...existing product card content... */}
               </div>
+            ))}
+          </div>
 
-              {/* Custom Range */}
-              <div style={{ marginBottom: 'var(--space-md)' }}>
-                <label style={{
-                  display: 'block',
-                  marginBottom: 'var(--space-sm)',
-                  fontWeight: '600',
-                  fontSize: 'var(--font-size-sm)'
-                }}>
-                  Custom Range
-                </label>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: 'var(--space-sm)'
-                }}>
-                  <div>
-                    <label style={{
-                      display: 'block',
-                      marginBottom: '4px',
-                      fontSize: 'var(--font-size-xs)',
-                      color: 'var(--color-text-secondary)'
-                    }}>
-                      Min Price (L$)
-                    </label>
-                    <input
-                      type="number"
-                      placeholder="0"
-                      value={minPrice}
-                      onChange={(e) => setMinPrice(e.target.value)}
-                      className="form-input"
-                      style={{
-                        width: '100%',
-                        padding: '8px',
-                        fontSize: 'var(--font-size-sm)'
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{
-                      display: 'block',
-                      marginBottom: '4px',
-                      fontSize: 'var(--font-size-xs)',
-                      color: 'var(--color-text-secondary)'
-                    }}>
-                      Max Price (L$)
-                    </label>
-                    <input
-                      type="number"
-                      placeholder="No limit"
-                      value={maxPrice}
-                      onChange={(e) => setMaxPrice(e.target.value)}
-                      className="form-input"
-                      style={{
-                        width: '100%',
-                        padding: '8px',
-                        fontSize: 'var(--font-size-sm)'
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Clear Filters Button */}
-              {hasActiveFilters && (
-                <button
-                  onClick={handleClearFilters}
-                  className="btn btn-secondary"
-                  style={{
-                    width: '100%',
-                    padding: 'var(--space-sm)',
-                    fontSize: 'var(--font-size-sm)'
-                  }}
-                >
-                  Clear Price Filters
-                </button>
-              )}
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="pagination">
+              {/* ...existing pagination... */}
             </div>
           )}
-        </div>
-
-        {/* Results Header */}
-        <div className="mt-md mb-md">
-          <h2 className="font-bold" style={{ fontSize: 'var(--font-size-xl)' }}>
-            {selectedCategory
-              ? `${selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1)}`
-              : 'All Products'}
-          </h2>
-          <p className="text-secondary" style={{ fontSize: 'var(--font-size-sm)' }}>
-            {products.length} items available
-            {hasActiveFilters && (
-              <span style={{ marginLeft: 'var(--space-xs)' }}>
-                (filtered by price)
-              </span>
-            )}
-          </p>
-        </div>
-
-        {/* Product Grid */}
-        <ProductGrid products={products} />
-
-        {/* Bottom Spacing */}
-        <div className="mb-xl"></div>
-      </div>
-    </>
+        </>
+      )}
+    </div>
   )
 }
 
