@@ -246,7 +246,7 @@ const logout = async (req, res, next) => {
       expires: new Date(Date.now() + 10 * 1000), // Expire in 10 seconds
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict'
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax' // CSRF protection - lax in dev for cross-origin requests
     });
 
     res.status(200).json({
