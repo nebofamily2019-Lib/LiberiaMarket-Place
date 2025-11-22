@@ -30,7 +30,7 @@ A comprehensive reference document that consolidates information from 15+ scatte
 - Project description (LibMarket - Liberia e-commerce marketplace)
 - Technical architecture details
 - Implementation status (~60% MVP complete)
-- Recent work summary (includes historical work from October 18, 2025)
+- Recent work summary (includes historical project updates)
 - Prioritized TODO items with time estimates
 - Quick reference for setup and features
 
@@ -85,10 +85,12 @@ Created automated test runner that:
 - ✅ Product creation verified working after cookie fix
 
 ## Current Status
-The changes from yesterday's session are in PR #2 (`copilot/get-project-details` branch) and have not yet been merged to main. The cookie configuration fix is the most critical change that enables local development to function properly.
+The changes from the previous session are in PR #2 (`copilot/get-project-details` branch) and have not yet been merged to main. The cookie configuration fix is the most critical change that enables local development to function properly.
+
+**Note:** The documentation files (PROJECT-OVERVIEW-AND-STATUS.md, AUTOMATED-TESTING-GUIDE.md) and scripts (run-all-tests.sh) referenced above exist in the PR #2 branch but have not yet been merged to main.
 
 ## Related Pull Requests
 - PR #2: "Add comprehensive project status documentation, automated testing guide, and fix cookie configuration"
   - Status: Open (Draft)
   - Branch: `copilot/get-project-details`
-  - Created: November 22, 2025 at 05:38 UTC
+  - Link: https://github.com/nebofamily2019-Lib/LiberiaMarket-Place/pull/2
