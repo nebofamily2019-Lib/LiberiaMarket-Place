@@ -40,7 +40,7 @@ const sendTokenResponse = (user, statusCode, res) => {
     ),
     httpOnly: true, // Prevents JavaScript access
     secure: process.env.NODE_ENV === 'production', // HTTPS only in production
-    sameSite: 'strict', // CSRF protection
+    sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax', // CSRF protection - lax in dev for cross-origin requests
     path: '/'
   };
 

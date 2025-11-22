@@ -74,8 +74,8 @@ describe('🔒 Authentication Security - httpOnly Cookies', () => {
       // ✅ Verify httpOnly flag
       expect(tokenCookie).toContain('HttpOnly')
       
-      // ✅ Verify SameSite flag
-      expect(tokenCookie).toContain('SameSite=Strict')
+      // ✅ Verify SameSite flag (Lax in test/development, Strict in production)
+      expect(tokenCookie).toContain(process.env.NODE_ENV === 'production' ? 'SameSite=Strict' : 'SameSite=Lax')
 
       console.log('✅ PASS: httpOnly cookie set on registration')
     })
