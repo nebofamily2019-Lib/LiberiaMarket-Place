@@ -44,8 +44,8 @@ echo "🔧 Backend Tests"
 echo "----------------------------"
 cd backend
 
-# Run backend tests and capture results
-npm test > backend-test-results.txt 2>&1
+# Run backend tests and capture results (save to parent directory for consistent access)
+npm test > ../backend-test-results.txt 2>&1
 BACKEND_EXIT_CODE=$?
 
 if [ $BACKEND_EXIT_CODE -eq 0 ]; then
@@ -58,7 +58,7 @@ fi
 # Extract test summary
 echo ""
 echo "📊 Backend Test Summary:"
-grep -E "Test Suites:|Tests:" backend-test-results.txt || echo "Could not extract summary"
+grep -E "Test Suites:|Tests:" ../backend-test-results.txt || echo "Could not extract summary"
 
 cd ..
 
@@ -67,8 +67,8 @@ echo "🎨 Frontend Tests"
 echo "----------------------------"
 cd frontend
 
-# Run frontend tests and capture results
-npm run test:run > frontend-test-results.txt 2>&1
+# Run frontend tests and capture results (save to parent directory for consistent access)
+npm run test:run > ../frontend-test-results.txt 2>&1
 FRONTEND_EXIT_CODE=$?
 
 if [ $FRONTEND_EXIT_CODE -eq 0 ]; then
@@ -81,7 +81,7 @@ fi
 # Extract test summary
 echo ""
 echo "📊 Frontend Test Summary:"
-grep -E "Test Files|Tests " frontend-test-results.txt | tail -5 || echo "Could not extract summary"
+grep -E "Test Files|Tests " ../frontend-test-results.txt | tail -5 || echo "Could not extract summary"
 
 cd ..
 
@@ -140,8 +140,8 @@ fi
 
 echo ""
 echo "📁 Test Reports:"
-echo "   - Backend: backend/backend-test-results.txt"
-echo "   - Frontend: frontend/frontend-test-results.txt"
+echo "   - Backend: backend-test-results.txt"
+echo "   - Frontend: frontend-test-results.txt"
 echo "   - Security: security-test-results.txt"
 echo "   - Backend Coverage: backend/coverage/index.html"
 echo "   - Frontend Coverage: frontend/coverage/index.html"
