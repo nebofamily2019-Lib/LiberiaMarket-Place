@@ -26,7 +26,7 @@ echo "----------------------------"
 # Check if backend dependencies are installed
 if [ ! -d "backend/node_modules" ]; then
     echo "📥 Installing backend dependencies..."
-    cd backend && npm install && cd ..
+    (cd backend && npm install) || echo "⚠️  Backend dependency installation had issues"
 else
     echo "✅ Backend dependencies installed"
 fi
@@ -34,7 +34,7 @@ fi
 # Check if frontend dependencies are installed
 if [ ! -d "frontend/node_modules" ]; then
     echo "📥 Installing frontend dependencies..."
-    cd frontend && npm install && cd ..
+    (cd frontend && npm install) || echo "⚠️  Frontend dependency installation had issues"
 else
     echo "✅ Frontend dependencies installed"
 fi
@@ -42,10 +42,7 @@ fi
 echo ""
 echo "🔧 Backend Tests"
 echo "----------------------------"
-cd backend
-
-# Run backend tests and capture results (save to parent directory for consistent access)
-npm test > ../backend-test-results.txt 2>&1
+(cd backend && npm test > ../backend-test-results.txt 2>&1)
 BACKEND_EXIT_CODE=$?
 
 if [ $BACKEND_EXIT_CODE -eq 0 ]; then
@@ -58,17 +55,12 @@ fi
 # Extract test summary
 echo ""
 echo "📊 Backend Test Summary:"
-grep -E "Test Suites:|Tests:" ../backend-test-results.txt || echo "Could not extract summary"
-
-cd ..
+grep -E "Test Suites:|Tests:" backend-test-results.txt || echo "Could not extract summary"
 
 echo ""
 echo "🎨 Frontend Tests"
 echo "----------------------------"
-cd frontend
-
-# Run frontend tests and capture results (save to parent directory for consistent access)
-npm run test:run > ../frontend-test-results.txt 2>&1
+(cd frontend && npm run test:run > ../frontend-test-results.txt 2>&1)
 FRONTEND_EXIT_CODE=$?
 
 if [ $FRONTEND_EXIT_CODE -eq 0 ]; then
@@ -81,9 +73,7 @@ fi
 # Extract test summary
 echo ""
 echo "📊 Frontend Test Summary:"
-grep -E "Test Files|Tests " ../frontend-test-results.txt | tail -5 || echo "Could not extract summary"
-
-cd ..
+grep -E "Test Files|Tests " frontend-test-results.txt | tail -5 || echo "Could not extract summary"
 
 echo ""
 echo "🔒 Security Tests"
