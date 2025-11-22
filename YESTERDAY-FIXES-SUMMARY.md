@@ -87,7 +87,7 @@ Created automated test runner that:
 ## Current Status
 The changes from the previous session are in PR #2 (`copilot/get-project-details` branch) and have not yet been merged to main. The cookie configuration fix is the most critical change that enables local development to function properly.
 
-**Note:** The documentation files (PROJECT-OVERVIEW-AND-STATUS.md, AUTOMATED-TESTING-GUIDE.md) and scripts (run-all-tests.sh) referenced above exist in the PR #2 branch but have not yet been merged to main.
+**Note:** The documentation files (PROJECT-OVERVIEW-AND-STATUS.md, AUTOMATED-TESTING-GUIDE.md) and scripts (run-all-tests.sh) referenced in this summary exist in the PR #2 branch.
 
 ## Related Pull Requests
 - PR #2: "Add comprehensive project status documentation, automated testing guide, and fix cookie configuration"
