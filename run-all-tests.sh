@@ -18,7 +18,6 @@ NC='\033[0m' # No Color
 # Test results tracking
 BACKEND_PASSED=0
 FRONTEND_PASSED=0
-TOTAL_TESTS=0
 
 echo "📦 Checking dependencies..."
 echo "----------------------------"
@@ -91,9 +90,16 @@ echo "----------------------------"
 
 if [ -f "run-security-tests.sh" ]; then
     chmod +x run-security-tests.sh
-    ./run-security-tests.sh
+    ./run-security-tests.sh > security-test-results.txt 2>&1
+    SECURITY_EXIT_CODE=$?
+    
+    if [ $SECURITY_EXIT_CODE -eq 0 ]; then
+        echo -e "${GREEN}✅ Security tests passed${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Security tests completed with warnings/failures${NC}"
+    fi
 else
-    echo "⚠️  Security test script not found"
+    echo -e "${YELLOW}⚠️  Security test script not found${NC}"
 fi
 
 echo ""
@@ -130,6 +136,7 @@ echo ""
 echo "📁 Test Reports:"
 echo "   - Backend: backend/backend-test-results.txt"
 echo "   - Frontend: frontend/frontend-test-results.txt"
+echo "   - Security: security-test-results.txt"
 echo "   - Backend Coverage: backend/coverage/index.html"
 echo "   - Frontend Coverage: frontend/coverage/index.html"
 
