@@ -38,6 +38,9 @@ Thumbs.db
 # Testing
 coverage/
 .nyc_output/
+*test-results.txt
+*.test-results.txt
+security-test-results.txt
 
 # Uploads
 uploads/
