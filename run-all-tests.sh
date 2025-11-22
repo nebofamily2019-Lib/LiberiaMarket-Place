@@ -3,7 +3,7 @@
 # LibMarket - Automated Test Runner
 # Run all tests with detailed reporting
 
-set -e  # Exit on error
+# Note: Not using 'set -e' to allow all tests to run even if some fail
 
 echo "🧪 LibMarket - Automated Test Suite"
 echo "===================================="
@@ -45,8 +45,11 @@ echo "----------------------------"
 cd backend
 
 # Run backend tests and capture results
-if npm test 2>&1 | tee backend-test-results.txt; then
-    echo -e "${GREEN}✅ Backend tests completed${NC}"
+npm test > backend-test-results.txt 2>&1
+BACKEND_EXIT_CODE=$?
+
+if [ $BACKEND_EXIT_CODE -eq 0 ]; then
+    echo -e "${GREEN}✅ Backend tests completed successfully${NC}"
     BACKEND_PASSED=1
 else
     echo -e "${RED}❌ Backend tests had failures${NC}"
@@ -65,8 +68,11 @@ echo "----------------------------"
 cd frontend
 
 # Run frontend tests and capture results
-if npm run test:run 2>&1 | tee frontend-test-results.txt; then
-    echo -e "${GREEN}✅ Frontend tests completed${NC}"
+npm run test:run > frontend-test-results.txt 2>&1
+FRONTEND_EXIT_CODE=$?
+
+if [ $FRONTEND_EXIT_CODE -eq 0 ]; then
+    echo -e "${GREEN}✅ Frontend tests completed successfully${NC}"
     FRONTEND_PASSED=1
 else
     echo -e "${RED}❌ Frontend tests had failures${NC}"
@@ -91,21 +97,15 @@ else
 fi
 
 echo ""
-echo "📈 Generating Coverage Reports"
+echo "📈 Coverage Reports Available"
 echo "----------------------------"
-
-# Generate backend coverage
-echo "📊 Backend Coverage:"
-cd backend
-npm run test:coverage 2>&1 | grep -E "All files|%" | tail -5 || echo "Run 'cd backend && npm run test:coverage' for detailed coverage"
-cd ..
-
-# Generate frontend coverage
+echo "📊 To generate coverage reports, run:"
+echo "   Backend:  cd backend && npm run test:coverage"
+echo "   Frontend: cd frontend && npm run test:coverage"
 echo ""
-echo "📊 Frontend Coverage:"
-cd frontend
-npm run test:coverage 2>&1 | grep -E "% Stmts|% Branch|% Funcs|% Lines" | tail -10 || echo "Run 'cd frontend && npm run test:coverage' for detailed coverage"
-cd ..
+echo "Coverage reports will be available at:"
+echo "   - backend/coverage/index.html"
+echo "   - frontend/coverage/index.html"
 
 echo ""
 echo "======================================"
