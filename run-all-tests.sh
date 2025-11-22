@@ -9,7 +9,7 @@ echo "🧪 LibMarket - Automated Test Suite"
 echo "===================================="
 echo ""
 
-# Colors for output
+# ANSI color codes for terminal output
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
@@ -18,6 +18,7 @@ NC='\033[0m' # No Color
 # Test results tracking
 BACKEND_PASSED=0
 FRONTEND_PASSED=0
+SECURITY_PASSED=0
 
 echo "📦 Checking dependencies..."
 echo "----------------------------"
@@ -95,11 +96,13 @@ if [ -f "run-security-tests.sh" ]; then
     
     if [ $SECURITY_EXIT_CODE -eq 0 ]; then
         echo -e "${GREEN}✅ Security tests passed${NC}"
+        SECURITY_PASSED=1
     else
         echo -e "${YELLOW}⚠️  Security tests completed with warnings/failures${NC}"
     fi
 else
-    echo -e "${YELLOW}⚠️  Security test script not found${NC}"
+    echo -e "${YELLOW}⚠️  Security test script not found - skipping${NC}"
+    SECURITY_PASSED=1  # Don't fail if script doesn't exist
 fi
 
 echo ""
@@ -118,7 +121,7 @@ echo "======================================"
 echo "📋 Final Test Results"
 echo "======================================"
 
-if [ $BACKEND_PASSED -eq 1 ] && [ $FRONTEND_PASSED -eq 1 ]; then
+if [ $BACKEND_PASSED -eq 1 ] && [ $FRONTEND_PASSED -eq 1 ] && [ $SECURITY_PASSED -eq 1 ]; then
     echo -e "${GREEN}✅ All test suites executed successfully!${NC}"
     EXIT_CODE=0
 else
@@ -128,6 +131,9 @@ else
     fi
     if [ $FRONTEND_PASSED -eq 0 ]; then
         echo "   - Frontend tests failed"
+    fi
+    if [ $SECURITY_PASSED -eq 0 ]; then
+        echo "   - Security tests failed"
     fi
     EXIT_CODE=1
 fi
