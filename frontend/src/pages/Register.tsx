@@ -1,31 +1,42 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 import api from '../utils/api' // Adjust the import based on your project structure
+import '../styles/Auth.css'
+import PasswordStrengthMeter from '../components/PasswordStrengthMeter'
 
 const Register = () => {
+  console.log('✅ Register component rendering')
   const navigate = useNavigate()
   const { register, isAuthenticated } = useAuth()
+  const toast = useToast()
   const [searchParams] = useSearchParams()
-  const roleFromURL = searchParams.get('role') // 'buyer' or 'seller'
-
+  const roleFromUrl = searchParams.get('role')
+  console.log('🎯 Role from URL:', roleFromUrl)
+  
   const [formData, setFormData] = useState({
     name: '',
+    email: '',
     phone: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    role: searchParams.get('role') || 'buyer' // Pre-select role from URL or default to buyer
   })
+  
+  useEffect(() => {
+    console.log('📝 Register mounted with role:', formData.role)
+  }, [])
+
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
-  // Set default role based on URL
-  const [role, setRole] = useState(roleFromURL || 'buyer')
-
-  // Redirect to home if already logged in
+  // Redirect to dashboard if already logged in
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/')
+      console.log('⚠️ User already logged in, redirecting to dashboard')
+      navigate('/dashboard')
     }
   }, [isAuthenticated, navigate])
 
@@ -77,37 +88,53 @@ const Register = () => {
     if (error) setError('')
   }
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    })
+    setError('')
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+
+    console.log('📝 Submitting registration:', { ...formData, password: '[HIDDEN]' })
+
+    // Validate passwords match
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+
+    // Validate password length
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters')
+      return
+    }
+
     setLoading(true)
 
     try {
-      // Remove spaces from phone before sending
-      const cleanedPhone = formData.phone.replace(/\s/g, '')
-      
       const response = await api.post('/auth/register', {
         name: formData.name,
-        phone: cleanedPhone,
-        password: formData.password,
         email: formData.email || undefined,
-        role: 'buyer'
+        phone: formData.phone,
+        password: formData.password,
+        role: formData.role,
+        roles: [formData.role]
       })
 
-     // Check if response is successful
-     if (response.status === 201 && response.data.success) {
-       console.log('✅ Registration successful:', response.data.user)
-       // Auto-login successful, redirect to dashboard
-       navigate('/dashboard')
-     } else {
-       throw new Error(response.data.error || 'Registration failed')
-     }
+      if (response.data.success) {
+        toast.success(`Welcome ${response.data.user.name}! Account created successfully.`)
+        navigate('/dashboard')
+      }
     } catch (err: any) {
-     // Only log actual errors (not successful 201s)
-     if (err.response?.status !== 201) {
-       console.error('❌ Registration error:', err)
-       setError(err.response?.data?.error || 'Registration failed. Please try again.')
-     }
+      console.error('❌ Registration failed:', err)
+      const errorMsg = err.response?.data?.error || 'Registration failed. Please try again.'
+      setError(errorMsg)
+      toast.error(errorMsg)
     } finally {
       setLoading(false)
     }
@@ -117,261 +144,243 @@ const Register = () => {
   const phoneValidation = validatePhone(formData.phone)
 
   return (
-    <div className="container" style={{
-      paddingTop: '40px',
-      paddingBottom: '40px',
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center'
-    }}>
-      <div style={{
-        width: '100%',
-        maxWidth: '420px',
-        padding: '0 var(--space-lg)'
+    <div className="auth-page">
+      {/* Debug info - remove after fixing */}
+      <div style={{ 
+        position: 'fixed', 
+        top: 70, 
+        right: 10, 
+        background: 'black', 
+        color: 'white', 
+        padding: '10px', 
+        fontSize: '12px',
+        zIndex: 9999,
+        borderRadius: '8px'
       }}>
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: 'var(--space-xl)' }}>
-          <h1 style={{
-            fontSize: 'var(--font-size-3xl)',
-            marginBottom: 'var(--space-sm)',
-            color: 'var(--color-primary)',
-            fontWeight: '700'
-          }}>
-            Create Account
-          </h1>
-          <p style={{
-            color: 'var(--color-text-secondary)',
-            fontSize: 'var(--font-size-base)'
-          }}>
-            Join LibMarket to buy and sell
-          </p>
+        Register Page Loaded<br/>
+        Role: {formData.role}
+      </div>
+
+      {/* Animated Background */}
+      <div className="blob-container">
+        <div className="blob blob-1"></div>
+        <div className="blob blob-2"></div>
+        <div className="blob blob-3"></div>
+      </div>
+
+      {/* Auth Container */}
+      <div className="auth-container">
+        {/* Left Side - Branding */}
+        <div className="auth-left">
+          <div className="auth-branding bounce-in">
+            <div className="logo-circle-large">
+              <span className="logo-emoji-large">
+                {formData.role === 'seller' ? '💰' : '🚀'}
+              </span>
+            </div>
+            <h1 className="gradient-text">
+              {formData.role === 'seller' 
+                ? 'Start Selling Today!' 
+                : 'Join Liberia Marketplace'}
+            </h1>
+            <p className="auth-tagline">
+              {formData.role === 'seller'
+                ? 'List your products and reach thousands of buyers across Liberia!'
+                : 'Start buying and selling today! Join thousands of Liberians trading online.'}
+            </p>
+            
+            <div className="features-mini">
+              <div className="feature-mini">
+                <span>{formData.role === 'seller' ? '💰' : '🆓'}</span>
+                <span>{formData.role === 'seller' ? 'Earn Money' : 'Free to Join'}</span>
+              </div>
+              <div className="feature-mini">
+                <span>{formData.role === 'seller' ? '📦' : '⚡'}</span>
+                <span>{formData.role === 'seller' ? 'List Products' : 'Quick Setup'}</span>
+              </div>
+              <div className="feature-mini">
+                <span>🔒</span>
+                <span>Secure Platform</span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="card" style={{
-          padding: 'var(--space-xl)',
-          boxShadow: 'var(--shadow-md)'
-        }}>
-          {/* Error Alert */}
-          {error && (
-            <div style={{
-              padding: 'var(--space-md)',
-              marginBottom: 'var(--space-lg)',
-              backgroundColor: '#fee',
-              color: 'var(--color-error)',
-              borderRadius: 'var(--border-radius-md)',
-              border: '1px solid var(--color-error)',
-              fontSize: 'var(--font-size-sm)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--space-sm)'
-            }}>
-              <span style={{ fontSize: '1.2rem' }}>⚠️</span>
-              <span>{error}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit}>
-            {/* Full Name */}
-            <div className="form-group">
-              <label className="form-label">Full Name</label>
-              <input
-                type="text"
-                className="form-input"
-                value={formData.name}
-                onChange={(e) => {
-                  setFormData({ ...formData, name: e.target.value })
-                  if (error) setError('')
-                }}
-                placeholder="John Doe"
-                required
-                disabled={loading}
-                autoComplete="name"
-                style={{ fontSize: 'var(--font-size-base)' }}
-              />
+        {/* Right Side - Form */}
+        <div className="auth-right">
+          <div className="auth-form-container glass-card scale-in">
+            <div className="auth-form-header">
+              <h2>Create Account</h2>
+              <p>
+                {formData.role === 'seller'
+                  ? 'Register as a seller and start earning today'
+                  : 'Fill in your details to get started'}
+              </p>
             </div>
 
-            {/* Phone Number */}
-            <div className="form-group">
-              <label className="form-label">
-                Phone Number
-                <span style={{
-                  fontSize: 'var(--font-size-xs)',
-                  fontWeight: 'normal',
-                  color: 'var(--color-text-secondary)',
-                  marginLeft: 'var(--space-sm)'
-                }}>
-                  (9-10 digits)
-                </span>
-              </label>
-              <input
-                type="tel"
-                className="form-input"
-                value={formData.phone}
-                onChange={handlePhoneChange}
-                placeholder="088 123 4567"
-                required
-                disabled={loading}
-                autoComplete="tel"
-                style={{
-                  fontSize: 'var(--font-size-lg)',
-                  letterSpacing: '0.5px',
-                  fontFamily: 'monospace',
-                  borderColor: formData.phone && !phoneValidation.isValid ? 'var(--color-error)' : undefined
-                }}
-              />
+            {error && (
+              <div className="error-message bounce-in">
+                <span>⚠️</span>
+                <span>{error}</span>
+              </div>
+            )}
 
-              {/* Phone Helper Text */}
-              <div style={{
-                marginTop: 'var(--space-xs)',
-                fontSize: 'var(--font-size-xs)',
-                color: formData.phone && !phoneValidation.isValid ? 'var(--color-error)' : 'var(--color-text-secondary)'
-              }}>
-                {formData.phone ? (
-                  phoneValidation.isValid ? (
-                    <span style={{ color: 'var(--color-success)' }}>✓ Valid phone number</span>
-                  ) : (
-                    <span>Examples: 881234567 or 0881234567 ({phoneDigits}/9-10 digits)</span>
-                  )
-                ) : (
-                  <span>Enter your mobile number (MTN, Orange, Lonestar, etc.)</span>
+            <form onSubmit={handleSubmit} className="auth-form">
+              <div className="form-group">
+                <label htmlFor="name">
+                  <span className="label-icon">👤</span>
+                  Full Name *
+                </label>
+                <input
+                  type="text"
+                  id="name"
+                  name="name"
+                  placeholder="e.g. John Doe"
+                  value={formData.name}
+                  onChange={handleChange}
+                  required
+                  className="input-modern"
+                  autoComplete="name"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="phone">
+                  <span className="label-icon">📱</span>
+                  Phone Number *
+                </label>
+                <input
+                  type="tel"
+                  id="phone"
+                  name="phone"
+                  placeholder="e.g. 77012345"
+                  value={formData.phone}
+                  onChange={handlePhoneChange}
+                  required
+                  className="input-modern"
+                  autoComplete="tel"
+                />
+                <span className="input-hint">Your Liberian mobile number</span>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="email">
+                  <span className="label-icon">✉️</span>
+                  Email (Optional)
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  placeholder="your.email@example.com"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="input-modern"
+                  autoComplete="email"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="role">
+                  <span className="label-icon">🎯</span>
+                  I want to *
+                </label>
+                <select
+                  id="role"
+                  name="role"
+                  value={formData.role}
+                  onChange={handleChange}
+                  required
+                  className="input-modern select-modern"
+                >
+                  <option value="buyer">Buy Products 🛍️</option>
+                  <option value="seller">Sell Products 💰</option>
+                </select>
+                {formData.role === 'seller' && (
+                  <span className="input-hint" style={{ color: '#10b981', fontWeight: 600 }}>
+                    ✨ Great choice! Start listing your products right away.
+                  </span>
                 )}
               </div>
-            </div>
 
-            {/* Password */}
-            <div className="form-group">
-              <label className="form-label">Password</label>
-              <div style={{ position: 'relative' }}>
+              <div className="form-group">
+                <label htmlFor="password">
+                  <span className="label-icon">🔒</span>
+                  Password *
+                </label>
+                <input
+                  type="password"
+                  id="password"
+                  name="password"
+                  placeholder="At least 8 characters"
+                  value={formData.password}
+                  onChange={handleChange}
+                  required
+                  className="input-modern"
+                  autoComplete="new-password"
+                  minLength={8}
+                />
+                <PasswordStrengthMeter password={formData.password} />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="confirmPassword">
+                  <span className="label-icon">🔐</span>
+                  Confirm Password *
+                </label>
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  className="form-input"
-                  value={formData.password}
-                  onChange={(e) => {
-                    setFormData({ ...formData, password: e.target.value })
-                    if (error) setError('')
-                  }}
-                  placeholder="Minimum 6 characters"
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  placeholder="Re-enter your password"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
                   required
-                  disabled={loading}
-                  minLength={6}
+                  className="input-modern"
                   autoComplete="new-password"
-                  style={{
-                    paddingRight: '45px',
-                    fontSize: 'var(--font-size-base)'
-                  }}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  disabled={loading}
-                  style={{
-                    position: 'absolute',
-                    right: 'var(--space-sm)',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'transparent',
-                    border: 'none',
-                    cursor: 'pointer',
-                    padding: 'var(--space-xs)',
-                    fontSize: '1.2rem',
-                    opacity: loading ? 0.5 : 1
-                  }}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? '🙈' : '👁️'}
-                </button>
               </div>
-            </div>
 
-            {/* Confirm Password */}
-            <div className="form-group">
-              <label className="form-label">Confirm Password</label>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                className="form-input"
-                value={formData.confirmPassword}
-                onChange={(e) => {
-                  setFormData({ ...formData, confirmPassword: e.target.value })
-                  if (error) setError('')
-                }}
-                placeholder="Re-enter password"
-                required
+              {/* Submit Button */}
+              <button 
+                type="submit" 
+                className="btn-auth ripple-button"
                 disabled={loading}
-                autoComplete="new-password"
-                style={{ fontSize: 'var(--font-size-base)' }}
-              />
-            </div>
-
-            {/* Role selection (pre-selected if from Home page) */}
-            <div style={{ marginBottom: '24px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
-                I want to: {roleFromURL && <span style={{ color: '#28a745', fontSize: '0.8rem' }}>(Selected from home)</span>}
-              </label>
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '16px'
-                }}
               >
-                <option value="buyer">Buy products (Buyer)</option>
-                <option value="seller">Sell products (Seller)</option>
-                <option value="both">Both buy and sell</option>
-              </select>
+                {loading ? (
+                  <>
+                    <span className="spinner-small"></span>
+                    <span>Creating Account...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>{formData.role === 'seller' ? '💰' : '🚀'}</span>
+                    <span>
+                      {formData.role === 'seller' 
+                        ? 'Start Selling' 
+                        : 'Create Account'}
+                    </span>
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="auth-divider">
+              <span>or</span>
             </div>
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              className="btn btn-primary"
-              style={{
-                width: '100%',
-                marginTop: 'var(--space-md)',
-                padding: '14px',
-                fontSize: 'var(--font-size-base)',
-                fontWeight: '600',
-                opacity: loading ? 0.6 : 1,
-                cursor: loading ? 'not-allowed' : 'pointer'
-              }}
-              disabled={loading}
-            >
-              {loading ? 'Creating Account...' : 'Create Account'}
-            </button>
-          </form>
-
-          {/* Divider */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            margin: 'var(--space-xl) 0',
-            gap: 'var(--space-md)'
-          }}>
-            <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--color-border)' }} />
-            <span style={{ color: 'var(--color-text-tertiary', fontSize: 'var(--font-size-sm)' }}>
-              Already have an account?
-            </span>
-            <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--color-border)' }} />
+            <div className="auth-links">
+              <p className="auth-link-text">
+                Already have an account?{' '}
+                <Link to="/login" className="link-primary">
+                  Sign In →
+                </Link>
+              </p>
+              <Link to="/" className="link-secondary">
+                ← Back to Home
+              </Link>
+            </div>
           </div>
-
-          {/* Login Link */}
-          <Link
-            to="/login"
-            style={{
-              display: 'block',
-              textAlign: 'center',
-              color: 'var(--color-primary)',
-              fontWeight: '600',
-              textDecoration: 'none',
-              fontSize: 'var(--font-size-base)'
-            }}
-          >
-            Login here
-          </Link>
         </div>
       </div>
     </div>

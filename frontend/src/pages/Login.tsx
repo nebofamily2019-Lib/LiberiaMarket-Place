@@ -1,70 +1,36 @@
-import React, { useState, useEffect } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
+import '../styles/Auth.css'
 
 const Login = () => {
   const navigate = useNavigate()
-  const location = useLocation()
   const { login, isAuthenticated } = useAuth()
+  const toast = useToast()
+  
   const [formData, setFormData] = useState({
     phone: '',
     password: ''
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
 
-  // Simple phone validation for Liberian 9-digit numbers
-  const validatePhone = (phone: string): { isValid: boolean; message?: string } => {
-    const cleaned = phone.replace(/\s/g, '')
-
-    // Must be 9 or 10 digits (with or without leading 0)
-    if (!/^\d{9,10}$/.test(cleaned)) {
-      return { isValid: false, message: 'Phone must be 9-10 digits' }
+  // Redirect to dashboard if already logged in
+  useEffect(() => {
+    if (isAuthenticated) {
+      console.log('⚠️ User already logged in, redirecting to dashboard')
+      navigate('/dashboard')
     }
+  }, [isAuthenticated, navigate])
 
-    // Remove leading 0 if present to normalize
-    const normalized = cleaned.startsWith('0') ? cleaned.substring(1) : cleaned
-
-    // After normalization, must be exactly 9 digits
-    if (normalized.length !== 9) {
-      return { isValid: false, message: 'Phone must be exactly 9 digits' }
-    }
-
-    // Must start with valid Liberian prefix (without leading 0)
-    const validPrefixes = ['77', '76', '88', '86', '87', '55', '44', '33', '22']
-    const prefix = normalized.substring(0, 2)
-
-    if (!validPrefixes.includes(prefix)) {
-      return { isValid: false, message: 'Invalid Liberian phone number' }
-    }
-
-    return { isValid: true }
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    })
+    setError('')
   }
-
-  const formatPhoneDisplay = (value: string) => {
-    // Remove all non-digits
-    const cleaned = value.replace(/\D/g, '')
-
-    // Limit to 10 digits (to allow 0 prefix)
-    const limited = cleaned.slice(0, 10)
-
-    // Format as XXX XXX XXX or XXXX XXX XXX
-    if (limited.length <= 3) return limited
-    if (limited.length <= 6) return `${limited.slice(0, 3)} ${limited.slice(3)}`
-    if (limited.length <= 9) return `${limited.slice(0, 3)} ${limited.slice(3, 6)} ${limited.slice(6)}`
-    // For 10 digits: 0XXX XXX XXX
-    return `${limited.slice(0, 4)} ${limited.slice(4, 7)} ${limited.slice(7)}`
-  }
-
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatPhoneDisplay(e.target.value)
-    setFormData({ ...formData, phone: formatted })
-    if (error) setError('')
-  }
-
-  // Get the page user was trying to access before redirect
-  const from = (location.state as any)?.from?.pathname || '/dashboard'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -72,256 +38,145 @@ const Login = () => {
     setLoading(true)
 
     try {
-      const response = await login(formData.phone, formData.password)
-
-      // Redirect based on user role or previous location
-      if (response.user.role === 'admin') {
-        navigate('/admin/dashboard')
-      } else {
-        navigate(from, { replace: true })
-      }
+      await login(formData.phone, formData.password)
+      toast.success('Welcome back! Logged in successfully.')
+      navigate('/dashboard')
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Invalid credentials')
+      const errorMsg = err.message || 'Login failed. Please try again.'
+      setError(errorMsg)
+      toast.error(errorMsg)
     } finally {
       setLoading(false)
     }
   }
 
-  // Redirect to home if already logged in
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/dashboard')
-    }
-  }, [isAuthenticated, navigate])
-
-  const phoneDigits = formData.phone.replace(/\D/g, '').length
-  const phoneValidation = validatePhone(formData.phone)
-  const canSubmit = phoneValidation.isValid && formData.password.length >= 6
-
   return (
-    <div className="container" style={{
-      paddingTop: '40px',
-      paddingBottom: '40px',
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center'
-    }}>
-      <div style={{
-        width: '100%',
-        maxWidth: '420px',
-        padding: '0 var(--space-lg)'
-      }}>
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: 'var(--space-xl)' }}>
-          <h1 style={{
-            fontSize: 'var(--font-size-3xl)',
-            marginBottom: 'var(--space-sm)',
-            color: 'var(--color-primary)',
-            fontWeight: '700'
-          }}>
-            Welcome Back
-          </h1>
-          <p style={{
-            color: 'var(--color-text-secondary)',
-            fontSize: 'var(--font-size-base)'
-          }}>
-            Login to continue to LibMarket
-          </p>
-        </div>
+    <div className="auth-page">
+      {/* Animated Background */}
+      <div className="blob-container">
+        <div className="blob blob-1"></div>
+        <div className="blob blob-2"></div>
+        <div className="blob blob-3"></div>
+      </div>
 
-        <div className="card" style={{
-          padding: 'var(--space-xl)',
-          boxShadow: 'var(--shadow-md)'
-        }}>
-          {/* Error Alert */}
-          {error && (
-            <div style={{
-              padding: 'var(--space-md)',
-              marginBottom: 'var(--space-lg)',
-              backgroundColor: '#fee',
-              color: 'var(--color-error)',
-              borderRadius: 'var(--border-radius-md)',
-              border: '1px solid var(--color-error)',
-              fontSize: 'var(--font-size-sm)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--space-sm)'
-            }}>
-              <span style={{ fontSize: '1.2rem' }}>⚠️</span>
-              <span>{error}</span>
+      {/* Auth Container */}
+      <div className="auth-container">
+        {/* Left Side - Branding */}
+        <div className="auth-left">
+          <div className="auth-branding bounce-in">
+            <div className="logo-circle-large">
+              <span className="logo-emoji-large">🇱🇷</span>
             </div>
-          )}
-
-          <form onSubmit={handleSubmit}>
-            {/* Phone Number */}
-            <div className="form-group">
-              <label className="form-label">
-                Phone Number
-                <span style={{
-                  fontSize: 'var(--font-size-xs)',
-                  fontWeight: 'normal',
-                  color: 'var(--color-text-secondary)',
-                  marginLeft: 'var(--space-sm)'
-                }}>
-                  (9-10 digits)
-                </span>
-              </label>
-              <input
-                type="tel"
-                className="form-input"
-                value={formData.phone}
-                onChange={handlePhoneChange}
-                placeholder="077 123 456"
-                required
-                disabled={loading}
-                autoComplete="tel"
-                autoFocus
-                style={{
-                  fontSize: 'var(--font-size-lg)',
-                  letterSpacing: '0.5px',
-                  fontFamily: 'monospace',
-                  borderColor: formData.phone && !phoneValidation.isValid ? 'var(--color-error)' : undefined
-                }}
-              />
-
-              {/* Phone Helper Text */}
-              <div style={{
-                marginTop: 'var(--space-xs)',
-                fontSize: 'var(--font-size-xs)',
-                color: formData.phone && !phoneValidation.isValid ? 'var(--color-error)' : 'var(--color-text-secondary)'
-              }}>
-                {formData.phone ? (
-                  phoneValidation.isValid ? (
-                    <span style={{ color: 'var(--color-success)' }}>✓ Valid</span>
-                  ) : (
-                    <span>Example: 088 123 456 or 88 123 456 ({phoneDigits}/{phoneDigits === 9 ? '9' : '9-10'} digits)</span>
-                  )
-                ) : (
-                  <span>Enter your registered mobile number (9-10 digits)</span>
-                )}
+            <h1 className="gradient-text">Welcome Back!</h1>
+            <p className="auth-tagline">
+              Login to continue buying and selling on Liberia's #1 marketplace
+            </p>
+            
+            <div className="features-mini">
+              <div className="feature-mini">
+                <span>✅</span>
+                <span>Secure Login</span>
+              </div>
+              <div className="feature-mini">
+                <span>🛍️</span>
+                <span>Easy Shopping</span>
+              </div>
+              <div className="feature-mini">
+                <span>💰</span>
+                <span>Best Deals</span>
               </div>
             </div>
-
-            {/* Password */}
-            <div className="form-group">
-              <label className="form-label">Password</label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  className="form-input"
-                  value={formData.password}
-                  onChange={(e) => {
-                    setFormData({ ...formData, password: e.target.value })
-                    if (error) setError('')
-                  }}
-                  placeholder="Enter your password"
-                  required
-                  disabled={loading}
-                  minLength={6}
-                  autoComplete="current-password"
-                  style={{
-                    paddingRight: '45px',
-                    fontSize: 'var(--font-size-base)'
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  disabled={loading}
-                  style={{
-                    position: 'absolute',
-                    right: 'var(--space-sm)',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'transparent',
-                    border: 'none',
-                    cursor: 'pointer',
-                    padding: 'var(--space-xs)',
-                    fontSize: '1.2rem',
-                    opacity: loading ? 0.5 : 1
-                  }}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? '🙈' : '👁️'}
-                </button>
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              className="btn btn-primary"
-              style={{
-                width: '100%',
-                marginTop: 'var(--space-md)',
-                padding: '14px',
-                fontSize: 'var(--font-size-base)',
-                fontWeight: '600',
-                opacity: loading || !canSubmit ? 0.6 : 1,
-                cursor: loading || !canSubmit ? 'not-allowed' : 'pointer'
-              }}
-              disabled={loading || !canSubmit}
-            >
-              {loading ? 'Logging in...' : 'Login'}
-            </button>
-          </form>
-
-          {/* Divider */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            margin: 'var(--space-xl) 0',
-            gap: 'var(--space-md)'
-          }}>
-            <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--color-border)' }} />
-            <span style={{ color: 'var(--color-text-tertiary', fontSize: 'var(--font-size-sm)' }}>
-              New to LibMarket?
-            </span>
-            <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--color-border)' }} />
           </div>
-
-          {/* Sign Up Link */}
-          <Link
-            to="/register"
-            className="btn btn-secondary"
-            style={{
-              width: '100%',
-              textAlign: 'center',
-              padding: '14px',
-              fontSize: 'var(--font-size-base)',
-              fontWeight: '600',
-              textDecoration: 'none',
-              display: 'block',
-              border: '2px solid var(--color-primary)',
-              backgroundColor: 'transparent',
-              color: 'var(--color-primary)',
-              borderRadius: 'var(--border-radius-md)'
-            }}
-          >
-            Create New Account
-          </Link>
         </div>
 
-        {/* Help Section */}
-        <div style={{
-          marginTop: 'var(--space-xl)',
-          textAlign: 'center',
-          padding: 'var(--space-lg)',
-          backgroundColor: 'var(--color-bg-tertiary)',
-          borderRadius: 'var(--border-radius-md)',
-          border: '1px solid var(--color-border-light)'
-        }}>
-          <p style={{
-            fontSize: 'var(--font-size-sm)',
-            color: 'var(--color-text-secondary)',
-            margin: 0
-          }}>
-            <strong>Need help?</strong> Contact support at{' '}
-            <a href="tel:+23188888888" style={{ color: 'var(--color-primary)', fontWeight: '600' }}>
-              +231 88 888 8888
-            </a>
-          </p>
+        {/* Right Side - Form */}
+        <div className="auth-right">
+          <div className="auth-form-container glass-card scale-in">
+            <div className="auth-form-header">
+              <h2>Sign In</h2>
+              <p>Enter your credentials to access your account</p>
+            </div>
+
+            {error && (
+              <div className="error-message bounce-in">
+                <span>⚠️</span>
+                <span>{error}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="auth-form">
+              <div className="form-group">
+                <label htmlFor="phone">
+                  <span className="label-icon">📱</span>
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  id="phone"
+                  name="phone"
+                  placeholder="e.g. 77012345"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  required
+                  className="input-modern"
+                  autoComplete="tel"
+                />
+                <span className="input-hint">Enter your Liberian phone number</span>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="password">
+                  <span className="label-icon">🔒</span>
+                  Password
+                </label>
+                <input
+                  type="password"
+                  id="password"
+                  name="password"
+                  placeholder="Enter your password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  required
+                  className="input-modern"
+                  autoComplete="current-password"
+                />
+              </div>
+
+              <button 
+                type="submit" 
+                className="btn-auth ripple-button"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <span className="spinner-small"></span>
+                    <span>Signing In...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>🔐</span>
+                    <span>Sign In</span>
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="auth-divider">
+              <span>or</span>
+            </div>
+
+            <div className="auth-links">
+              <p className="auth-link-text">
+                Don't have an account?{' '}
+                <Link to="/register" className="link-primary">
+                  Create Account →
+                </Link>
+              </p>
+              <Link to="/" className="link-secondary">
+                ← Back to Home
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import api from '../utils/api'
 import HamburgerMenu from '../components/HamburgerMenu'
-import TopNav from '../components/TopNav'
 import '../styles/Dashboard.css'
 
 interface Product {
@@ -37,6 +36,15 @@ const Dashboard = () => {
   const hasRole = (role: string) => {
     if (!user) return false;
     return user.roles?.includes(role) || user.roles?.includes('admin');
+  };
+
+  // Helper to check permissions
+  const canEdit = (product: Product) => {
+    if (!user) return false;
+    // Admins can edit everything
+    if (hasRole('admin')) return true;
+    // Sellers can only edit their own products
+    return product.seller_id === user.id;
   };
 
   const fetchDashboardData = async () => {
@@ -91,7 +99,6 @@ const Dashboard = () => {
     return (
       <div className="dashboard-container">
         <HamburgerMenu />
-        <TopNav />
         <div className="loading-state">
           <div className="spinner">⏳</div>
           <p>Loading your dashboard...</p>
@@ -103,11 +110,64 @@ const Dashboard = () => {
   return (
     <div className="dashboard-container">
       <HamburgerMenu />
-      <TopNav />
       
       <div className="dashboard-content">
         <h1>Welcome, {user?.name}! 👋</h1>
         
+        {/* Role & Permission Display */}
+        <div style={{
+          background: 'white',
+          borderRadius: '12px',
+          padding: '1rem',
+          marginBottom: '2rem',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+        }}>
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div>
+              <strong>Role:</strong> {user?.role}
+            </div>
+            <div>
+              <strong>Permissions:</strong> {user?.roles?.join(', ') || 'None'}
+            </div>
+            {hasRole('admin') && (
+              <span style={{
+                background: '#dc2626',
+                color: 'white',
+                padding: '0.25rem 0.75rem',
+                borderRadius: '12px',
+                fontSize: '0.85rem',
+                fontWeight: 600
+              }}>
+                🔐 Admin Access
+              </span>
+            )}
+            {hasRole('seller') && (
+              <span style={{
+                background: '#10b981',
+                color: 'white',
+                padding: '0.25rem 0.75rem',
+                borderRadius: '12px',
+                fontSize: '0.85rem',
+                fontWeight: 600
+              }}>
+                🛍️ Seller Access
+              </span>
+            )}
+            {hasRole('buyer') && (
+              <span style={{
+                background: '#3b82f6',
+                color: 'white',
+                padding: '0.25rem 0.75rem',
+                borderRadius: '12px',
+                fontSize: '0.85rem',
+                fontWeight: 600
+              }}>
+                🛒 Buyer Access
+              </span>
+            )}
+          </div>
+        </div>
+
         {/* Stats Grid */}
         <div className="stats-grid">
           {user?.role === 'admin' && (
@@ -238,12 +298,37 @@ const Dashboard = () => {
                         )}
                       </div>
                       <div className="product-actions">
-                        <button 
-                          className="btn-edit"
-                          onClick={() => navigate(`/products/${product.id}/edit`)}
-                        >
-                          Edit
-                        </button>
+                        {canEdit(product) ? (
+                          <>
+                            <button 
+                              className="btn-edit"
+                              onClick={() => {
+                                console.log('✏️ Navigating to edit:', product.id);
+                                navigate(`/products/${product.id}/edit`)
+                              }}
+                              title={`Edit ${product.title}`}
+                            >
+                              ✏️ Edit
+                            </button>
+                            <button 
+                              className="btn-view"
+                              onClick={() => navigate(`/products/${product.id}`)}
+                              title={`View ${product.title}`}
+                            >
+                              👁️ View
+                            </button>
+                          </>
+                        ) : (
+                          <span style={{
+                            padding: '0.5rem 1rem',
+                            background: '#fee',
+                            color: '#dc2626',
+                            borderRadius: '8px',
+                            fontSize: '0.85rem'
+                          }}>
+                            🔒 No Edit Permission
+                          </span>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -325,16 +410,16 @@ const Dashboard = () => {
               <span>🛍️</span>
               <span>Browse Products</span>
             </button>
+            <button onClick={() => window.location.href = '/categories'}>
+              <span>📂</span>
+              <span>Browse Categories</span>
+            </button>
             {(user?.role === 'seller' || user?.role === 'admin') && (
               <button onClick={() => window.location.href = '/products/add'}>
                 <span>➕</span>
                 <span>Add Product</span>
               </button>
             )}
-            <button onClick={() => window.location.href = '/categories'}>
-              <span>📂</span>
-              <span>View Categories</span>
-            </button>
             {user?.role === 'admin' && (
               <button onClick={() => window.location.href = '/admin/dashboard'}>
                 <span>⚙️</span>

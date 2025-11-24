@@ -34,22 +34,27 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const checkAuth = async () => {
     try {
+      // const response = await api.get('/auth/me')
+      // if (response.data.success) {
+      //   setUser(response.data.data)
+      //   setIsAuthenticated(true)
+      // }
+      console.log('🔍 Checking authentication status...')
+      console.log('🍪 Current cookies:', document.cookie)
+      
       const response = await api.get('/auth/me')
       
-      if (response.data.success && response.data.data) {
-        // Ensure roles is always an array
-        const userData = response.data.data;
-        if (!userData.roles) {
-          userData.roles = [userData.role];
-        }
-        setUser(userData)
+      if (response.data.success) {
+        console.log('✅ User authenticated:', response.data.data.name)
+        setUser(response.data.data)
         setIsAuthenticated(true)
-      } else {
-        setUser(null)
-        setIsAuthenticated(false)
       }
-    } catch (err: any) {
-      // Silent fail - 401 is expected when not logged in
+    } catch (error: any) {
+      // Silently handle auth check failure (user not logged in)
+      if (error.status !== 401) {
+        console.error('❌ Auth check error:', error.message)
+      }
+      // Clear any stale auth state
       setUser(null)
       setIsAuthenticated(false)
     } finally {
@@ -63,27 +68,25 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const login = async (phone: string, password: string) => {
     try {
-      // Remove spaces from phone
-      const cleanedPhone = phone.replace(/\s/g, '')
+      console.log('📞 Attempting login with phone:', phone);
       
-      const response = await api.post('/auth/login', { 
-        phone: cleanedPhone, 
-        password 
-      })
+      const response = await api.post('/auth/login', { phone, password })
       
-      if (response.data.success && response.data.user) {
+      console.log('✅ Login response:', response.data);
+      console.log('🍪 Response headers:', response.headers);
+      
+      if (response.data.success) {
         setUser(response.data.user)
         setIsAuthenticated(true)
-        console.log('✅ Login successful:', response.data.user.name)
-        return response.data
+        
+        // Check if cookie was set
+        console.log('🍪 Document cookies after login:', document.cookie);
+        
+        return response.data.user
       }
-      
-      throw new Error('Login failed')
-    } catch (err: any) {
-      console.error('❌ Login error:', err.response?.data?.error || err.message)
-      setUser(null)
-      setIsAuthenticated(false)
-      throw err
+    } catch (error: any) {
+      console.error('❌ Login failed:', error.response?.data || error.message);
+      throw new Error(error.response?.data?.error || 'Login failed')
     }
   }
 

@@ -1,60 +1,90 @@
 const { Sequelize } = require('sequelize');
-const { sequelize } = require('../config/database');
+const path = require('path');
 
-// Import model classes
-const UserModel = require('./User');
-const CategoryModel = require('./Category');
-const ProductModel = require('./Product');
-const JobModel = require('./Job');
-const NotificationModel = require('./Notification');
-const MessageModel = require('./Message');
-
-// Initialize models with sequelize instance
-const User = UserModel.init(sequelize);
-const Category = CategoryModel.init(sequelize);
-const Product = ProductModel.init(sequelize);
-const Job = JobModel.init(sequelize);
-const Notification = NotificationModel.init(sequelize);
-const Message = MessageModel.init(sequelize);
-
-// Create models object
-const models = {
-  User,
-  Category,
-  Product,
-  Job,
-  Notification,
-  Message
-};
-
-// Set up associations
-Object.keys(models).forEach(modelName => {
-  if (models[modelName].associate) {
-    models[modelName].associate(models);
+// Database configuration
+const sequelize = new Sequelize({
+  dialect: 'sqlite',
+  storage: path.join(__dirname, '../../libmarket_dev.sqlite'),
+  logging: process.env.NODE_ENV === 'development' ? console.log : false,
+  define: {
+    timestamps: true,
+    underscored: false
   }
 });
+
+// Import model classes
+const User = require('./User');
+const Product = require('./Product');
+const Category = require('./Category');
+const Conversation = require('./Conversation');
+const Message = require('./Message');
+
+console.log('🔧 Initializing models...');
+
+// Initialize models
+User.init(sequelize);
+Product.init(sequelize);
+Category.init(sequelize);
+Conversation.init(sequelize);
+Message.init(sequelize);
+
+console.log('✅ Models initialized');
+
+// Setup associations - without Offer
+const models = { User, Product, Category };
+
+if (User.associate) {
+  User.associate(models);
+}
+if (Product.associate) {
+  Product.associate(models);
+}
+if (Category.associate) {
+  Category.associate(models);
+}
+
+// Conversation associations
+Conversation.belongsTo(User, { as: 'buyer', foreignKey: 'buyer_id' });
+Conversation.belongsTo(User, { as: 'seller', foreignKey: 'seller_id' });
+Conversation.belongsTo(Product, { as: 'listing', foreignKey: 'listing_id' });
+Conversation.hasMany(Message, { foreignKey: 'conversation_id', as: 'messages' });
+
+// Message associations
+Message.belongsTo(Conversation, { foreignKey: 'conversation_id' });
+Message.belongsTo(User, { as: 'sender', foreignKey: 'sender_id' });
+
+// User associations for conversations
+User.hasMany(Conversation, { as: 'buyerConversations', foreignKey: 'buyer_id' });
+User.hasMany(Conversation, { as: 'sellerConversations', foreignKey: 'seller_id' });
+User.hasMany(Message, { as: 'sentMessages', foreignKey: 'sender_id' });
+
+console.log('✅ Associations set up');
 
 // Sync database
 const syncDatabase = async () => {
   try {
-    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
-      await sequelize.sync({ alter: false });
-      console.log('✅ Database models synced');
-    }
+    console.log('🔄 Syncing database...');
+    
+    // Use alter: true to update existing tables without dropping data
+    await sequelize.sync({ alter: true });
+    
+    console.log('✅ Database synced successfully');
   } catch (error) {
-    console.error('❌ Database sync error:', error);
+    console.error('❌ Error syncing database:', error);
   }
 };
 
-// Export everything
+// Auto-sync in development
+if (process.env.NODE_ENV === 'development') {
+  syncDatabase();
+}
+
 module.exports = {
   sequelize,
-  Sequelize,
   User,
-  Category,
   Product,
-  Job,
-  Notification,
+  Category,
+  Conversation,
   Message,
   syncDatabase
 };

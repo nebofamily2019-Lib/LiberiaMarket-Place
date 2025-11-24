@@ -18,213 +18,76 @@
  * - hasMany Message (all messages in this conversation)
  */
 
-const { DataTypes } = require('sequelize')
-const { sequelize } = require('../config/database')
+const { DataTypes } = require('sequelize');
+const sequelize = require('../../config/database');
 
+/**
+ * Conversation Model
+ * Represents a chat conversation between buyer and seller about a product
+ */
 const Conversation = sequelize.define('Conversation', {
-  // Primary key (UUID for better security and distribution)
   id: {
     type: DataTypes.UUID,
     defaultValue: DataTypes.UUIDV4,
-    primaryKey: true,
-    comment: 'Unique identifier for the conversation'
+    primaryKey: true
   },
-
-  // FOREIGN KEYS - Define the relationship participants and product
-
-  productId: {
+  buyer_id: {
     type: DataTypes.UUID,
     allowNull: false,
-    field: 'product_id',
     references: {
-      model: 'Products',
+      model: 'users',
       key: 'id'
-    },
-    onDelete: 'CASCADE', // Delete conversation if product is deleted
-    comment: 'The product being discussed in this conversation'
+    }
   },
-
-  buyerId: {
+  seller_id: {
     type: DataTypes.UUID,
     allowNull: false,
-    field: 'buyer_id',
     references: {
-      model: 'Users',
+      model: 'users',
       key: 'id'
-    },
-    onDelete: 'CASCADE', // Delete conversation if buyer deletes account
-    comment: 'User who initiated contact (wants to buy the product)'
+    }
   },
-
-  sellerId: {
+  listing_id: {
     type: DataTypes.UUID,
     allowNull: false,
-    field: 'seller_id',
     references: {
-      model: 'Users',
+      model: 'products',
       key: 'id'
     },
-    onDelete: 'CASCADE', // Delete conversation if seller deletes account
-    comment: 'User who owns the product listing'
+    comment: 'The product this conversation is about'
   },
-
-  // LAST MESSAGE CACHE - For conversation list optimization
-  // Instead of querying all messages, we store the last message here
-
-  lastMessageText: {
-    type: DataTypes.TEXT,
-    allowNull: true,
-    field: 'last_message_text',
-    comment: 'Preview of the last message sent (for conversation list)'
-  },
-
-  lastMessageSenderId: {
-    type: DataTypes.UUID,
-    allowNull: true,
-    field: 'last_message_sender_id',
-    references: {
-      model: 'Users',
-      key: 'id'
-    },
-    onDelete: 'SET NULL',
-    comment: 'Who sent the last message'
-  },
-
   lastMessageAt: {
     type: DataTypes.DATE,
     allowNull: true,
-    field: 'last_message_at',
-    comment: 'When was the last message sent (for sorting conversations)'
+    comment: 'Timestamp of the last message sent'
   },
-
-  // UNREAD MESSAGE COUNTERS
-  // Allows showing "5 unread messages" without counting every time
-
-  buyerUnreadCount: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    defaultValue: 0,
-    field: 'buyer_unread_count',
-    validate: {
-      min: 0 // Cannot be negative
-    },
-    comment: 'Number of unread messages for the buyer'
-  },
-
-  sellerUnreadCount: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    defaultValue: 0,
-    field: 'seller_unread_count',
-    validate: {
-      min: 0 // Cannot be negative
-    },
-    comment: 'Number of unread messages for the seller'
-  },
-
-  // SOFT DELETE FLAGS
-  // Users can "delete" conversations, but we keep the data
-  // Useful for dispute resolution and legal compliance
-
-  deletedByBuyer: {
+  isActive: {
     type: DataTypes.BOOLEAN,
-    allowNull: false,
-    defaultValue: false,
-    field: 'deleted_by_buyer',
-    comment: 'Buyer has deleted this conversation from their view'
-  },
-
-  deletedBySeller: {
-    type: DataTypes.BOOLEAN,
-    allowNull: false,
-    defaultValue: false,
-    field: 'deleted_by_seller',
-    comment: 'Seller has deleted this conversation from their view'
-  },
-
-  // CONVERSATION STATUS
-  // active: Normal ongoing conversation
-  // archived: User has archived (not deleted) the conversation
-  // blocked: One user has blocked the other (future feature)
-
-  status: {
-    type: DataTypes.ENUM('active', 'archived', 'blocked'),
-    allowNull: false,
-    defaultValue: 'active',
-    comment: 'Current status of the conversation'
+    defaultValue: true,
+    comment: 'Whether the conversation is active'
   }
-
 }, {
-  // TABLE OPTIONS
-
-  tableName: 'Conversations',
-  timestamps: true, // Adds createdAt and updatedAt automatically
-  underscored: true, // Use snake_case in database
-
-  // INDEXES for query performance optimization
+  tableName: 'conversations',
+  timestamps: true,
   indexes: [
     {
-      // Find all conversations for a buyer (not deleted)
-      name: 'idx_conversations_buyer',
-      fields: ['buyer_id'],
-      where: {
-        deleted_by_buyer: false
-      }
-    },
-    {
-      // Find all conversations for a seller (not deleted)
-      name: 'idx_conversations_seller',
-      fields: ['seller_id'],
-      where: {
-        deleted_by_seller: false
-      }
-    },
-    {
-      // Find conversation by product
-      name: 'idx_conversations_product',
-      fields: ['product_id']
-    },
-    {
-      // Sort conversations by most recent activity
-      name: 'idx_conversations_last_message',
-      fields: [['last_message_at', 'DESC']]
-    },
-    {
-      // Find conversations by status
-      name: 'idx_conversations_status',
-      fields: ['status']
-    },
-    {
-      // UNIQUE CONSTRAINT: One conversation per buyer-seller-product combo
-      // Prevents duplicate conversations
-      name: 'unique_conversation',
       unique: true,
-      fields: ['product_id', 'buyer_id', 'seller_id']
+      fields: ['buyer_id', 'seller_id', 'listing_id'],
+      name: 'unique_conversation'
+    },
+    {
+      fields: ['buyer_id']
+    },
+    {
+      fields: ['seller_id']
+    },
+    {
+      fields: ['listing_id']
     }
-  ],
+  ]
+});
 
-  // VALIDATION
-  validate: {
-    // Business rule: Buyer and seller must be different users
-    // You can't message yourself about your own product!
-    differentParticipants() {
-      if (this.buyerId === this.sellerId) {
-        throw new Error('Buyer and seller must be different users')
-      }
-    }
-  },
-
-  // HOOKS - Run code before/after certain operations
-  hooks: {
-    // Before creating a conversation, validate that buyer isn't the seller
-    beforeValidate: (conversation) => {
-      if (conversation.buyerId && conversation.sellerId &&
-          conversation.buyerId === conversation.sellerId) {
-        throw new Error('Cannot create conversation: buyer and seller are the same user')
-      }
-    }
-  }
-})
+module.exports = Conversation;
 
 /**
  * INSTANCE METHODS
@@ -334,5 +197,3 @@ Conversation.getConversationsForUser = async function(userId, options = {}) {
     offset
   })
 }
-
-module.exports = Conversation

@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const validator = require('validator');
 const { User } = require('../models');
+const { validatePassword } = require('../utils/passwordValidator');
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -34,15 +35,24 @@ const sendTokenResponse = (user, statusCode, res) => {
   // Create token
   const token = user.getSignedJwtToken ? user.getSignedJwtToken() : generateToken(user.id);
 
+  console.log('🍪 Setting token cookie for user:', user.id);
+
   const options = {
     expires: new Date(
       Date.now() + (process.env.JWT_COOKIE_EXPIRE || 7) * 24 * 60 * 60 * 1000 // 7 days
     ),
     httpOnly: true, // Prevents JavaScript access
     secure: process.env.NODE_ENV === 'production', // HTTPS only in production
-    sameSite: 'strict', // CSRF protection
+    sameSite: 'lax', // Changed from 'strict' to 'lax' for better compatibility
     path: '/'
   };
+
+  console.log('🍪 Cookie options:', {
+    expires: options.expires,
+    httpOnly: options.httpOnly,
+    secure: options.secure,
+    sameSite: options.sameSite
+  });
 
   res
     .status(statusCode)
@@ -88,11 +98,14 @@ const register = async (req, res, next) => {
       });
     }
 
-    // Validate password length
-    if (password.length < 6) {
+    // Enhanced password validation
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
       return res.status(400).json({
         success: false,
-        error: 'Password must be at least 6 characters long'
+        error: passwordValidation.errors[0],
+        allErrors: passwordValidation.errors,
+        strength: passwordValidation.strength
       });
     }
 
@@ -204,6 +217,16 @@ const login = async (req, res, next) => {
       });
     }
 
+    // Check if account is locked
+    if (user.isLocked()) {
+      const lockTimeRemaining = Math.ceil((user.lockUntil - Date.now()) / 1000 / 60);
+      return res.status(423).json({ // 423 Locked
+        success: false,
+        error: `Account is locked due to too many failed login attempts. Please try again in ${lockTimeRemaining} minutes.`,
+        lockedUntil: user.lockUntil
+      });
+    }
+
     // Check if user is active
     if (!user.isActive) {
       return res.status(401).json({
@@ -215,11 +238,25 @@ const login = async (req, res, next) => {
     // Check if password matches
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
+     // Increment failed login attempts
+     await user.incLoginAttempts();
+     
+     const attemptsLeft = 5 - user.loginAttempts;
+     const errorMessage = attemptsLeft > 0
+       ? `Invalid phone number or password. ${attemptsLeft} attempt(s) remaining before account lock.`
+       : 'Invalid phone number or password.';
+     
       return res.status(401).json({
         success: false,
-        error: 'Invalid phone number or password'
+        error: errorMessage,
+        attemptsRemaining: Math.max(0, attemptsLeft)
       });
     }
+
+   // Reset login attempts on successful login
+   if (user.loginAttempts > 0 || user.lockUntil) {
+     await user.resetLoginAttempts();
+   }
 
     // Log admin access attempts
     if (user.role === 'admin') {

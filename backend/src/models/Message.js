@@ -1,28 +1,65 @@
-const { Model, DataTypes } = require('sequelize');
+const { DataTypes } = require('sequelize');
+const sequelize = require('../../config/database');
 
-class Message extends Model {
-  static init(sequelize) {
-    return super.init({
-      // ...existing fields...
-    }, {
-      sequelize,
-      modelName: 'Message',
-      tableName: 'messages',
-      timestamps: true
-    });
+/**
+ * Message Model
+ * Represents individual messages in a conversation
+ */
+const Message = sequelize.define('Message', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  conversation_id: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    references: {
+      model: 'conversations',
+      key: 'id'
+    },
+    onDelete: 'CASCADE'
+  },
+  sender_id: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    references: {
+      model: 'users',
+      key: 'id'
+    }
+  },
+  content: {
+    type: DataTypes.TEXT,
+    allowNull: false,
+    validate: {
+      notEmpty: true,
+      len: [1, 5000]
+    }
+  },
+  isRead: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    comment: 'Whether the message has been read by recipient'
+  },
+  readAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'When the message was read'
   }
-
-  static associate(models) {
-    Message.belongsTo(models.User, {
-      foreignKey: 'sender_id',
-      as: 'sender'
-    });
-
-    Message.belongsTo(models.User, {
-      foreignKey: 'receiver_id',
-      as: 'receiver'
-    });
-  }
-}
+}, {
+  tableName: 'messages',
+  timestamps: true,
+  indexes: [
+    {
+      fields: ['conversation_id', 'createdAt']
+    },
+    {
+      fields: ['sender_id']
+    },
+    {
+      fields: ['isRead']
+    }
+  ]
+});
 
 module.exports = Message;

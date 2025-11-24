@@ -1,49 +1,47 @@
 const { Category, Product } = require('../models');
+const sequelize = require('sequelize');
 
 // @desc    Get all categories
 // @route   GET /api/categories
 // @access  Public
 const getCategories = async (req, res, next) => {
   try {
-    const { includeInactive } = req.query
+    console.log('📥 GET /categories - Query params:', req.query)
     
-    // Build query conditions
-    const whereClause = {}
-    
-    // Only show active categories unless admin requests inactive
-    if (!includeInactive || (req.user && req.user.role !== 'admin')) {
-      whereClause.isActive = true
+    const where = { isActive: true }
+
+    // Allow admin to see inactive categories
+    if (req.query.includeInactive === 'true' && req.user?.role === 'admin') {
+      delete where.isActive
     }
-    
+
     const categories = await Category.findAll({
-      where: whereClause,
+      where,
       order: [['sortOrder', 'ASC'], ['name', 'ASC']],
       attributes: {
         include: [
           [
-            // Count active products in each category
-            require('sequelize').literal(`(
+            sequelize.literal(`(
               SELECT COUNT(*)
-              FROM "Products" AS product
-              WHERE product.category_id = "Category".id
-              AND product.status = 'active'
+              FROM products
+              WHERE products.category_id = Category.id
+              AND products.deleted_at IS NULL
             )`),
             'productCount'
           ]
         ]
       }
-    });
-    
-    console.log(`Found ${categories.length} categories`) // Debug log
-    
+    })
+
+    console.log(`✅ Found ${categories.length} categories`)
+
     res.status(200).json({
       success: true,
-      count: categories.length,
       data: categories
-    });
+    })
   } catch (error) {
-    console.error('Error in getCategories:', error)
-    next(error);
+    console.error('❌ Error fetching categories:', error)
+    next(error)
   }
 };
 

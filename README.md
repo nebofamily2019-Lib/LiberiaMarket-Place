@@ -1,6 +1,20 @@
-# Community E-commerce SPA for Liberia
+# Liberia Marketplace 🇱🇷
 
-A mobile-first, community-focused e-commerce marketplace built as a Single Page Application (SPA) to empower commerce activities in Liberia.
+> Liberia's Premier Community E-commerce Platform
+
+## Overview
+
+- Liberia Marketplace is a secure, user-friendly marketplace designed specifically for the Liberian community. Built with modern web technologies and accessibility in mind.
+
+## Features
+
+✅ **Multi-Role Authentication** - Buyers, Sellers, and Admins
+✅ **Product Listings** - Post and browse items with categories
+✅ **Make Offers** - Negotiate prices directly with sellers
+✅ **Phone Verification** - Secure account verification
+✅ **Real-time Search** - Find products quickly
+✅ **Mobile Responsive** - Works on all devices
+✅ **Security Hardened** - Rate limiting, XSS protection, CSP
 
 ## Project Structure
 
@@ -22,6 +36,18 @@ CommunityE-commerce-SPA-Liberia/
 - **Deployment**: To be configured
 
 ## Getting Started
+
+```bash
+# Clone repository
+- git clone https://github.com/yourusername/libmarket.git
+- cd libmarket
+
+# Install dependencies
+npm run install:all
+
+# Start development servers
+npm run dev
+```
 
 ### Prerequisites
 
@@ -83,3 +109,11 @@ CommunityE-commerce-SPA-Liberia/
 ## Contributing
 
 This project follows mobile-first and accessibility principles to ensure it works well for users in Liberia with varying levels of digital literacy and device capabilities.
+
+## License
+
+MIT License - see LICENSE file for details
+
+---
+
+- **Liberia Marketplace** - Built with ❤️ for Liberia 🇱🇷

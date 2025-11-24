@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../utils/api'
 import HamburgerMenu from '../components/HamburgerMenu'
-import TopNav from '../components/TopNav'
 import '../styles/MyProducts.css'
 
 interface Product {
@@ -26,6 +25,7 @@ const MyProducts = () => {
   const [loading, setLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchMyProducts()
@@ -34,16 +34,51 @@ const MyProducts = () => {
   const fetchMyProducts = async () => {
     try {
       setLoading(true)
+      console.log('📦 Fetching my products - Page:', currentPage)
+      
       const response = await api.get(`/dashboard/my-products?page=${currentPage}&limit=10`)
       
+      console.log('📦 My products response:', response.data)
+      
       if (response.data.success) {
-        setProducts(response.data.data)
+        setProducts(response.data.data || [])
         setTotalPages(response.data.pagination?.totalPages || 1)
+        console.log(`✅ Loaded ${response.data.data?.length || 0} products`)
       }
     } catch (err: any) {
-      console.error('Error fetching my products:', err)
+      console.error('❌ Error fetching my products:', err)
+      setError(err.response?.data?.error || 'Failed to load products')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleEdit = (productId: string) => {
+    console.log('✏️ Editing product:', productId)
+    navigate(`/products/${productId}/edit`)
+  }
+
+  const handleView = (productId: string) => {
+    console.log('👁️ Viewing product:', productId)
+    navigate(`/products/${productId}`)
+  }
+
+  const handleDelete = async (productId: string, productTitle: string) => {
+    if (!window.confirm(`Are you sure you want to delete "${productTitle}"?`)) {
+      return
+    }
+
+    try {
+      console.log('🗑️ Deleting product:', productId)
+      const response = await api.delete(`/products/${productId}`)
+      
+      if (response.data.success) {
+        alert('✅ Product deleted successfully!')
+        fetchMyProducts() // Refresh the list
+      }
+    } catch (err: any) {
+      console.error('❌ Error deleting product:', err)
+      alert(err.response?.data?.error || 'Failed to delete product')
     }
   }
 
@@ -51,7 +86,6 @@ const MyProducts = () => {
     return (
       <div className="my-products-container">
         <HamburgerMenu />
-        <TopNav />
         <div className="loading-state">
           <div className="spinner">⏳</div>
           <p>Loading your products...</p>
@@ -63,18 +97,36 @@ const MyProducts = () => {
   return (
     <div className="my-products-container">
       <HamburgerMenu />
-      <TopNav />
       
       <div className="my-products-content">
         <div className="page-header">
           <h1>📦 My Products</h1>
-          <button 
-            className="btn-add"
-            onClick={() => navigate('/products/add')}
-          >
-            + Add New Product
-          </button>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.9rem', color: '#6b7280' }}>
+              {products.length} product{products.length !== 1 ? 's' : ''}
+            </span>
+            <button 
+              className="btn-add"
+              onClick={() => navigate('/products/add')}
+            >
+              + Add New Product
+            </button>
+          </div>
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <div style={{
+            padding: '1rem',
+            background: '#fee',
+            color: '#dc2626',
+            borderRadius: '8px',
+            marginBottom: '1rem',
+            textAlign: 'center'
+          }}>
+            {error}
+          </div>
+        )}
 
         {products.length > 0 ? (
           <>
@@ -99,6 +151,16 @@ const MyProducts = () => {
                       <span className="detail-label">Location:</span>
                       <span className="detail-value">📍 {product.location}</span>
                     </div>
+                    <div className="detail-item">
+                      <span className="detail-label">Condition:</span>
+                      <span className="detail-value">{product.condition}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="detail-label">Listed:</span>
+                      <span className="detail-value">
+                        {new Date(product.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
                     {product.category && (
                       <div className="detail-item">
                         <span className="detail-label">Category:</span>
@@ -112,15 +174,24 @@ const MyProducts = () => {
                   <div className="product-actions">
                     <button 
                       className="btn-edit"
-                      onClick={() => navigate(`/products/${product.id}/edit`)}
+                      onClick={() => handleEdit(product.id)}
+                      title="Edit this product"
                     >
-                      Edit
+                      ✏️ Edit
                     </button>
                     <button 
                       className="btn-view"
-                      onClick={() => navigate(`/products/${product.id}`)}
+                      onClick={() => handleView(product.id)}
+                      title="View product details"
                     >
-                      View
+                      👁️ View
+                    </button>
+                    <button 
+                      className="btn-delete"
+                      onClick={() => handleDelete(product.id, product.title)}
+                      title="Delete this product"
+                    >
+                      🗑️ Delete
                     </button>
                   </div>
                 </div>

@@ -1,5 +1,7 @@
 const { Product, User, Category } = require('../models')
 const { Op } = require('sequelize')
+const { processAndSaveImage, deleteAllImageSizes } = require('../utils/imageProcessor');
+const logger = require('../utils/logger');
 
 // @desc    Get all products (with pagination & filters)
 // @route   GET /api/products
@@ -13,91 +15,115 @@ const getProducts = async (req, res, next) => {
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20))
     const offset = (page - 1) * limit
 
-    console.log('📄 Pagination:', { page, limit, offset })
-
     // Build where clause
     const where = { status: req.query.status || 'active' }
     
-    if (req.query.category_id) {
-      where.category_id = req.query.category_id
-    }
-
+    // Search query (full-text search on title and description)
     if (req.query.search) {
+      const searchTerm = req.query.search.trim();
       where[Op.or] = [
-        { title: { [Op.iLike]: `%${req.query.search}%` } },
-        { description: { [Op.iLike]: `%${req.query.search}%` } }
-      ]
+        { title: { [Op.like]: `%${searchTerm}%` } },
+        { description: { [Op.like]: `%${searchTerm}%` } }
+      ];
     }
 
+    // Category filter
+    if (req.query.category_id) {
+      where.category_id = req.query.category_id;
+    }
+
+    // Price range filter
+    if (req.query.minPrice || req.query.maxPrice) {
+      where.price = {};
+      if (req.query.minPrice) {
+        where.price[Op.gte] = parseFloat(req.query.minPrice);
+      }
+      if (req.query.maxPrice) {
+        where.price[Op.lte] = parseFloat(req.query.maxPrice);
+      }
+    }
+
+    // Condition filter
+    if (req.query.condition) {
+      where.condition = req.query.condition;
+    }
+
+    // Location filter (exact match for now, distance-based later)
     if (req.query.location) {
-      where.location = { [Op.iLike]: `%${req.query.location}%` }
+      where.location = { [Op.like]: `%${req.query.location}%` };
     }
 
-    console.log('🔍 Where clause:', where)
+    // Sorting
+    let order = [['createdAt', 'DESC']]; // Default: newest first
 
-    // Get products with associations
-    const { count, rows } = await Product.findAndCountAll({
+    if (req.query.sort) {
+      switch (req.query.sort) {
+        case 'price_asc':
+          order = [['price', 'ASC']];
+          break;
+        case 'price_desc':
+          order = [['price', 'DESC']];
+          break;
+        case 'newest':
+          order = [['createdAt', 'DESC']];
+          break;
+        case 'oldest':
+          order = [['createdAt', 'ASC']];
+          break;
+        case 'title':
+          order = [['title', 'ASC']];
+          break;
+        default:
+          order = [['createdAt', 'DESC']];
+      }
+    }
+
+    // Fetch products with pagination
+    const { count, rows: products } = await Product.findAndCountAll({
       where,
-      limit,
-      offset,
-      order: [['createdAt', 'DESC']],
       include: [
         {
           model: Category,
           as: 'category',
-          attributes: ['id', 'name', 'slug', 'icon', 'color'],
-          required: false // Allow products without categories
+          attributes: ['id', 'name', 'icon', 'color']
         },
         {
           model: User,
           as: 'seller',
-          attributes: ['id', 'name', 'phone'],
-          required: false // Allow products without sellers (shouldn't happen, but safe)
+          attributes: ['id', 'name', 'phone']
         }
       ],
-      attributes: {
-        exclude: ['deletedAt'] // Don't send soft-deleted timestamp
+      order,
+      limit,
+      offset,
+      distinct: true
+    });
+
+    logger.info('Products fetched', {
+      count: products.length,
+      totalProducts: count,
+      page,
+      filters: {
+        search: req.query.search,
+        category: req.query.category_id,
+        priceRange: [req.query.minPrice, req.query.maxPrice],
+        condition: req.query.condition,
+        location: req.query.location,
+        sort: req.query.sort
       }
-    })
-
-    console.log(`✅ Found ${count} products, returning ${rows.length}`)
-
-    // Format products for frontend
-    const formattedProducts = rows.map(product => ({
-      id: product.id,
-      title: product.title,
-      description: product.description,
-      price: parseFloat(product.price),
-      location: product.location,
-      condition: product.condition,
-      status: product.status,
-      contactPhone: product.contactPhone,
-      images: product.images || [],
-      createdAt: product.createdAt,
-      updatedAt: product.updatedAt,
-      category: product.category ? {
-        id: product.category.id,
-        name: product.category.name,
-        slug: product.category.slug,
-        icon: product.category.icon,
-        color: product.category.color
-      } : null,
-      seller: product.seller ? {
-        id: product.seller.id,
-        name: product.seller.name,
-        phone: product.seller.phone
-      } : null
-    }))
+    });
 
     res.status(200).json({
       success: true,
-      data: formattedProducts,
+      count: products.length,
+      totalProducts: count,
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(count / limit),
-        totalItems: count,
-        itemsPerPage: limit
-      }
+        hasMore: page < Math.ceil(count / limit),
+        limit
+      },
+      data: products
     })
   } catch (error) {
     console.error('❌ Error fetching products:', error)
@@ -113,14 +139,14 @@ const getProduct = async (req, res, next) => {
     const product = await Product.findByPk(req.params.id, {
       include: [
         {
-          model: User,
-          as: 'seller',
-          attributes: ['id', 'name', 'phone']
-        },
-        {
           model: Category,
           as: 'category',
           attributes: ['id', 'name', 'slug', 'icon', 'color']
+        },
+        {
+          model: User,
+          as: 'seller',
+          attributes: ['id', 'name', 'phone']
         }
       ]
     })
@@ -137,7 +163,7 @@ const getProduct = async (req, res, next) => {
       data: product
     })
   } catch (error) {
-    console.error('Error in getProduct:', error)
+    console.error('❌ Error fetching product:', error)
     next(error)
   }
 }
@@ -151,7 +177,7 @@ const createProduct = async (req, res, next) => {
     console.log('Body:', req.body)
     console.log('User:', req.user)
     
-    const { title, description, price, category_id, location, condition, contactPhone, tags, isNegotiable } = req.body
+    const { title, description, price, category_id, location, condition, contactPhone } = req.body
 
     // Use defaults if fields are missing
     const timestamp = Date.now()
@@ -180,13 +206,28 @@ const createProduct = async (req, res, next) => {
       }
     }
 
-    // Parse tags if sent as JSON string
-    let parsedTags = tags
-    if (typeof tags === 'string' && tags.startsWith('[')) {
-      try {
-        parsedTags = JSON.parse(tags)
-      } catch (err) {
-        console.warn('Failed to parse tags JSON, using as-is')
+    // Process uploaded images
+    let imageUrls = [];
+    if (req.files && req.files.length > 0) {
+      logger.info('Processing product images', { count: req.files.length });
+      
+      for (const file of req.files) {
+        try {
+          const images = await processAndSaveImage(file.buffer, file.originalname, 'products');
+          // Store original size URL (thumbnail and medium are derived)
+          imageUrls.push(images.original);
+          
+          logger.info('Image processed successfully', {
+            original: file.originalname,
+            url: images.original
+          });
+        } catch (imgError) {
+          logger.error('Failed to process image', {
+            error: imgError.message,
+            file: file.originalname
+          });
+          // Continue with other images
+        }
       }
     }
 
@@ -206,13 +247,17 @@ const createProduct = async (req, res, next) => {
       location: productLocation.trim(),
       condition: condition || 'good',
       contactPhone: productContactPhone.trim(),
-      tags: parsedTags,
-      isNegotiable: isNegotiable === 'true' || isNegotiable === true,
+      images: imageUrls.length > 0 ? imageUrls : null,
       seller_id: req.user.id,
       status: 'active'
     })
 
-    console.log('Product created successfully:', product.id)
+    logger.info('Product created', {
+      id: product.id,
+      title: product.title,
+      seller: req.user.id,
+      imageCount: imageUrls.length
+    });
 
     res.status(201).json({
       success: true,
@@ -285,21 +330,37 @@ const deleteProduct = async (req, res, next) => {
     }
 
     // Check if user owns the product
-    if (product.seller_id !== req.user.id) {
+    if (product.seller_id !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         error: 'Not authorized to delete this product'
       })
     }
 
+    // Delete associated images
+    if (product.images && Array.isArray(product.images)) {
+      logger.info('Deleting product images', {
+        productId: product.id,
+        imageCount: product.images.length
+      });
+      
+      for (const imageUrl of product.images) {
+        await deleteAllImageSizes(imageUrl);
+      }
+    }
+
     await product.destroy()
+
+    logger.info('Product deleted', {
+      id: product.id,
+      title: product.title
+    });
 
     res.status(200).json({
       success: true,
       message: 'Product deleted successfully'
     })
   } catch (error) {
-    console.error('Error in deleteProduct:', error)
     next(error)
   }
 }
@@ -309,43 +370,39 @@ const deleteProduct = async (req, res, next) => {
 // @access  Public
 const getUserProducts = async (req, res, next) => {
   try {
+    const { userId } = req.params
     const page = parseInt(req.query.page) || 1
     const limit = parseInt(req.query.limit) || 100
     const offset = (page - 1) * limit
 
-    const { count, rows: products } = await Product.findAndCountAll({
-      where: { seller_id: req.params.userId },
-      limit,
-      offset,
-      include: [
-        {
-          model: Category,
-          as: 'category',
-          attributes: ['id', 'name', 'slug', 'icon', 'color']
-        }
-      ],
-      order: [['created_at', 'DESC']] // Use snake_case column name
-    })
+    // Build where clause
+    const where = { seller_id: userId }
+    
+    // Only show active products by default
+    if (req.query.status) {
+      where.status = req.query.status
+    } else {
+      where.status = 'active'
+    }
+    
+    // Filter out test products (products with titles starting with "Test Product")
+    where.title = { [Op.notLike]: 'Test Product%' }
+    
+    if (req.query.category_id) {
+      where.category_id = req.query.category_id
+    }
 
-    res.status(200).json({
-      success: true,
-      count: products.length,
-      total: count,
-      page,
-      pages: Math.ceil(count / limit),
-      data: products
-    })
-  } catch (error) {
-    console.error('Error in getUserProducts:', error)
-    next(error)
-  }
-}
+    if (req.query.search) {
+      where[Op.or] = [
+        { title: { [Op.like]: `%${req.query.search}%` } },
+        { description: { [Op.like]: `%${req.query.search}%` } }
+      ]
+    }
 
-module.exports = {
-  getProducts,
-  getProduct,
-  createProduct,
-  updateProduct,
-  deleteProduct,
-  getUserProducts
-}
+    if (req.query.location) {
+      where.location = { [Op.like]: `%${req.query.location}%` }
+    }
+
+    console.log('🔍 Where clause:', JSON.stringify(where, null, 2))
+
+    const { count, rows } = await Product.findAnd

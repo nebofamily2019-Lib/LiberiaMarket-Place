@@ -93,6 +93,15 @@ class User extends Model {
       resetPasswordExpire: {
         type: DataTypes.DATE,
         allowNull: true
+      },
+      loginAttempts: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
+        allowNull: false
+      },
+      lockUntil: {
+        type: DataTypes.DATE,
+        allowNull: true
       }
     }, {
       sequelize,
@@ -128,29 +137,10 @@ class User extends Model {
   }
 
   static associate(models) {
-    User.hasMany(models.Product, {
+    // ONLY Product relationship - remove ALL other associations
+    this.hasMany(models.Product, {
       foreignKey: 'seller_id',
       as: 'products'
-    });
-
-    User.hasMany(models.Job, {
-      foreignKey: 'userId',
-      as: 'jobs'
-    });
-
-    User.hasMany(models.Notification, {
-      foreignKey: 'userId',
-      as: 'notifications'
-    });
-
-    User.hasMany(models.Message, {
-      foreignKey: 'sender_id',
-      as: 'sentMessages'
-    });
-
-    User.hasMany(models.Message, {
-      foreignKey: 'receiver_id',
-      as: 'receivedMessages'
     });
   }
 
@@ -176,6 +166,41 @@ class User extends Model {
     const updatedRoles = currentRoles.filter(r => r !== role);
     this.roles = updatedRoles;
     await this.save();
+  }
+
+  // Method to check if account is locked
+  isLocked() {
+    return !!(this.lockUntil && this.lockUntil > Date.now());
+  }
+
+  // Method to increment login attempts
+  async incLoginAttempts() {
+    // If lock has expired, reset attempts
+    if (this.lockUntil && this.lockUntil < Date.now()) {
+      return this.update({
+        loginAttempts: 1,
+        lockUntil: null
+      });
+    }
+
+    // Otherwise increment attempts
+    const updates = { loginAttempts: this.loginAttempts + 1 };
+
+    // Lock account after 5 failed attempts
+    if (this.loginAttempts + 1 >= 5 && !this.lockUntil) {
+      updates.lockUntil = Date.now() + 15 * 60 * 1000; // 15 minutes
+      console.warn(`🔒 Account locked: ${this.phone} after 5 failed attempts`);
+    }
+
+    return this.update(updates);
+  }
+
+  // Method to reset login attempts
+  async resetLoginAttempts() {
+    return this.update({
+      loginAttempts: 0,
+      lockUntil: null
+    });
   }
 }
 

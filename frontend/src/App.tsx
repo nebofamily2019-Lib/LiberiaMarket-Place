@@ -1,127 +1,134 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider, useAuth } from './context/AuthContext'
-import ErrorBoundary from './components/ErrorBoundary'
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
+import ErrorBoundary from './components/ErrorBoundary'
+import { ToastProvider } from './context/ToastContext'
+import ToastContainer from './components/ToastContainer'
 
-// Pages
+// Import all pages
 import Home from './pages/Home'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import Products from './pages/Products'
+import ProductDetails from './pages/ProductDetails'
 import AddProduct from './pages/AddProduct'
-import AdminLogin from './pages/AdminLogin'
-import AdminDashboard from './pages/AdminDashboard'
 import MyProducts from './pages/MyProducts'
-import MyPurchases from './pages/MyPurchases'
-import BrowseProducts from './pages/BrowseProducts'
-
-// Create a component to handle the root route logic
-const RootRedirect = () => {
-  const { isAuthenticated, user, loading } = useAuth()
-
-  if (loading) {
-    return <div style={{ 
-      display: 'flex', 
-      justifyContent: 'center', 
-      alignItems: 'center', 
-      minHeight: '100vh' 
-    }}>
-      <div style={{ fontSize: '3rem' }}>⏳</div>
-    </div>
-  }
-
-  // If authenticated, redirect based on role
-  if (isAuthenticated && user) {
-    if (user.role === 'admin') {
-      return <Navigate to="/admin/dashboard" replace />
-    }
-    return <Navigate to="/dashboard" replace />
-  }
-
-  // If not authenticated, show the beautiful home page
-  return <Home />
-}
+import Categories from './pages/Categories'
+import BuyerInbox from './pages/BuyerInbox'
+import SellerInbox from './pages/SellerInbox'
+import Messages from './pages/Messages'
+import MessageThread from './pages/MessageThread'
 
 function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <Router>
-          <Routes>
-            {/* Root - Show Home or redirect based on auth status */}
-            <Route path="/" element={<RootRedirect />} />
-            
-            {/* Public Routes */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/admin/login" element={<AdminLogin />} />
-            <Route path="/browse-products" element={<BrowseProducts />} />
-            
-            {/* Protected Routes - Any authenticated user */}
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/products"
-              element={
-                <ProtectedRoute>
-                  <ErrorBoundary>
-                    <Products />
-                  </ErrorBoundary>
-                </ProtectedRoute>
-              }
-            />
-            
-            {/* Protected Routes - Seller/Admin only */}
-            <Route
-              path="/products/add"
-              element={
-                <ProtectedRoute requiredRole="seller">
-                  <AddProduct />
-                </ProtectedRoute>
-              }
-            />
-            
-            {/* Protected Routes - Admin only */}
-            <Route
-              path="/admin/dashboard"
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <AdminDashboard />
-                </ProtectedRoute>
-              }
-            />
-            
-            {/* Seller's product management */}
-            <Route
-              path="/my-products"
-              element={
-                <ProtectedRoute requiredRole="seller">
-                  <MyProducts />
-                </ProtectedRoute>
-              }
-            />
-            
-            {/* Buyer's purchase history */}
-            <Route
-              path="/my-purchases"
-              element={
-                <ProtectedRoute>
-                  <MyPurchases />
-                </ProtectedRoute>
-              }
-            />
-            
-            {/* Catch all - redirect to home */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Router>
+        <ToastProvider>
+          <Router>
+            <ToastContainer />
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/" element={<Home />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              
+              {/* Public Product Browsing */}
+              <Route path="/products" element={<Products />} />
+              <Route path="/products/:id" element={<ProductDetails />} />
+              <Route path="/categories" element={<Categories />} />
+              
+              {/* Protected Routes */}
+              <Route 
+                path="/dashboard" 
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/products/add" 
+                element={
+                  <ProtectedRoute allowedRoles={['seller', 'admin']}>
+                    <AddProduct />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/my-products" 
+                element={
+                  <ProtectedRoute allowedRoles={['seller', 'admin']}>
+                    <MyProducts />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/buyer/inbox" 
+                element={
+                  <ProtectedRoute allowedRoles={['buyer', 'admin']}>
+                    <BuyerInbox />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/seller/inbox" 
+                element={
+                  <ProtectedRoute allowedRoles={['seller', 'admin']}>
+                    <SellerInbox />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/messages" 
+                element={
+                  <ProtectedRoute>
+                    <Messages />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/messages/:id" 
+                element={
+                  <ProtectedRoute>
+                    <MessageThread />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Catch-all route for debugging */}
+              <Route 
+                path="*" 
+                element={
+                  <div style={{ 
+                    padding: '2rem', 
+                    textAlign: 'center',
+                    minHeight: '100vh',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <h1>404 - Page Not Found</h1>
+                    <p>Current path: {window.location.pathname}</p>
+                    <button onClick={() => window.location.href = '/'}>
+                      Go Home
+                    </button>
+                    <button onClick={() => window.location.href = '/register'}>
+                      Go to Register
+                    </button>
+                  </div>
+                } 
+              />
+            </Routes>
+          </Router>
+        </ToastProvider>
       </AuthProvider>
     </ErrorBoundary>
   )

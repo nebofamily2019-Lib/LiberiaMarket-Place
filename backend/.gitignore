@@ -62,6 +62,10 @@ build/
 uploads/
 public/uploads/
 
+# Uploaded images (don't commit)
+uploads/**
+!uploads/.gitkeep
+
 # ============================================
 # OS Files
 # ============================================

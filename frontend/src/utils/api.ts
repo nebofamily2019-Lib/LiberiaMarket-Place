@@ -2,20 +2,40 @@ import axios from 'axios'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
-  withCredentials: true,
+  withCredentials: true, // Important for cookies
   headers: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json'
-  }
+  },
+  timeout: 10000, // 10 second timeout
 })
+
+// Store CSRF token
+let csrfToken: string | null = null
+
+// Fetch CSRF token on app load
+export const fetchCsrfToken = async () => {
+  try {
+    const response = await api.get('/csrf-token')
+    csrfToken = response.data.csrfToken
+    console.log('🔒 CSRF token fetched')
+  } catch (error) {
+    console.error('❌ Failed to fetch CSRF token:', error)
+  }
+}
 
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    // Log requests in development (except auth checks)
-    if (import.meta.env.DEV && config.url !== '/auth/me') {
-      console.log('📡 API Request:', config.method?.toUpperCase(), config.url)
+    console.log('📡 API Request:', config.method?.toUpperCase(), config.url)
+    console.log('🍪 Cookies will be sent:', document.cookie ? 'Yes' : 'No')
+    
+    // Add CSRF token to non-GET requests
+    if (config.method && !['get', 'head', 'options'].includes(config.method.toLowerCase())) {
+      if (csrfToken) {
+        config.headers['X-CSRF-Token'] = csrfToken
+      }
     }
+    
     return config
   },
   (error) => {
@@ -26,37 +46,30 @@ api.interceptors.request.use(
 // Response interceptor
 api.interceptors.response.use(
   (response) => {
-    // Log successful responses in development
-    if (import.meta.env.DEV && response.config.url !== '/auth/me') {
-      console.log('✅ API Response:', response.status, response.config.url)
-    }
-    return response
+    // console.log('✅ API Response:', response.status, response.config.url);
+    return response;
   },
   (error) => {
-    // Completely suppress 401 errors from showing in console
-    // These are expected when checking auth status
-    if (error.response?.status === 401) {
-      // Only log 401 if it's NOT from /auth/me (unexpected 401s)
-      if (error.config?.url !== '/auth/me') {
-        console.error('❌ 401 Unauthorized:', error.config?.url)
-        console.error('Response:', error.response?.data)
-      }
-      // Create a clean error without console spam
-      const cleanError = new Error('Unauthorized')
-      Object.assign(cleanError, error)
-      return Promise.reject(cleanError)
+    const status = error.response?.status
+    const url = error.config?.url
+    const message = error.response?.data?.error || error.message
+
+    // Only log non-401 errors (401 is expected when not logged in)
+    if (status !== 401) {
+      console.error('❌ API Error:', { status, message, url })
     }
-    
-    // Log other errors
-    if (error.response) {
-      console.error('❌ API Error:', {
-        status: error.response.status,
-        message: error.response.data?.error || error.message,
-        url: error.config?.url
-      })
+
+    // Handle 401 specifically
+    if (status === 401 && url !== '/auth/me') {
+      console.warn('⚠️ Session expired or invalid. Redirecting to login...')
+      window.location.href = '/login'
     }
-    
-    return Promise.reject(error)
+
+    return Promise.reject({
+      status,
+      message,
+      url
+    })
   }
 )
 

@@ -73,26 +73,33 @@ class Product extends Model {
         validate: {
           isIn: [['active', 'sold', 'inactive', 'pending']]
         }
+      },
+      deleted_at: {
+        type: DataTypes.DATE,
+        allowNull: true
       }
     }, {
       sequelize,
       modelName: 'Product',
       tableName: 'products',
       timestamps: true,
-      paranoid: true
+      underscored: false, // IMPORTANT: Set to false to use camelCase (deletedAt)
+      paranoid: true, // Enables soft deletes
     })
   }
 
   static associate(models) {
-    Product.belongsTo(models.Category, {
-      foreignKey: 'category_id',
-      as: 'category'
-    })
-
-    Product.belongsTo(models.User, {
+    this.belongsTo(models.User, {
       foreignKey: 'seller_id',
       as: 'seller'
-    })
+    });
+
+    this.belongsTo(models.Category, {
+      foreignKey: 'category_id',
+      as: 'category'
+    });
+
+    // REMOVED: Offer association (using raw SQL queries in controller instead)
   }
 }
 

@@ -1,0 +1,231 @@
+# 1. Pull and merge
+git pull origin main --allow-unrelated-histories
+
+# 2. If merge conflicts occur, resolve them in VS Code
+# 3. Stage resolved files
+git add .
+
+# 4. Commit the merge
+git commit -m "merge: integrate remote changes with local LibMarket MPVP"
+
+# 5. Push
+git push origin main
+
+Internal Database URL
+All of your Render services in the same region can communicate internally over their private network.
+
+postgresql://libmarket_user:05lhsI4AJSDxD99lCA61qohsMbx5vvOL@dpg-d4cmhridbo4c73dbo5u0-a/libmarket_db
+
+
+💡 What Do You Want to Tackle First?
+Choose your path:
+
+🔒 "Let's secure the app" → I'll implement all security features
+📸 "Let's fix images" → I'll build image processing
+💬 "Let's add messaging" → I'll create the chat system
+🔍 "Let's improve search" → I'll enhance product discovery
+📦 "Show me all must-haves" → I'll list everything in priority order
+Just tell me which number (1-5) and I'll start coding! 🚀
+
+
+Next steps - Would you like to:
+
+📸 Build image processing (Option 2)
+
+KEEP This DIRECTORY in git
+
+### [.gitignore](file:///c%3A/Users/Maeyen/CommunityE-commerce-SPA-Liberia/backend/.gitignore)
+
+<vscode_codeblock_uri isEdit>file:///c%3A/Users/Maeyen/CommunityE-commerce-SPA-Liberia/backend/.gitignore</vscode_codeblock_uri>`
+
+Installation & Testing
+
+# Install dependencies
+cd backend
+npm install sharp multer
+
+# Create uploads directory
+mkdir -p uploads/products
+
+# Restart server
+npm run dev
+
+# Test image upload
+# 1. Go to http://localhost:5173/products/add
+# 2. Fill in product details
+# 3. Upload 1-5 images (JPEG, PNG, WebP, GIF)
+# 4. Submit form
+# 5. Images will be processed and saved!
+
+Image URLs Generated:
+
+// For each uploaded image, you get:
+{
+  original: "/uploads/products/my-image-1234567890-abc123-original.jpg",  // 1200px
+  medium: "/uploads/products/my-image-1234567890-abc123-medium.jpg",      // 800px
+  thumbnail: "/uploads/products/my-image-1234567890-abc123-thumbnail.jpg" // 300px
+}
+
+// Only original URL is stored in database
+// Other sizes derived by replacing "-original" with "-medium" or "-thumbnail"
+
+File Structure:
+
+backend/
+├── uploads/
+│   └── products/
+│       ├── laptop-1703001234-abc123-original.jpg   (1200px, 90% quality)
+│       ├── laptop-1703001234-abc123-medium.jpg     (800px, 85% quality)
+│       └── laptop-1703001234-abc123-thumbnail.jpg  (300px, 80% quality)
+
+💬 Create messaging system (Option 3)
+
+Real-Time Messaging System for buyer-seller communication. 
+REST-based system (WebSocket for real-time can be added post-POC)
+
+
+🔍 Enhance search (Option 4)
+
+📋 Review TODO progress (Option 5)
+
+
+
+ WHAT DO YOU WANT TO DO?
+Choose Your Path:
+Option 1: "Let's finish messaging UI NOW" (Most Critical)
+
+I'll create MessageThread.tsx
+Add "Contact Seller" button
+Wire up everything
+Test the flow
+Option 2: "Show me what to test" (Quality Check)
+
+I'll create testing checklist
+Guide you through manual testing
+Help fix any bugs found
+Option 3: "Let's complete all Tier 1" (Full Sprint)
+
+Messaging UI
+Toast notifications
+Database migrations
+Error handling
+Ready to test!
+Option 4: "I want to test what we have" (Validate Now)
+
+Test security features
+Test image upload
+Test search filters
+Document any issues
+Option 5: "Skip to deployment setup" (Infrastructure)
+
+Create .env.example
+Write deployment guide
+Set up production checklist
+Just tell me 1, 2, 3, 4, or 5 and I'll start immediately! 🚀💪
+
+
+
+📋 COMPLETE TODO CHECKLIST
+[ ] 1. Complete messaging UI (MessageThread component)
+[ ] 2. Run all database migrations
+[ ] 3. Add toast notifications
+[ ] 4. Test entire user flow (register → browse → message → buy)
+[ ] 5. Fix any broken links/pages
+[ ] 6. Test on mobile device
+
+Before POC Launch (Week 1):
+
+[ ] 7. Add in-app notifications
+[ ] 8. Implement report system
+[ ] 9. Build admin user management
+[ ] 10. Create .env.example
+[ ] 11. Write deployment docs
+[ ] 12. Manual testing all features
+[ ] 13. Fix critical bugs
+
+ Post-POC (After User Feedback):
+
+[ ] 14. Add email verification
+[ ] 15. Add SMS verification (Africa's Talking)
+[ ] 16. Implement ratings/reviews
+[ ] 17. Add advanced analytics
+[ ] 18. Location-based search with radius
+[ ] 19. Upgrade to WebSocket
+[ ] 20. Add social login
+[ ] 21. Migrate to PostgreSQL
+[ ] 22. Migrate to AWS S3
+[ ] 23. Add CDN
+[ ] 24. Implement 2FA
+
+⏱️ TIME BREAKDOWN
+Critical Path (Must Do Now):
+✅ Security Hardening: 4-5 days (DONE!)
+✅ Image Processing: 2-3 days (DONE!)
+✅ Messaging Backend: 3-4 days (DONE!)
+✅ Enhanced Search: 1 day (DONE!)
+❌ Messaging UI: 4-6 hours (TODO)
+❌ Database Migrations: 15 mins (TODO)
+❌ Error Handling: 3-4 hours (TODO)
+\
+\
+Total Remaining: ~8-11 hours (1 day)
+
+POC Ready (Week 1):
+
+❌ Notifications: 4-5 hours
+❌ Reports: 4-5 hours
+❌ Admin Tools: 3-4 hours
+❌ Env Setup: 2-3 hours
+❌ Testing: 4-6 hours
+
+
+MY RECOMMENDATION: 2-Day Sprint
+DAY 1 (Today):
+
+Morning:
+✅ Complete messaging UI (4-6 hours)
+✅ Run database migrations (15 mins)
+✅ Add toast notifications (3-4 hours)
+
+Your messaging system is now fully functional! 🎉💬
+Next Critical Steps:
+⏰ Database Migrations (15 mins)
+🎨 Toast Notifications (3-4 hours)
+Want me to tackle those next? Just say "2" for migrations or "3" for toast notifications! 🚀
+How to Test:
+
+# Make sure backend is running
+cd backend
+npm run dev
+
+# Frontend should be running
+# Test flow:
+
+1. Login as Buyer (User A)
+2. Go to /products
+3. Click any product
+4. Click "💬 Message Seller"
+5. Type message, press Enter
+6. Open another browser/incognito
+7. Login as Seller (User B - the product owner)
+8. Go to /messages
+9. See the conversation with unread badge
+10. Click conversation
+11. Reply to message
+12. Switch back to Buyer browser
+13. See new message appear (within 5 seconds)
+
+Afternoon:
+✅ Test messaging flow end-to-end
+✅ Fix any critical bugs found
+
+DAY 2 (Tomorrow):
+\
+Morning:
+✅ Add in-app notifications (4-5 hours)
+✅ Implement report system (4-5 hours)
+
+Afternoon:
+✅ Build admin user management (3-4 hours)
+✅ Full app testing
+✅ Create deployment docs

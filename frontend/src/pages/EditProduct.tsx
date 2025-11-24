@@ -1,610 +1,255 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import productService from '../services/productService'
-import categoryService from '../services/categoryService'
 import { useAuth } from '../context/AuthContext'
-import LocationSelector from '../components/LocationSelector'
-import PhoneInput from '../components/PhoneInput'
-import { getPaymentMethods, type PaymentMethod } from '../data/paymentMethods'
+import api from '../utils/api'
+import HamburgerMenu from '../components/HamburgerMenu'
+import '../styles/AddProduct.css'
 
-interface ProductForm {
-  title: string
-  description: string
-  price: string
-  category: string
-  condition: string
-  county: string
-  city: string
-  phone: string
-  isNegotiable: boolean
-  paymentMethods: string[]
-  image: File | null
+interface Category {
+  id: string
+  name: string
+  icon: string
+  color: string
 }
 
 const EditProduct = () => {
+  const { id } = useParams()
   const navigate = useNavigate()
-  const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
-  const [formData, setFormData] = useState<ProductForm>({
+  const [categories, setCategories] = useState<Category[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  
+  const [formData, setFormData] = useState({
     title: '',
     description: '',
     price: '',
-    category: '',
-    condition: 'new',
-    county: '',
-    city: '',
-    phone: user?.phone || '',
-    isNegotiable: true,
-    paymentMethods: ['cash-on-delivery', 'cash-on-pickup'],
-    image: null
+    category_id: '',
+    location: 'Monrovia',
+    condition: 'good',
   })
-  const [loading, setLoading] = useState(false)
-  const [loadingProduct, setLoadingProduct] = useState(true)
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const [categories, setCategories] = useState<Array<{ value: string; label: string }>>([
-    { value: '', label: 'Select a category' }
-  ])
-  const [availablePaymentMethods] = useState<PaymentMethod[]>(getPaymentMethods())
 
-  // Fetch product data
   useEffect(() => {
-    const fetchProduct = async () => {
-      if (!id) {
-        navigate('/profile')
-        return
-      }
+    fetchProduct()
+    fetchCategories()
+  }, [id])
 
-      try {
-        setLoadingProduct(true)
-        const product = await productService.getProduct(id)
-
-        // Check if user owns this product
-        if (product.seller_id !== user?.id) {
-          setErrors({ submit: 'You do not have permission to edit this product' })
-          setTimeout(() => navigate('/profile'), 2000)
+  const fetchProduct = async () => {
+    try {
+      setLoading(true)
+      console.log('📦 Fetching product:', id)
+      
+      const response = await api.get(`/products/${id}`)
+      
+      if (response.data.success) {
+        const product = response.data.data
+        
+        // Check if user can edit
+        const isAdmin = user?.roles?.includes('admin')
+        const isOwner = product.seller_id === user?.id
+        
+        if (!isAdmin && !isOwner) {
+          alert('❌ You do not have permission to edit this product')
+          navigate('/dashboard')
           return
         }
-
-        // Parse location into county and city
-        const [city, county] = product.location?.split(', ') || ['', '']
-
+        
         setFormData({
-          title: product.title || '',
-          description: product.description || '',
-          price: product.price?.toString() || '',
-          category: product.category_id || '',
-          condition: product.condition || 'new',
-          county: county || '',
-          city: city || '',
-          phone: product.contactPhone || user?.phone || '',
-          isNegotiable: product.isNegotiable ?? true,
-          paymentMethods: [],
-          image: null
+          title: product.title,
+          description: product.description,
+          price: product.price.toString(),
+          category_id: product.category_id || '',
+          location: product.location,
+          condition: product.condition,
         })
-      } catch (error: any) {
-        console.error('Error fetching product:', error)
-        setErrors({ submit: error.message || 'Failed to load product. Please try again.' })
-      } finally {
-        setLoadingProduct(false)
       }
-    }
-
-    fetchProduct()
-  }, [id, user, navigate])
-
-  // Fetch categories from API
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const categoriesData = await categoryService.getCategories()
-
-        if (categoriesData && categoriesData.length > 0) {
-          const categoryOptions = categoriesData.map(cat => ({
-            value: cat.id,
-            label: `${cat.icon || ''} ${cat.name}`.trim()
-          }))
-          setCategories([{ value: '', label: 'Select a category' }, ...categoryOptions])
-        } else {
-          setCategories([{ value: '', label: 'No categories available - Please contact admin' }])
-        }
-      } catch (error) {
-        console.error('Error fetching categories:', error)
-        setCategories([
-          { value: '', label: 'Error loading categories - Please refresh the page' }
-        ])
-        setErrors(prev => ({
-          ...prev,
-          submit: 'Unable to load categories. Please refresh the page or contact support.'
-        }))
-      }
-    }
-
-    fetchCategories()
-  }, [])
-
-  const conditions = [
-    { value: 'new', label: 'New' },
-    { value: 'like-new', label: 'Like New' },
-    { value: 'good', label: 'Good' },
-    { value: 'fair', label: 'Fair' },
-    { value: 'poor', label: 'Poor' }
-  ]
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }))
-    }
-  }
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null
-    setFormData(prev => ({ ...prev, image: file }))
-  }
-
-  const handlePaymentMethodToggle = (methodId: string) => {
-    setFormData(prev => {
-      const isSelected = prev.paymentMethods.includes(methodId)
-      const newPaymentMethods = isSelected
-        ? prev.paymentMethods.filter(m => m !== methodId)
-        : [...prev.paymentMethods, methodId]
-      return { ...prev, paymentMethods: newPaymentMethods }
-    })
-  }
-
-  const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {}
-
-    if (!formData.title.trim()) {
-      newErrors.title = 'Product title is required'
-    }
-
-    if (!formData.description.trim()) {
-      newErrors.description = 'Product description is required'
-    }
-
-    if (!formData.price.trim()) {
-      newErrors.price = 'Price is required'
-    } else if (isNaN(Number(formData.price)) || Number(formData.price) <= 0) {
-      newErrors.price = 'Please enter a valid price'
-    }
-
-    if (!formData.category) {
-      newErrors.category = 'Please select a category'
-    }
-
-    if (!formData.county) {
-      newErrors.county = 'County is required'
-    }
-
-    if (!formData.city) {
-      newErrors.city = 'City/Town is required'
-    }
-
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!validateForm() || !id) {
-      return
-    }
-
-    setLoading(true)
-
-    try {
-      const contactPhone = formData.phone || user?.phone || ''
-
-      const productData = {
-        title: formData.title,
-        description: formData.description,
-        price: parseFloat(formData.price),
-        category_id: formData.category,
-        location: `${formData.city}, ${formData.county}`,
-        condition: formData.condition as 'new' | 'like-new' | 'good' | 'fair' | 'poor',
-        isNegotiable: formData.isNegotiable,
-        contactPhone: contactPhone
-      }
-
-      // Update product via API
-      await productService.updateProduct(id, productData, formData.image || undefined)
-
-      // Navigate to the product detail page
-      navigate(`/products/${id}`)
-    } catch (error: any) {
-      console.error('Error updating product:', error)
-      setErrors({ submit: error.message || 'Failed to update product. Please try again.' })
+    } catch (err: any) {
+      console.error('❌ Error fetching product:', err)
+      setError(err.response?.data?.error || 'Failed to load product')
     } finally {
       setLoading(false)
     }
   }
 
-  if (loadingProduct) {
+  const fetchCategories = async () => {
+    try {
+      const response = await api.get('/categories')
+      if (response.data.success) {
+        setCategories(response.data.data)
+      }
+    } catch (err: any) {
+      console.error('Error fetching categories:', err)
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setSaving(true)
+
+    try {
+      console.log('💾 Updating product:', id, formData)
+      
+      const response = await api.put(`/products/${id}`, {
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        price: parseFloat(formData.price),
+        category_id: formData.category_id,
+        location: formData.location,
+        condition: formData.condition,
+      })
+
+      if (response.data.success) {
+        alert('✅ Product updated successfully!')
+        navigate('/my-products')
+      }
+    } catch (err: any) {
+      console.error('❌ Error updating product:', err)
+      setError(err.response?.data?.error || 'Failed to update product')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) {
     return (
-      <div className="container" style={{ paddingTop: '40px', textAlign: 'center' }}>
-        <h2>Loading product...</h2>
+      <div className="add-product-container">
+        <HamburgerMenu />
+        <div style={{ padding: '2rem', textAlign: 'center' }}>
+          <div style={{ fontSize: '3rem' }}>⏳</div>
+          <p>Loading product...</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="container" style={{ paddingTop: '40px' }}>
-      <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-        <h1 style={{ fontSize: '2rem', marginBottom: '8px', color: '#007bff' }}>
-          Edit Product
-        </h1>
-        <p style={{ color: '#666', marginBottom: '32px' }}>
-          Update your product details below
-        </p>
+    <div className="add-product-container">
+      <HamburgerMenu />
+      
+      <div className="add-product-content">
+        <div className="page-header">
+          <h1>✏️ Edit Product</h1>
+          <p className="subtitle">Update your product listing</p>
+        </div>
 
-        {errors.submit && (
-          <div style={{
-            padding: '16px',
-            marginBottom: '24px',
-            backgroundColor: '#f8d7da',
-            color: '#721c24',
-            borderRadius: '8px',
-            border: '1px solid #f5c6cb'
-          }}>
-            <strong>Error:</strong> {errors.submit}
+        {error && (
+          <div className="error-banner">
+            ⚠️ {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="card">
+        <form onSubmit={handleSubmit} className="product-form">
           {/* Product Title */}
-          <div style={{ marginBottom: '24px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
-              Product Title *
-            </label>
+          <div className="form-group required">
+            <label htmlFor="title">Product Title *</label>
             <input
+              id="title"
               type="text"
-              name="title"
+              placeholder="e.g. iPhone 13 Pro Max 256GB"
               value={formData.title}
-              onChange={handleInputChange}
-              placeholder="e.g., Fresh Cassava, Traditional Kente Cloth"
-              style={{
-                width: '100%',
-                padding: '12px',
-                border: `1px solid ${errors.title ? '#dc3545' : '#ddd'}`,
-                borderRadius: '4px',
-                fontSize: '16px'
-              }}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              required
+              maxLength={100}
             />
-            {errors.title && (
-              <span style={{ color: '#dc3545', fontSize: '0.8rem' }}>{errors.title}</span>
-            )}
           </div>
 
-          {/* Description */}
-          <div style={{ marginBottom: '24px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
-              Description *
-            </label>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleInputChange}
-              placeholder="Describe your product in detail. Include condition, size, and any other relevant information."
-              rows={4}
-              style={{
-                width: '100%',
-                padding: '12px',
-                border: `1px solid ${errors.description ? '#dc3545' : '#ddd'}`,
-                borderRadius: '4px',
-                fontSize: '16px',
-                resize: 'vertical'
-              }}
-            />
-            {errors.description && (
-              <span style={{ color: '#dc3545', fontSize: '0.8rem' }}>{errors.description}</span>
-            )}
-          </div>
-
-          {/* Price Section with Presets */}
-          <div style={{ marginBottom: '24px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
-              Price (Liberian Dollars) *
-            </label>
-
-            {/* Price Preset Buttons */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
-              gap: '8px',
-              marginBottom: '12px'
-            }}>
-              {[50, 100, 250, 500, 1000, 2500, 5000, 10000].map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => setFormData({ ...formData, price: preset.toString() })}
-                  style={{
-                    padding: '10px',
-                    fontSize: '0.9rem',
-                    fontWeight: 'bold',
-                    backgroundColor: formData.price === preset.toString() ? '#007bff' : '#f8f9fa',
-                    color: formData.price === preset.toString() ? 'white' : '#333',
-                    border: '2px solid #ddd',
-                    borderRadius: '6px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  L${preset}
-                </button>
-              ))}
-            </div>
-
+          {/* Price */}
+          <div className="form-group required">
+            <label htmlFor="price">Price (USD) *</label>
             <input
+              id="price"
               type="number"
-              name="price"
+              placeholder="0.00"
               value={formData.price}
-              onChange={handleInputChange}
-              placeholder="Or enter custom price"
+              onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+              required
               min="0"
               step="0.01"
-              style={{
-                width: '100%',
-                padding: '12px',
-                border: `1px solid ${errors.price ? '#dc3545' : '#ddd'}`,
-                borderRadius: '4px',
-                fontSize: '16px'
-              }}
             />
-            {errors.price && (
-              <span style={{ color: '#dc3545', fontSize: '0.8rem' }}>{errors.price}</span>
-            )}
           </div>
 
           {/* Category */}
-          <div style={{ marginBottom: '24px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
-              Category *
-            </label>
+          <div className="form-group required">
+            <label htmlFor="category">Category *</label>
             <select
-              name="category"
-              value={formData.category}
-              onChange={handleInputChange}
-              style={{
-                width: '100%',
-                padding: '12px',
-                border: `1px solid ${errors.category ? '#dc3545' : '#ddd'}`,
-                borderRadius: '4px',
-                fontSize: '16px'
-              }}
+              id="category"
+              value={formData.category_id}
+              onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+              required
             >
-              {categories.map(cat => (
-                <option key={cat.value} value={cat.value}>
-                  {cat.label}
+              <option value="">Select a category</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.icon} {category.name}
                 </option>
               ))}
             </select>
-            {errors.category && (
-              <span style={{ color: '#dc3545', fontSize: '0.8rem' }}>{errors.category}</span>
-            )}
+          </div>
+
+          {/* Description */}
+          <div className="form-group">
+            <label htmlFor="description">Description</label>
+            <textarea
+              id="description"
+              placeholder="Describe your product..."
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              rows={4}
+              maxLength={1000}
+            />
+          </div>
+
+          {/* Location */}
+          <div className="form-group">
+            <label htmlFor="location">Location</label>
+            <select
+              id="location"
+              value={formData.location}
+              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+            >
+              <option value="Monrovia">Monrovia</option>
+              <option value="Paynesville">Paynesville</option>
+              <option value="Sinkor">Sinkor</option>
+              <option value="Congo Town">Congo Town</option>
+              <option value="Bushrod Island">Bushrod Island</option>
+              <option value="Red Light">Red Light</option>
+              <option value="Other">Other Location</option>
+            </select>
           </div>
 
           {/* Condition */}
-          <div style={{ marginBottom: '24px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
-              Condition
-            </label>
+          <div className="form-group">
+            <label htmlFor="condition">Condition</label>
             <select
-              name="condition"
+              id="condition"
               value={formData.condition}
-              onChange={handleInputChange}
-              style={{
-                width: '100%',
-                padding: '12px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                fontSize: '16px'
-              }}
+              onChange={(e) => setFormData({ ...formData, condition: e.target.value })}
             >
-              {conditions.map(cond => (
-                <option key={cond.value} value={cond.value}>
-                  {cond.label}
-                </option>
-              ))}
+              <option value="new">New</option>
+              <option value="excellent">Excellent</option>
+              <option value="good">Good</option>
+              <option value="fair">Fair</option>
             </select>
           </div>
 
-          {/* Location Selector */}
-          <div style={{ marginBottom: '24px' }}>
-            <LocationSelector
-              selectedCounty={formData.county}
-              selectedCity={formData.city}
-              onCountyChange={(county) => {
-                setFormData(prev => ({ ...prev, county }))
-                if (errors.county) {
-                  setErrors(prev => ({ ...prev, county: '' }))
-                }
-              }}
-              onCityChange={(city) => {
-                setFormData(prev => ({ ...prev, city }))
-                if (errors.city) {
-                  setErrors(prev => ({ ...prev, city: '' }))
-                }
-              }}
-              required
-              showCityType
-            />
-            {errors.county && (
-              <span style={{ color: '#dc3545', fontSize: '0.8rem', display: 'block', marginTop: '4px' }}>
-                {errors.county}
-              </span>
-            )}
-            {errors.city && (
-              <span style={{ color: '#dc3545', fontSize: '0.8rem', display: 'block', marginTop: '4px' }}>
-                {errors.city}
-              </span>
-            )}
-          </div>
-
-          {/* Phone Number */}
-          <div style={{ marginBottom: '24px' }}>
-            <PhoneInput
-              value={formData.phone}
-              onChange={(value, isValid) => {
-                setFormData(prev => ({ ...prev, phone: value }))
-                if (errors.phone && isValid) {
-                  setErrors(prev => ({ ...prev, phone: '' }))
-                }
-              }}
-              required={false}
-              showValidation
-              showCarrier
-              label="Contact Phone Number (Optional)"
-            />
-            <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '4px' }}>
-              Leave blank to use your registered phone number ({user?.phone || 'not available'})
-            </p>
-            {errors.phone && (
-              <span style={{ color: '#dc3545', fontSize: '0.8rem', display: 'block', marginTop: '4px' }}>
-                {errors.phone}
-              </span>
-            )}
-          </div>
-
-          {/* Price Negotiable Toggle */}
-          <div style={{ marginBottom: '24px' }}>
-            <label style={{
-              display: 'flex',
-              alignItems: 'center',
-              cursor: 'pointer',
-              padding: '12px',
-              backgroundColor: '#f8f9fa',
-              borderRadius: '8px',
-              border: '2px solid #ddd'
-            }}>
-              <input
-                type="checkbox"
-                checked={formData.isNegotiable}
-                onChange={(e) => setFormData(prev => ({ ...prev, isNegotiable: e.target.checked }))}
-                style={{
-                  width: '20px',
-                  height: '20px',
-                  marginRight: '12px',
-                  cursor: 'pointer'
-                }}
-              />
-              <div>
-                <div style={{ fontWeight: 'bold', fontSize: '16px' }}>
-                  Price is Negotiable
-                </div>
-                <div style={{ fontSize: '0.875rem', color: '#666', marginTop: '4px' }}>
-                  Allow buyers to make offers on this item
-                </div>
-              </div>
-            </label>
-          </div>
-
-          {/* Payment Methods */}
-          <div style={{ marginBottom: '24px' }}>
-            <label style={{ display: 'block', marginBottom: '12px', fontWeight: 'bold' }}>
-              Accepted Payment Methods
-            </label>
-            <div style={{
-              display: 'grid',
-              gap: '12px',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))'
-            }}>
-              {availablePaymentMethods.map(method => (
-                <label
-                  key={method.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: '12px',
-                    border: `2px solid ${formData.paymentMethods.includes(method.id) ? '#007bff' : '#ddd'}`,
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    backgroundColor: formData.paymentMethods.includes(method.id) ? '#e7f3ff' : '#fff',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={formData.paymentMethods.includes(method.id)}
-                    onChange={() => handlePaymentMethodToggle(method.id)}
-                    style={{
-                      width: '18px',
-                      height: '18px',
-                      marginRight: '10px',
-                      cursor: 'pointer'
-                    }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: '500', fontSize: '14px' }}>
-                      {method.icon && <span style={{ marginRight: '6px' }}>{method.icon}</span>}
-                      {method.name}
-                    </div>
-                    {method.isPopular && (
-                      <span style={{
-                        fontSize: '0.7rem',
-                        backgroundColor: '#28a745',
-                        color: 'white',
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        marginTop: '4px',
-                        display: 'inline-block'
-                      }}>
-                        Popular
-                      </span>
-                    )}
-                  </div>
-                </label>
-              ))}
-            </div>
-            <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '8px' }}>
-              Select all payment methods you accept. Multiple selections help attract more buyers.
-            </p>
-          </div>
-
-          {/* Image Upload */}
-          <div style={{ marginBottom: '32px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
-              Product Image (Optional)
-            </label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageChange}
-              style={{
-                width: '100%',
-                padding: '12px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                fontSize: '16px'
-              }}
-            />
-            <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '4px' }}>
-              Upload a new photo to replace the existing one. Leave empty to keep current image.
-            </p>
-          </div>
-
           {/* Submit Buttons */}
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+          <div className="form-actions">
             <button
               type="button"
-              className="btn btn-secondary"
-              onClick={() => navigate(`/products/${id}`)}
-              disabled={loading}
+              onClick={() => navigate('/my-products')}
+              className="btn-cancel"
+              disabled={saving}
             >
               Cancel
             </button>
-
             <button
               type="submit"
-              className="btn btn-primary"
-              disabled={loading}
-              style={{ minWidth: '120px' }}
+              className="btn-submit"
+              disabled={saving}
             >
-              {loading ? 'Updating...' : 'Update Product'}
+              {saving ? '⏳ Saving...' : '💾 Save Changes'}
             </button>
           </div>
         </form>
