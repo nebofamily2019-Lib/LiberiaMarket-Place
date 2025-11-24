@@ -399,7 +399,7 @@ describe('Category API Endpoints', () => {
           icon: 'box',
           color: '#3B82F6'
         })
-        .expect(403)
+        .expect(401) // Unauthorized - no auth cookie provided
 
       expect(res.body.success).toBe(false)
     })
@@ -592,7 +592,7 @@ describe('Category API Endpoints', () => {
       const res = await request(app)
         .put(`/api/categories/${categoryId}`)
         .send({ name: 'Updated' })
-        .expect(403)
+        .expect(401) // Unauthorized - no auth cookie provided
 
       expect(res.body.success).toBe(false)
     })
@@ -720,7 +720,7 @@ describe('Category API Endpoints', () => {
     it('should not delete without auth', async () => {
       const res = await request(app)
         .delete(`/api/categories/${categoryId}`)
-        .expect(403)
+        .expect(401) // Unauthorized - no auth cookie provided
 
       expect(res.body.success).toBe(false)
     })
