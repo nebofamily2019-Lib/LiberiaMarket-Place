@@ -1,20 +1,23 @@
 export const designSystem = {
   colors: {
+    // Liberian flag colors: Red, White, Blue, with star
     primary: {
-      50: '#f0f9ff',
-      100: '#e0f2fe',
-      500: '#667eea',
-      600: '#5a67d8',
-      700: '#4c51bf'
+      50: '#eff6ff',   // Very light blue
+      100: '#dbeafe',  // Light blue
+      500: '#1e40af',  // Deep blue (Liberian flag blue)
+      600: '#1e3a8a',  // Darker blue
+      700: '#1e3a8a'   // Navy blue
     },
     secondary: {
-      500: '#f093fb',
-      600: '#e879f9'
+      500: '#dc2626',  // Liberian red (flag red)
+      600: '#b91c1c'   // Darker red
     },
     accent: {
-      orange: '#fd7e14',
-      pink: '#f5576c',
-      green: '#10b981'
+      orange: '#f97316', // Vibrant orange for highlights
+      red: '#dc2626',    // Liberian red
+      blue: '#1e40af',   // Liberian blue
+      green: '#16a34a',  // Success green
+      gold: '#f59e0b'    // Gold for premium/featured items
     },
     neutral: {
       50: '#fafafa',
