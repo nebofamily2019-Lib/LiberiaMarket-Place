@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import api from '../utils/api'
 import HamburgerMenu from '../components/HamburgerMenu'
 import '../styles/Messages.css'
-import { user } from '../utils/user'
+import { getCurrentUser } from '../utils/user'
 
 interface Conversation {
   id: string
@@ -86,8 +86,9 @@ const Messages = () => {
           <div className="conversations-list">
             {conversations.map((conv) => {
               const lastMessage = conv.messages?.[0]
-              const otherUser = conv.buyer.id === user?.id 
-                ? conv.seller 
+              const currentUser = getCurrentUser()
+              const otherUser = conv.buyer.id === currentUser?.id
+                ? conv.seller
                 : conv.buyer
 
               return (

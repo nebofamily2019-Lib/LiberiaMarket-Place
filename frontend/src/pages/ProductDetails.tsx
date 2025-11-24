@@ -5,6 +5,7 @@ import { useToast } from '../context/ToastContext'
 import api from '../utils/api'
 import HamburgerMenu from '../components/HamburgerMenu'
 import '../styles/ProductDetails.css'
+import { ProductDetailsSkeleton } from '../components/LoadingSkeleton'
 
 interface Product {
   id: string
@@ -15,6 +16,7 @@ interface Product {
   condition: string
   status: string
   contactPhone?: string
+  images?: string[]
   createdAt: string
   category?: {
     name: string
@@ -41,6 +43,7 @@ const ProductDetails = () => {
   const [offerMessage, setOfferMessage] = useState('')
   const [sendingOffer, setSendingOffer] = useState(false)
   const [creatingConversation, setCreatingConversation] = useState(false)
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0)
 
   useEffect(() => {
     fetchProductDetails()
@@ -105,33 +108,36 @@ const ProductDetails = () => {
 
   const handleSendOffer = async () => {
     if (!offerAmount || parseFloat(offerAmount) <= 0) {
-      alert('Please enter a valid offer amount')
+      toast.error('Please enter a valid offer amount')
       return
     }
-    
+
     if (parseFloat(offerAmount) >= product!.price) {
-      alert('Your offer should be less than the asking price')
+      toast.warning('Your offer should be less than the asking price')
       return
     }
-    
+
     try {
       setSendingOffer(true)
-      
+
       const response = await api.post('/offers', {
         product_id: product!.id,
         offer_amount: parseFloat(offerAmount),
         message: offerMessage.trim() || 'I would like to buy this item.'
       })
-      
+
       if (response.data.success) {
-        alert('✅ Offer sent successfully! The seller will contact you.')
+        // Show success toast
+        toast.success('✅ Offer sent successfully! The seller will contact you.', 4000)
+
+        // Close modal and reset form
         setShowOfferModal(false)
         setOfferAmount('')
         setOfferMessage('')
       }
     } catch (err: any) {
       console.error('Error sending offer:', err)
-      alert(err.response?.data?.error || 'Failed to send offer. Please try again.')
+      toast.error(err.response?.data?.error || 'Failed to send offer. Please try again.')
     } finally {
       setSendingOffer(false)
     }
@@ -145,9 +151,8 @@ const ProductDetails = () => {
     return (
       <div className="product-details-container">
         <HamburgerMenu />
-        <div className="loading-state">
-          <div className="spinner">⏳</div>
-          <p>Loading product details...</p>
+        <div style={{ padding: '6rem 1rem 2rem' }}>
+          <ProductDetailsSkeleton />
         </div>
       </div>
     )
@@ -183,6 +188,35 @@ const ProductDetails = () => {
 
         {/* Product Card */}
         <div className="details-card">
+          {/* Product Images Gallery */}
+          {product.images && product.images.length > 0 && (
+            <div className="product-gallery">
+              {/* Main Image */}
+              <div className="main-image-container">
+                <img
+                  src={product.images[selectedImageIndex]}
+                  alt={`${product.title} - Image ${selectedImageIndex + 1}`}
+                  className="main-product-image"
+                />
+              </div>
+
+              {/* Thumbnail Grid */}
+              {product.images.length > 1 && (
+                <div className="image-thumbnails">
+                  {product.images.map((image, index) => (
+                    <div
+                      key={index}
+                      className={`thumbnail ${index === selectedImageIndex ? 'active' : ''}`}
+                      onClick={() => setSelectedImageIndex(index)}
+                    >
+                      <img src={image} alt={`Thumbnail ${index + 1}`} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Header */}
           <div className="details-header">
             <div>

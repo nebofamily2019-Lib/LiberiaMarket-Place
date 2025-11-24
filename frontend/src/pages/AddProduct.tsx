@@ -26,6 +26,7 @@ const AddProduct = () => {
     category_id: '',
     location: 'Monrovia', // Default location
     condition: 'good', // Default condition
+    contactPhone: '', // Contact phone for product
   })
 
   const [images, setImages] = useState<File[]>([]);
@@ -40,50 +41,59 @@ const AddProduct = () => {
       console.log('📂 Fetching categories...')
       const response = await api.get('/categories')
       console.log('📂 Categories response:', response.data)
-      
+
       if (response.data.success) {
         setCategories(response.data.data)
         console.log(`✅ Loaded ${response.data.data.length} categories`)
       } else {
         console.warn('⚠️ No categories found')
+        toast.warning('No categories available')
       }
     } catch (err: any) {
       console.error('Error fetching categories:', err)
-      // Show error to user
-      setError('Failed to load categories. Please refresh the page.')
+      const errorMsg = 'Failed to load categories. Please refresh the page.';
+      setError(errorMsg)
+      toast.error(errorMsg)
     }
   }
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    
+
     // Validate file count
     if (files.length > 5) {
-      setError('Maximum 5 images allowed');
+      const errorMsg = 'Maximum 5 images allowed';
+      setError(errorMsg);
+      toast.warning(errorMsg);
       return;
     }
-    
+
     // Validate file sizes and types
     const maxSize = 5 * 1024 * 1024; // 5MB
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
-    
+
     for (const file of files) {
       if (file.size > maxSize) {
-        setError(`File ${file.name} is too large. Maximum size is 5MB.`);
+        const errorMsg = `File ${file.name} is too large. Maximum size is 5MB.`;
+        setError(errorMsg);
+        toast.error(errorMsg);
         return;
       }
       if (!allowedTypes.includes(file.type)) {
-        setError(`File ${file.name} has invalid type. Only JPEG, PNG, WebP, and GIF allowed.`);
+        const errorMsg = `File ${file.name} has invalid type. Only JPEG, PNG, WebP, and GIF allowed.`;
+        setError(errorMsg);
+        toast.error(errorMsg);
         return;
       }
     }
-    
+
     setImages(files);
-    
+
     // Generate previews
     const previews = files.map(file => URL.createObjectURL(file));
     setImagePreviews(previews);
     setError('');
+    toast.success(`${files.length} image(s) added successfully`);
   };
   
   const removeImage = (index: number) => {

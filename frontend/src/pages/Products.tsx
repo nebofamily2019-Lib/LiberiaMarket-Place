@@ -11,6 +11,8 @@ import SkeletonCard from '../components/SkeletonCard'
 import { designSystem } from '../styles/designSystem'
 import FilterSheet from '../components/FilterSheet'
 import EnhancedSearch from '../components/EnhancedSearch'
+import { ProductGridSkeleton } from '../components/LoadingSkeleton'
+import { useToast } from '../context/ToastContext'
 
 interface Product {
   id: string
@@ -18,6 +20,7 @@ interface Product {
   description: string
   price: number
   location: string
+  images?: string[]
   category?: {
     name: string
     icon: string
@@ -27,7 +30,6 @@ interface Product {
     name: string
     phone: string
   }
-  images?: string[]
   status: string
   createdAt: string
 }
@@ -41,7 +43,8 @@ const Products = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const categoryId = searchParams.get('category')
-  
+  const toast = useToast()
+
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -65,6 +68,7 @@ const Products = () => {
       }
     } catch (err) {
       console.error('Failed to load categories')
+      toast.error('Failed to load categories. Some filters may not be available.')
     }
   }
 
@@ -72,7 +76,7 @@ const Products = () => {
     try {
       setLoading(true)
       setError(null)
-      
+
       // Build query string from filters
       const params = new URLSearchParams({
         page: currentPage.toString(),
@@ -80,22 +84,29 @@ const Products = () => {
         status: 'active',
         ...filters
       })
-      
+
       if (categoryId) {
         params.append('category_id', categoryId)
       }
-      
+
       const url = `/products?${params.toString()}`
-      
+
       const response = await api.get(url)
-      
+
       if (response.data.success) {
         setProducts(response.data.data || [])
         setTotalPages(response.data.pagination?.totalPages || 1)
+
+        // Show success toast if it's a search/filter action
+        if (Object.keys(filters).length > 0 || categoryId) {
+          toast.success(`Found ${response.data.data?.length || 0} product(s)`)
+        }
       }
     } catch (err: any) {
       console.error('❌ Error fetching products:', err)
-      setError(err.response?.data?.error || 'Failed to load products')
+      const errorMsg = err.response?.data?.error || 'Failed to load products'
+      setError(errorMsg)
+      toast.error(errorMsg)
     } finally {
       setLoading(false)
     }
@@ -121,9 +132,19 @@ const Products = () => {
     return (
       <div className="products-container">
         <HamburgerMenu />
-        <div style={{ padding: '2rem', textAlign: 'center' }}>
-          <div style={{ fontSize: '3rem' }}>⏳</div>
-          <p>Loading products...</p>
+        <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '6rem 1rem 2rem' }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '12px',
+            padding: '1.5rem',
+            marginBottom: '2rem',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+          }}>
+            <h1 style={{ margin: '0 0 0.5rem', fontSize: '2rem' }}>
+              🛍️ Loading Products...
+            </h1>
+          </div>
+          <ProductGridSkeleton count={pageLimit} />
         </div>
       </div>
     )
@@ -212,7 +233,7 @@ const Products = () => {
                 <div key={product.id} style={{
                   background: 'white',
                   borderRadius: '12px',
-                  padding: '1.5rem',
+                  overflow: 'hidden',
                   boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
                   transition: 'transform 0.2s ease',
                   cursor: 'pointer'
@@ -220,8 +241,42 @@ const Products = () => {
                 onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
                 onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
-                  {/* Product Header */}
-                  <div style={{ marginBottom: '1rem' }}>
+                  {/* Product Image */}
+                  {product.images && product.images.length > 0 ? (
+                    <div style={{
+                      width: '100%',
+                      aspectRatio: '16 / 10',
+                      overflow: 'hidden',
+                      background: '#f3f4f6'
+                    }}>
+                      <img
+                        src={product.images[0]}
+                        alt={product.title}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover'
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div style={{
+                      width: '100%',
+                      aspectRatio: '16 / 10',
+                      background: 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '3rem',
+                      color: '#9ca3af'
+                    }}>
+                      📦
+                    </div>
+                  )}
+
+                  <div style={{ padding: '1.5rem' }}>
+                    {/* Product Header */}
+                    <div style={{ marginBottom: '1rem' }}>
                     <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.25rem', color: '#1f2937' }}>
                       {product.title}
                     </h3>
@@ -262,23 +317,24 @@ const Products = () => {
                     </span>
                   </div>
 
-                  {/* View Button */}
-                  <button
-                    onClick={() => navigate(`/products/${product.id}`)}
-                    style={{
-                      width: '100%',
-                      marginTop: '1rem',
-                      padding: '0.75rem',
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '8px',
-                      fontWeight: 600,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    View Details
-                  </button>
+                    {/* View Button */}
+                    <button
+                      onClick={() => navigate(`/products/${product.id}`)}
+                      style={{
+                        width: '100%',
+                        marginTop: '1rem',
+                        padding: '0.75rem',
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      View Details
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

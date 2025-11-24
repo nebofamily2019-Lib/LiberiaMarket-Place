@@ -28,14 +28,17 @@ api.interceptors.request.use(
   (config) => {
     console.log('📡 API Request:', config.method?.toUpperCase(), config.url)
     console.log('🍪 Cookies will be sent:', document.cookie ? 'Yes' : 'No')
-    
+
     // Add CSRF token to non-GET requests
     if (config.method && !['get', 'head', 'options'].includes(config.method.toLowerCase())) {
       if (csrfToken) {
         config.headers['X-CSRF-Token'] = csrfToken
+        console.log('🔒 CSRF Token added to request:', csrfToken.substring(0, 10) + '...')
+      } else {
+        console.warn('⚠️ No CSRF token available for', config.method, config.url)
       }
     }
-    
+
     return config
   },
   (error) => {
@@ -49,10 +52,23 @@ api.interceptors.response.use(
     // console.log('✅ API Response:', response.status, response.config.url);
     return response;
   },
-  (error) => {
+  async (error) => {
     const status = error.response?.status
     const url = error.config?.url
     const message = error.response?.data?.error || error.message
+
+    // Handle CSRF token errors - retry with fresh token
+    if (status === 403 && message.includes('csrf')) {
+      console.warn('⚠️ CSRF token invalid, fetching new token...')
+      await fetchCsrfToken()
+
+      // Retry the original request with new token
+      const originalRequest = error.config
+      if (csrfToken) {
+        originalRequest.headers['X-CSRF-Token'] = csrfToken
+      }
+      return api(originalRequest)
+    }
 
     // Only log non-401 errors (401 is expected when not logged in)
     if (status !== 401) {

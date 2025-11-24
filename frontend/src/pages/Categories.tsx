@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import api from '../utils/api'
 import HamburgerMenu from '../components/HamburgerMenu'
 import '../styles/Categories.css'
+import { CategoryListSkeleton } from '../components/LoadingSkeleton'
 
 interface Category {
   id: string
@@ -48,9 +49,12 @@ const Categories = () => {
     return (
       <div className="categories-container">
         <HamburgerMenu />
-        <div style={{ padding: '2rem', textAlign: 'center' }}>
-          <div style={{ fontSize: '3rem' }}>⏳</div>
-          <p>Loading categories...</p>
+        <div className="categories-content">
+          <div className="page-header">
+            <h1>📂 Browse by Category</h1>
+            <p className="subtitle">Loading categories...</p>
+          </div>
+          <CategoryListSkeleton count={8} />
         </div>
       </div>
     )

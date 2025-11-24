@@ -30,6 +30,10 @@ const EditProduct = () => {
     condition: 'good',
   })
 
+  const [existingImages, setExistingImages] = useState<string[]>([])
+  const [newImages, setNewImages] = useState<File[]>([])
+  const [newImagePreviews, setNewImagePreviews] = useState<string[]>([])
+
   useEffect(() => {
     fetchProduct()
     fetchCategories()
@@ -63,6 +67,11 @@ const EditProduct = () => {
           location: product.location,
           condition: product.condition,
         })
+
+        // Set existing images
+        if (product.images && Array.isArray(product.images)) {
+          setExistingImages(product.images)
+        }
       }
     } catch (err: any) {
       console.error('❌ Error fetching product:', err)
@@ -83,6 +92,58 @@ const EditProduct = () => {
     }
   }
 
+  const handleNewImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+
+    // Check total image count
+    const totalImages = existingImages.length + newImages.length + files.length
+    if (totalImages > 5) {
+      setError('Maximum 5 images allowed in total')
+      return
+    }
+
+    // Validate file sizes and types
+    const maxSize = 5 * 1024 * 1024 // 5MB
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
+
+    for (const file of files) {
+      if (file.size > maxSize) {
+        setError(`File ${file.name} is too large. Maximum size is 5MB.`)
+        return
+      }
+      if (!allowedTypes.includes(file.type)) {
+        setError(`File ${file.name} has invalid type. Only JPEG, PNG, WebP, and GIF allowed.`)
+        return
+      }
+    }
+
+    setNewImages([...newImages, ...files])
+
+    // Generate previews
+    const previews = files.map(file => URL.createObjectURL(file))
+    setNewImagePreviews([...newImagePreviews, ...previews])
+    setError('')
+  }
+
+  const removeExistingImage = (index: number) => {
+    setExistingImages(existingImages.filter((_, i) => i !== index))
+  }
+
+  const removeNewImage = (index: number) => {
+    // Revoke old preview URL
+    URL.revokeObjectURL(newImagePreviews[index])
+
+    setNewImages(newImages.filter((_, i) => i !== index))
+    setNewImagePreviews(newImagePreviews.filter((_, i) => i !== index))
+  }
+
+  // Cleanup preview URLs on unmount
+  useEffect(() => {
+    return () => {
+      newImagePreviews.forEach(url => URL.revokeObjectURL(url))
+    }
+  }, [newImagePreviews])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -90,14 +151,28 @@ const EditProduct = () => {
 
     try {
       console.log('💾 Updating product:', id, formData)
-      
-      const response = await api.put(`/products/${id}`, {
-        title: formData.title.trim(),
-        description: formData.description.trim(),
-        price: parseFloat(formData.price),
-        category_id: formData.category_id,
-        location: formData.location,
-        condition: formData.condition,
+
+      // Create FormData for file upload
+      const data = new FormData()
+      data.append('title', formData.title.trim())
+      data.append('description', formData.description.trim())
+      data.append('price', formData.price)
+      data.append('category_id', formData.category_id)
+      data.append('location', formData.location)
+      data.append('condition', formData.condition)
+
+      // Append existing images as JSON
+      data.append('existingImages', JSON.stringify(existingImages))
+
+      // Append new images
+      newImages.forEach((image) => {
+        data.append('images', image)
+      })
+
+      const response = await api.put(`/products/${id}`, data, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
       })
 
       if (response.data.success) {
@@ -232,6 +307,80 @@ const EditProduct = () => {
               <option value="good">Good</option>
               <option value="fair">Fair</option>
             </select>
+          </div>
+
+          {/* Image Upload */}
+          <div className="form-group">
+            <label htmlFor="images">
+              📸 Product Images (Max 5 total)
+            </label>
+
+            {/* Existing Images */}
+            {existingImages.length > 0 && (
+              <div className="existing-images-section">
+                <p className="input-hint" style={{ marginBottom: '0.75rem' }}>
+                  Current images ({existingImages.length}):
+                </p>
+                <div className="image-previews">
+                  {existingImages.map((imageUrl, index) => (
+                    <div key={`existing-${index}`} className="image-preview">
+                      <img src={imageUrl} alt={`Existing ${index + 1}`} />
+                      <button
+                        type="button"
+                        onClick={() => removeExistingImage(index)}
+                        className="remove-image"
+                        title="Remove this image"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Add New Images */}
+            {(existingImages.length + newImages.length) < 5 && (
+              <>
+                <input
+                  type="file"
+                  id="images"
+                  accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                  multiple
+                  onChange={handleNewImageChange}
+                  className="input-file"
+                  style={{ marginTop: existingImages.length > 0 ? '1rem' : '0' }}
+                />
+                <p className="input-hint">
+                  JPEG, PNG, WebP, or GIF. Max 5MB per image.
+                  {' '}({5 - existingImages.length - newImages.length} slots remaining)
+                </p>
+              </>
+            )}
+
+            {/* New Image Previews */}
+            {newImagePreviews.length > 0 && (
+              <div className="new-images-section" style={{ marginTop: '1rem' }}>
+                <p className="input-hint" style={{ marginBottom: '0.75rem' }}>
+                  New images to upload ({newImagePreviews.length}):
+                </p>
+                <div className="image-previews">
+                  {newImagePreviews.map((preview, index) => (
+                    <div key={`new-${index}`} className="image-preview">
+                      <img src={preview} alt={`New ${index + 1}`} />
+                      <button
+                        type="button"
+                        onClick={() => removeNewImage(index)}
+                        className="remove-image"
+                        title="Remove this image"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Submit Buttons */}

@@ -99,21 +99,26 @@ const productService = {
     return response.data
   },
 
-  // Create product
+  // Create product (with CSRF token)
   createProduct: async (productData: FormData): Promise<Product> => {
     try {
       console.log('Creating product via API...')
+      // Fetch CSRF token first
+      const csrfRes = await api.get('/csrf-token');
+      const csrfToken = csrfRes.data.csrfToken;
       const response = await api.post('/products', productData, {
         headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      })
-      console.log('Product created successfully:', response.data)
-      return response.data
+          'Content-Type': 'multipart/form-data',
+          'x-csrf-token': csrfToken
+        },
+        withCredentials: true
+      });
+      console.log('Product created successfully:', response.data);
+      return response.data;
     } catch (error: any) {
-      console.error('Error in createProduct:', error)
-      console.error('Error response:', error.response)
-      throw error
+      console.error('Error in createProduct:', error);
+      console.error('Error response:', error.response);
+      throw error;
     }
   },
 

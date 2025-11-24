@@ -13,6 +13,7 @@ import Dashboard from './pages/Dashboard'
 import Products from './pages/Products'
 import ProductDetails from './pages/ProductDetails'
 import AddProduct from './pages/AddProduct'
+import EditProduct from './pages/EditProduct'
 import MyProducts from './pages/MyProducts'
 import Categories from './pages/Categories'
 import BuyerInbox from './pages/BuyerInbox'
@@ -48,22 +49,31 @@ function App() {
                 } 
               />
               
-              <Route 
-                path="/products/add" 
+              <Route
+                path="/products/add"
                 element={
                   <ProtectedRoute allowedRoles={['seller', 'admin']}>
                     <AddProduct />
                   </ProtectedRoute>
-                } 
+                }
               />
-              
-              <Route 
-                path="/my-products" 
+
+              <Route
+                path="/products/:id/edit"
+                element={
+                  <ProtectedRoute allowedRoles={['seller', 'admin']}>
+                    <EditProduct />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/my-products"
                 element={
                   <ProtectedRoute allowedRoles={['seller', 'admin']}>
                     <MyProducts />
                   </ProtectedRoute>
-                } 
+                }
               />
               
               <Route 

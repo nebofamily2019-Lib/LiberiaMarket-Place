@@ -104,13 +104,17 @@ const Register = () => {
 
     // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match')
+      const errorMsg = 'Passwords do not match';
+      setError(errorMsg)
+      toast.error(errorMsg)
       return
     }
 
     // Validate password length
     if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters')
+      const errorMsg = 'Password must be at least 6 characters';
+      setError(errorMsg)
+      toast.error(errorMsg)
       return
     }
 
