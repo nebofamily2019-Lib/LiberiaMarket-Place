@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
-import api from '../utils/api' // Adjust the import based on your project structure
 import '../styles/Auth.css'
 import PasswordStrengthMeter from '../components/PasswordStrengthMeter'
 
@@ -121,19 +120,16 @@ const Register = () => {
     setLoading(true)
 
     try {
-      const response = await api.post('/auth/register', {
+      const user = await register({
         name: formData.name,
         email: formData.email || undefined,
         phone: formData.phone,
         password: formData.password,
-        role: formData.role,
-        roles: [formData.role]
+        role: formData.role as 'buyer' | 'seller'
       })
 
-      if (response.data.success) {
-        toast.success(`Welcome ${response.data.user.name}! Account created successfully.`)
-        navigate('/dashboard')
-      }
+      toast.success(`Welcome ${user.name}! Account created successfully.`)
+      navigate('/dashboard')
     } catch (err: any) {
       console.error('❌ Registration failed:', err)
       const errorMsg = err.response?.data?.error || 'Registration failed. Please try again.'

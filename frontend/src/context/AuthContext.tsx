@@ -1,24 +1,16 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import api from '../utils/api'
-
-interface User {
-  id: string
-  name: string
-  phone: string
-  email?: string
-  role: string
-  roles: string[] // Multiple roles
-  isActive: boolean
-  isPhoneVerified?: boolean
-}
+import authService, { User, LoginCredentials, RegisterData } from '../services/authService'
 
 interface AuthContextType {
   user: User | null
   isAuthenticated: boolean
   loading: boolean
-  login: (phone: string, password: string) => Promise<any>
+  isLoading: boolean // Alias for loading (backwards compatibility)
+  login: (credentials: LoginCredentials) => Promise<User>
+  register: (data: RegisterData) => Promise<User>
   logout: () => Promise<void>
   checkAuth: () => Promise<void>
+  refreshUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -31,41 +23,35 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const [user, setUser] = useState<User | null>(() => {
     // Try to restore user from localStorage on initial load
-    try {
-      const storedUser = localStorage.getItem('user')
-      return storedUser ? JSON.parse(storedUser) : null
-    } catch {
-      return null
-    }
+    return authService.getStoredUser()
   })
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return !!localStorage.getItem('token')
+    return authService.isAuthenticated()
   })
   const [loading, setLoading] = useState(true)
 
   const checkAuth = async () => {
+    const storedToken = authService.getStoredToken()
+    const storedUser = authService.getStoredUser()
+
+    // If no token, skip auth check
+    if (!storedToken) {
+      setUser(null)
+      setIsAuthenticated(false)
+      setLoading(false)
+      return
+    }
+
+    // If we have a token, verify it with the server
     try {
-      console.log('🔍 Checking authentication status...')
-      console.log('🍪 Current cookies:', document.cookie)
-      const response = await api.get('/auth/me')
-      if (response.data.success) {
-        console.log('✅ User authenticated:', response.data.data.name)
-        setUser(response.data.data)
-        setIsAuthenticated(true)
-        // Sync localStorage
-        localStorage.setItem('user', JSON.stringify(response.data.data))
-      } else {
-        setUser(null)
-        setIsAuthenticated(false)
-        localStorage.removeItem('user')
-        localStorage.removeItem('token')
-      }
+      const currentUser = await authService.getCurrentUser()
+      setUser(currentUser)
+      setIsAuthenticated(true)
+      // Sync localStorage
+      localStorage.setItem('user', JSON.stringify(currentUser))
     } catch (error: any) {
-      // Silently handle auth check failure (user not logged in)
-      if (error.status !== 401) {
-        console.error('❌ Auth check error:', error.message)
-      }
-      // Clear any stale auth state
+      // Token is invalid, clear auth state
+      console.error('Auth check failed:', error.message)
       setUser(null)
       setIsAuthenticated(false)
       localStorage.removeItem('user')
@@ -79,50 +65,47 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     checkAuth()
   }, [])
 
-  const login = async (phone: string, password: string) => {
-    try {
-      console.log('📞 Attempting login with phone:', phone);
-      const response = await api.post('/auth/login', { phone, password })
-      console.log('✅ Login response:', response.data);
-      console.log('🍪 Response headers:', response.headers);
-      if (response.data.success) {
-        setUser(response.data.user)
-        setIsAuthenticated(true)
-        // Sync localStorage
-        localStorage.setItem('user', JSON.stringify(response.data.user))
-        if (response.data.token) {
-          localStorage.setItem('token', response.data.token)
-        }
-        // Check if cookie was set
-        console.log('🍪 Document cookies after login:', document.cookie);
-        return response.data.user
-      }
-    } catch (error: any) {
-      console.error('❌ Login failed:', error.response?.data || error.message);
-      throw new Error(error.response?.data?.error || 'Login failed')
-    }
+  const login = async (credentials: LoginCredentials) => {
+    const response = await authService.login(credentials)
+    setUser(response.user)
+    setIsAuthenticated(true)
+    return response.user
+  }
+
+  const register = async (data: RegisterData) => {
+    const response = await authService.register(data)
+    setUser(response.user)
+    setIsAuthenticated(true)
+    return response.user
   }
 
   const logout = async () => {
     try {
-      await api.post('/auth/logout')
+      await authService.logout()
     } catch (err) {
       console.error('Logout error:', err)
     } finally {
       setUser(null)
       setIsAuthenticated(false)
-      localStorage.removeItem('user')
-      localStorage.removeItem('token')
     }
+  }
+
+  const refreshUser = async () => {
+    const currentUser = await authService.getCurrentUser()
+    setUser(currentUser)
+    localStorage.setItem('user', JSON.stringify(currentUser))
   }
 
   const value = {
     user,
     isAuthenticated,
     loading,
+    isLoading: loading, // Alias for backwards compatibility
     login,
+    register,
     logout,
-    checkAuth
+    checkAuth,
+    refreshUser
   }
 
   return (

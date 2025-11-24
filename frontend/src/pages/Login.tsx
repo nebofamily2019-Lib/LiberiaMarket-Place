@@ -38,7 +38,7 @@ const Login = () => {
     setLoading(true)
 
     try {
-      await login(formData.phone, formData.password)
+      await login({ phone: formData.phone, password: formData.password })
       toast.success('Welcome back! Logged in successfully.')
       navigate('/dashboard')
     } catch (err: any) {
