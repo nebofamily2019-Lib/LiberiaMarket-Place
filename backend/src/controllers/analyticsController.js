@@ -76,46 +76,77 @@ const getTrendingProducts = async (req, res) => {
     const dateThreshold = new Date();
     dateThreshold.setDate(dateThreshold.getDate() - days);
 
-    // Get products with most views in the timeframe
-    const trendingProducts = await Product.findAll({
-      attributes: [
-        'id',
-        'title',
-        'description',
-        'price',
-        'images',
-        'condition',
-        'category_id',
-        'seller_id',
-        'view_count',
-        [
-          sequelize.literal(`(
-            SELECT COUNT(*) FROM product_views
-            WHERE product_views.product_id = Product.id
-            AND product_views.created_at >= '${dateThreshold.toISOString()}'
-          )`),
-          'recent_views'
-        ]
-      ],
-      where: {
-        status: 'active',
-        deleted_at: null
-      },
-      include: [
-        {
-          model: User,
-          as: 'seller',
-          attributes: ['id', 'name', 'rating', 'total_reviews']
+    let trendingProducts;
+
+    // Try to get products with recent view analytics
+    try {
+      // Get products with most views in the timeframe
+      trendingProducts = await Product.findAll({
+        attributes: [
+          'id',
+          'title',
+          'description',
+          'price',
+          'images',
+          'condition',
+          'category_id',
+          'seller_id',
+          'view_count',
+          [
+            sequelize.literal(`(
+              SELECT COUNT(*) FROM product_views
+              WHERE product_views.product_id = Product.id
+              AND product_views.created_at >= '${dateThreshold.toISOString()}'
+            )`),
+            'recent_views'
+          ]
+        ],
+        where: {
+          status: 'active',
+          deleted_at: null
         },
-        {
-          model: Category,
-          as: 'category',
-          attributes: ['id', 'name']
-        }
-      ],
-      order: [[sequelize.literal('recent_views'), 'DESC']],
-      limit
-    });
+        include: [
+          {
+            model: User,
+            as: 'seller',
+            attributes: ['id', 'name']
+          },
+          {
+            model: Category,
+            as: 'category',
+            attributes: ['id', 'name']
+          }
+        ],
+        order: [[sequelize.literal('recent_views'), 'DESC']],
+        limit
+      });
+    } catch (viewError) {
+      // Fallback: If product_views table doesn't exist, use total view_count
+      logger.warn('ProductView table not available, using fallback for trending products', {
+        error: viewError.message
+      });
+
+      trendingProducts = await Product.findAll({
+        where: {
+          status: 'active',
+          deleted_at: null
+        },
+        include: [
+          {
+            model: User,
+            as: 'seller',
+            attributes: ['id', 'name']
+          },
+          {
+            model: Category,
+            as: 'category',
+            attributes: ['id', 'name']
+          }
+        ],
+        order: [['view_count', 'DESC']],
+        limit
+      });
+    }
 
     res.json({
       success: true,
@@ -123,7 +154,7 @@ const getTrendingProducts = async (req, res) => {
       count: trendingProducts.length
     });
   } catch (error) {
-    logger.error('Error fetching trending products', { error: error.message });
+    logger.error('Error fetching trending products', { error: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       error: 'Failed to fetch trending products'
@@ -141,40 +172,52 @@ const getRecommendations = async (req, res) => {
     const userId = req.user.id;
     const limit = parseInt(req.query.limit) || 12;
 
-    // Get user's favorite categories and products
-    const userFavorites = await Favorite.findAll({
-      where: { user_id: userId },
-      include: [{
-        model: Product,
-        as: 'product',
+    let favoriteCategoryIds = [];
+    let viewedCategoryIds = [];
+    let viewedProductIds = [];
+
+    // Try to get user's favorite categories and products
+    try {
+      const userFavorites = await Favorite.findAll({
+        where: { user_id: userId },
+        include: [{
+          model: Product,
+          as: 'product',
+          attributes: ['category_id']
+        }],
+        limit: 20
+      });
+
+      favoriteCategoryIds = [...new Set(
+        userFavorites
+          .map(f => f.product?.category_id)
+          .filter(Boolean)
+      )];
+    } catch (favError) {
+      logger.debug('Favorite table not available', { error: favError.message });
+    }
+
+    // Try to get user's recently viewed products
+    try {
+      const recentViews = await ProductView.findAll({
+        where: { user_id: userId },
+        attributes: ['product_id'],
+        order: [['created_at', 'DESC']],
+        limit: 20
+      });
+
+      viewedProductIds = recentViews.map(v => v.product_id);
+      const viewedProducts = await Product.findAll({
+        where: { id: viewedProductIds },
         attributes: ['category_id']
-      }],
-      limit: 20
-    });
+      });
 
-    const favoriteCategoryIds = [...new Set(
-      userFavorites
-        .map(f => f.product?.category_id)
-        .filter(Boolean)
-    )];
-
-    // Get user's recently viewed products
-    const recentViews = await ProductView.findAll({
-      where: { user_id: userId },
-      attributes: ['product_id'],
-      order: [['created_at', 'DESC']],
-      limit: 20
-    });
-
-    const viewedProductIds = recentViews.map(v => v.product_id);
-    const viewedProducts = await Product.findAll({
-      where: { id: viewedProductIds },
-      attributes: ['category_id']
-    });
-
-    const viewedCategoryIds = [...new Set(
-      viewedProducts.map(p => p.category_id)
-    )];
+      viewedCategoryIds = [...new Set(
+        viewedProducts.map(p => p.category_id)
+      )];
+    } catch (viewError) {
+      logger.debug('ProductView table not available', { error: viewError.message });
+    }
 
     // Combine favorite and viewed categories
     const relevantCategories = [...new Set([
@@ -184,6 +227,7 @@ const getRecommendations = async (req, res) => {
 
     if (relevantCategories.length === 0) {
       // No user history, return trending products
+      logger.debug('No user history, returning trending products');
       return getTrendingProducts(req, res);
     }
 
@@ -191,7 +235,7 @@ const getRecommendations = async (req, res) => {
     const recommendations = await Product.findAll({
       where: {
         category_id: { [Op.in]: relevantCategories },
-        id: { [Op.notIn]: viewedProductIds }, // Exclude already viewed
+        ...(viewedProductIds.length > 0 ? { id: { [Op.notIn]: viewedProductIds } } : {}), // Exclude already viewed
         seller_id: { [Op.ne]: userId }, // Exclude own products
         status: 'active',
         deleted_at: null
@@ -225,7 +269,7 @@ const getRecommendations = async (req, res) => {
       }
     });
   } catch (error) {
-    logger.error('Error fetching recommendations', { error: error.message });
+    logger.error('Error fetching recommendations', { error: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       error: 'Failed to fetch recommendations'
@@ -260,42 +304,62 @@ const getProductAnalytics = async (req, res) => {
       });
     }
 
-    // Get view statistics
-    const totalViews = await ProductView.count({
-      where: { product_id: id }
-    });
+    // Get view statistics (with fallback if tables don't exist)
+    let totalViews = 0;
+    let viewsLast7Days = 0;
+    let viewsLast30Days = 0;
+    let uniqueViewers = 0;
+    let favoriteCount = 0;
 
-    const last7Days = new Date();
-    last7Days.setDate(last7Days.getDate() - 7);
+    try {
+      totalViews = await ProductView.count({
+        where: { product_id: id }
+      });
 
-    const viewsLast7Days = await ProductView.count({
-      where: {
-        product_id: id,
-        created_at: { [Op.gte]: last7Days }
-      }
-    });
+      const last7Days = new Date();
+      last7Days.setDate(last7Days.getDate() - 7);
 
-    const last30Days = new Date();
-    last30Days.setDate(last30Days.getDate() - 30);
+      viewsLast7Days = await ProductView.count({
+        where: {
+          product_id: id,
+          created_at: { [Op.gte]: last7Days }
+        }
+      });
 
-    const viewsLast30Days = await ProductView.count({
-      where: {
-        product_id: id,
-        created_at: { [Op.gte]: last30Days }
-      }
-    });
+      const last30Days = new Date();
+      last30Days.setDate(last30Days.getDate() - 30);
 
-    // Get unique viewers
-    const uniqueViewers = await ProductView.count({
-      where: { product_id: id },
-      distinct: true,
-      col: 'user_id'
-    });
+      viewsLast30Days = await ProductView.count({
+        where: {
+          product_id: id,
+          created_at: { [Op.gte]: last30Days }
+        }
+      });
+
+      // Get unique viewers
+      uniqueViewers = await ProductView.count({
+        where: { product_id: id },
+        distinct: true,
+        col: 'user_id'
+      });
+    } catch (viewError) {
+      logger.debug('ProductView table not available for analytics', { error: viewError.message });
+      // Use product.view_count as fallback
+      totalViews = product.view_count || 0;
+      viewsLast7Days = product.view_count || 0;
+      viewsLast30Days = product.view_count || 0;
+      uniqueViewers = 0;
+    }
 
     // Get favorite count
-    const favoriteCount = await Favorite.count({
-      where: { product_id: id }
-    });
+    try {
+      favoriteCount = await Favorite.count({
+        where: { product_id: id }
+      });
+    } catch (favError) {
+      logger.debug('Favorite table not available for analytics', { error: favError.message });
+      favoriteCount = 0;
+    }
 
     res.json({
       success: true,
