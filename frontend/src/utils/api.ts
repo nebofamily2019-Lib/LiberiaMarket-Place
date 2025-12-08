@@ -75,11 +75,9 @@ api.interceptors.response.use(
       console.error('❌ API Error:', { status, message, url })
     }
 
-    // Handle 401 specifically
-    if (status === 401 && url !== '/auth/me') {
-      console.warn('⚠️ Session expired or invalid. Redirecting to login...')
-      window.location.href = '/login'
-    }
+    // Note: We don't automatically redirect to /login on 401 errors
+    // Public pages like Home should work without authentication
+    // Individual components can handle 401 errors as needed
 
     return Promise.reject({
       status,
