@@ -1,40 +1,45 @@
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
+const logger = require('../utils/logger');
 
 // Protect routes - require authentication
 const protect = async (req, res, next) => {
   try {
     let token;
 
-    console.log('🔍 Auth middleware - Cookies:', req.cookies);
-    console.log('🔍 Auth middleware - Headers:', req.headers.authorization);
+    logger.debug('Auth middleware invoked', {
+      hasCookie: !!req.cookies?.token,
+      hasAuthHeader: !!req.headers.authorization,
+      path: req.path
+    });
 
     // Check for token in cookies (primary method)
     if (req.cookies.token) {
       token = req.cookies.token;
-      console.log('🔐 Token found in cookie');
+      logger.debug('Token found in cookie');
     }
     // Fallback: Check Authorization header
     else if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       token = req.headers.authorization.split(' ')[1];
-      console.log('🔐 Token found in Authorization header');
+      logger.debug('Token found in Authorization header');
     }
 
     // Make sure token exists
     if (!token) {
-      console.log('❌ No token found in cookies or headers');
+      logger.warn('Authentication failed: No token provided', {
+        ip: req.ip,
+        path: req.path
+      });
       return res.status(401).json({
         success: false,
         error: 'Not authorized to access this route - No token provided'
       });
     }
 
-    console.log('🔍 Verifying token...');
-
     try {
       // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      console.log('✅ Token verified for user:', decoded.id);
+      logger.debug('Token verified', { userId: decoded.id });
 
       // Get user from token
       req.user = await User.findByPk(decoded.id, {
@@ -42,25 +47,78 @@ const protect = async (req, res, next) => {
       });
 
       if (!req.user) {
-        console.log('❌ User not found for token:', decoded.id);
+        logger.warn('Authentication failed: User not found', {
+          userId: decoded.id,
+          ip: req.ip
+        });
         return res.status(401).json({
           success: false,
           error: 'User not found'
         });
       }
 
-      console.log('✅ User authenticated:', req.user.name);
+      logger.info('User authenticated successfully', {
+        userId: req.user.id,
+        username: req.user.name,
+        path: req.path
+      });
       next();
     } catch (err) {
-      console.log('❌ Token verification failed:', err.message);
+      logger.warn('Token verification failed', {
+        error: err.message,
+        ip: req.ip,
+        path: req.path
+      });
       return res.status(401).json({
         success: false,
         error: 'Not authorized - Invalid token'
       });
     }
   } catch (error) {
-    console.log('❌ Auth middleware error:', error);
+    logger.error('Auth middleware error', {
+      error: error.message,
+      stack: error.stack
+    });
     next(error);
+  }
+};
+
+// Optional authentication - sets req.user if token present, but doesn't require it
+const optionalAuth = async (req, res, next) => {
+  try {
+    let token;
+
+    // Check for token in cookies (primary method)
+    if (req.cookies?.token) {
+      token = req.cookies.token;
+    }
+    // Fallback: Check Authorization header
+    else if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      token = req.headers.authorization.split(' ')[1];
+    }
+
+    // If no token, just continue without setting req.user
+    if (!token) {
+      return next();
+    }
+
+    try {
+      // Verify token
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      // Get user from token
+      req.user = await User.findByPk(decoded.id, {
+        attributes: { exclude: ['password'] }
+      });
+
+      next();
+    } catch (err) {
+      // If token is invalid, just continue without req.user
+      next();
+    }
+  } catch (error) {
+    // On any error, just continue without req.user
+    next();
   }
 };
 
@@ -122,4 +180,4 @@ const checkOwnership = (Model) => {
   };
 };
 
-module.exports = { protect, authorize, checkOwnership };
+module.exports = { protect, optionalAuth, authorize, checkOwnership };

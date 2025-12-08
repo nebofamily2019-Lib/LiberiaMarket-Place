@@ -435,14 +435,19 @@ const getUserProducts = async (req, res, next) => {
 
     // Build where clause
     const where = { seller_id: userId }
-    
-    // Only show active products by default
+
+    // Check if the requester is the owner
+    const isOwner = req.user && req.user.id === userId
+
+    // Show all products to owner, only active products to others
     if (req.query.status) {
       where.status = req.query.status
-    } else {
+    } else if (!isOwner) {
+      // Only filter to active if NOT the owner
       where.status = 'active'
     }
-    
+    // If isOwner is true and no status specified, show all statuses
+
     // Filter out test products (products with titles starting with "Test Product")
     where.title = { [Op.notLike]: 'Test Product%' }
     

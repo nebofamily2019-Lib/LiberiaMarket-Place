@@ -414,8 +414,8 @@ describe('Product API Endpoints', () => {
       await request(app).get(`/api/products/${productId}`)
       await request(app).get(`/api/products/${productId}`)
 
-      // Wait for async view tracking to complete
-      await new Promise(resolve => setTimeout(resolve, 100))
+      // Wait for async view tracking to complete (increased timeout)
+      await new Promise(resolve => setTimeout(resolve, 500))
 
       const product = await Product.findByPk(productId)
       expect(product.view_count).toBeGreaterThan(0)
@@ -481,14 +481,15 @@ describe('Product API Endpoints', () => {
     })
 
     it('should not update product owned by another user', async () => {
-      // Create another user
+      // Create another seller
       const anotherUserRes = await request(app)
         .post('/api/auth/register')
         .send({
-          name: 'Another User',
+          name: 'Another Seller',
           email: 'another@example.com',
           password: validPassword,
-          phone: '+231777654321'
+          phone: '+231777654321',
+          role: 'seller'
         })
 
       const res = await request(app)

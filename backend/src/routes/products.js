@@ -8,7 +8,7 @@ const {
   deleteProduct,
   getUserProducts
 } = require('../controllers/productController')
-const { protect, authorize, checkOwnership } = require('../middleware/auth')
+const { protect, optionalAuth, authorize, checkOwnership } = require('../middleware/auth')
 const { validateProduct, validatePagination, sanitizeBody } = require('../middleware/inputValidation')
 const { Product } = require('../models')
 
@@ -62,8 +62,8 @@ router.get('/category/:categoryId', validatePagination, async (req, res, next) =
     next(error);
   }
 });
-// Get products by user
-router.get('/user/:userId', validatePagination, getUserProducts)
+// Get products by user (optional auth to check if requester is owner)
+router.get('/user/:userId', optionalAuth, validatePagination, getUserProducts)
 // Get single product by ID - MUST be last to avoid matching other routes
 router.get('/:id', getProduct)
 
