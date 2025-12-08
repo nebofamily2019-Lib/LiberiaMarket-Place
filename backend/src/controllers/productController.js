@@ -54,7 +54,7 @@ const getProducts = async (req, res, next) => {
     }
 
     // Sorting
-    let order = [['createdAt', 'DESC']]; // Default: newest first
+    let order = [['created_at', 'DESC']]; // Default: newest first
 
     if (req.query.sort) {
       switch (req.query.sort) {
@@ -65,16 +65,16 @@ const getProducts = async (req, res, next) => {
           order = [['price', 'DESC']];
           break;
         case 'newest':
-          order = [['createdAt', 'DESC']];
+          order = [['created_at', 'DESC']];
           break;
         case 'oldest':
-          order = [['createdAt', 'ASC']];
+          order = [['created_at', 'ASC']];
           break;
         case 'title':
           order = [['title', 'ASC']];
           break;
         default:
-          order = [['createdAt', 'DESC']];
+          order = [['created_at', 'DESC']];
       }
     }
 
@@ -118,7 +118,7 @@ const getProducts = async (req, res, next) => {
       count: products.length,
       totalProducts: count,
       pagination: {
-        currentPage: page,
+        page: page,
         totalPages: Math.ceil(count / limit),
         hasMore: page < Math.ceil(count / limit),
         limit
@@ -146,7 +146,7 @@ const getProduct = async (req, res, next) => {
         {
           model: User,
           as: 'seller',
-          attributes: ['id', 'name', 'phone']
+          attributes: ['id', 'name', 'phone', 'avg_rating', 'total_reviews', 'is_verified']
         }
       ]
     })
@@ -157,6 +157,13 @@ const getProduct = async (req, res, next) => {
         error: 'Product not found'
       })
     }
+
+    // Track detailed view analytics (asynchronously, don't wait for it)
+    const { trackProductView } = require('./analyticsController');
+    const userId = req.user ? req.user.id : null;
+    trackProductView(req.params.id, userId, req).catch(err => {
+      console.error('Error tracking product view:', err);
+    });
 
     res.status(200).json({
       success: true,
@@ -302,7 +309,58 @@ const updateProduct = async (req, res, next) => {
       })
     }
 
-    await product.update(req.body)
+    // Handle image updates
+    let finalImages = []
+
+    // Parse existing images from request
+    if (req.body.existingImages) {
+      try {
+        const existingImages = JSON.parse(req.body.existingImages)
+        if (Array.isArray(existingImages)) {
+          finalImages = existingImages
+        }
+      } catch (e) {
+        logger.warn('Failed to parse existingImages', { error: e.message })
+      }
+    }
+
+    // Process newly uploaded images
+    if (req.files && req.files.length > 0) {
+      logger.info('Processing new product images', { count: req.files.length })
+
+      for (const file of req.files) {
+        try {
+          const images = await processAndSaveImage(file.buffer, file.originalname, 'products')
+          finalImages.push(images.original)
+
+          logger.info('Image processed successfully', {
+            original: file.originalname,
+            url: images.original
+          })
+        } catch (imgError) {
+          logger.error('Failed to process image', {
+            error: imgError.message,
+            file: file.originalname
+          })
+        }
+      }
+    }
+
+    // Update product with new data
+    const updateData = {
+      ...req.body,
+      images: finalImages.length > 0 ? finalImages : null
+    }
+
+    // Remove existingImages from update data (it's not a product field)
+    delete updateData.existingImages
+
+    await product.update(updateData)
+
+    logger.info('Product updated', {
+      id: product.id,
+      imageCount: finalImages.length
+    })
 
     res.status(200).json({
       success: true,
@@ -405,4 +463,46 @@ const getUserProducts = async (req, res, next) => {
 
     console.log('🔍 Where clause:', JSON.stringify(where, null, 2))
 
-    const { count, rows } = await Product.findAnd
+    const { count, rows } = await Product.findAndCountAll({
+      where,
+      limit,
+      offset,
+      include: [
+        {
+          model: User,
+          as: 'seller',
+          attributes: ['id', 'name', 'phone']
+        },
+        {
+          model: Category,
+          as: 'category',
+          attributes: ['id', 'name', 'slug']
+        }
+      ],
+      order: [['created_at', 'DESC']]
+    })
+
+    res.status(200).json({
+      success: true,
+      count,
+      data: rows,
+      pagination: {
+        page,
+        limit,
+        total: count,
+        pages: Math.ceil(count / limit)
+      }
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+module.exports = {
+  getProducts,
+  getProduct,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  getUserProducts
+}

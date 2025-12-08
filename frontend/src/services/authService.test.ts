@@ -18,7 +18,7 @@ describe('authService', () => {
   })
 
   describe('register', () => {
-    it('registers a new user and stores token', async () => {
+    it('registers a new user and stores user data (token in httpOnly cookie)', async () => {
       const registerData = {
         name: 'John Doe',
         phone: '881234567',
@@ -33,7 +33,7 @@ describe('authService', () => {
 
       expect(api.post).toHaveBeenCalledWith('/auth/register', registerData)
       expect(result).toEqual(mockAuthResponse)
-      expect(localStorage.getItem('token')).toBe(mockAuthResponse.token)
+      // Token is stored in httpOnly cookie, not localStorage
       expect(localStorage.getItem('user')).toBe(
         JSON.stringify(mockAuthResponse.user)
       )
@@ -51,12 +51,12 @@ describe('authService', () => {
         })
       ).rejects.toThrow('Registration failed')
 
-      expect(localStorage.getItem('token')).toBeNull()
+      expect(localStorage.getItem('user')).toBeNull()
     })
   })
 
   describe('login', () => {
-    it('logs in user and stores token', async () => {
+    it('logs in user and stores user data (token in httpOnly cookie)', async () => {
       const credentials = {
         phone: '881234567',
         password: 'password123',
@@ -70,7 +70,7 @@ describe('authService', () => {
 
       expect(api.post).toHaveBeenCalledWith('/auth/login', credentials)
       expect(result).toEqual(mockAuthResponse)
-      expect(localStorage.getItem('token')).toBe(mockAuthResponse.token)
+      // Token is stored in httpOnly cookie, not localStorage
       expect(localStorage.getItem('user')).toBe(
         JSON.stringify(mockAuthResponse.user)
       )
@@ -87,8 +87,7 @@ describe('authService', () => {
   })
 
   describe('logout', () => {
-    it('clears token and user from localStorage', async () => {
-      localStorage.setItem('token', 'test-token')
+    it('clears user from localStorage and calls logout endpoint', async () => {
       localStorage.setItem('user', JSON.stringify(mockUser))
 
       vi.mocked(api.post).mockResolvedValueOnce({ data: {} } as any)
@@ -96,19 +95,16 @@ describe('authService', () => {
       await authService.logout()
 
       expect(api.post).toHaveBeenCalledWith('/auth/logout')
-      expect(localStorage.getItem('token')).toBeNull()
       expect(localStorage.getItem('user')).toBeNull()
     })
 
     it('clears localStorage even if API call fails', async () => {
-      localStorage.setItem('token', 'test-token')
       localStorage.setItem('user', JSON.stringify(mockUser))
 
       vi.mocked(api.post).mockRejectedValueOnce(new Error('Network error'))
 
       await authService.logout()
 
-      expect(localStorage.getItem('token')).toBeNull()
       expect(localStorage.getItem('user')).toBeNull()
     })
   })
@@ -133,7 +129,7 @@ describe('authService', () => {
   })
 
   describe('updatePassword', () => {
-    it('updates password and stores new token', async () => {
+    it('updates password (token automatically updated in httpOnly cookie)', async () => {
       const newAuthResponse = {
         ...mockAuthResponse,
         token: 'new-token-123',
@@ -150,7 +146,7 @@ describe('authService', () => {
         newPassword: 'newpass',
       })
       expect(result).toEqual(newAuthResponse)
-      expect(localStorage.getItem('token')).toBe('new-token-123')
+      // Token is automatically updated in httpOnly cookie by backend
     })
   })
 
@@ -175,7 +171,7 @@ describe('authService', () => {
   })
 
   describe('resetPassword', () => {
-    it('resets password with token and stores new auth', async () => {
+    it('resets password and stores user data (token in httpOnly cookie)', async () => {
       vi.mocked(api.put).mockResolvedValueOnce({
         data: mockAuthResponse,
       } as any)
@@ -186,7 +182,7 @@ describe('authService', () => {
         password: 'newpass',
       })
       expect(result).toEqual(mockAuthResponse)
-      expect(localStorage.getItem('token')).toBe(mockAuthResponse.token)
+      // Token is stored in httpOnly cookie, not localStorage
       expect(localStorage.getItem('user')).toBe(
         JSON.stringify(mockAuthResponse.user)
       )
