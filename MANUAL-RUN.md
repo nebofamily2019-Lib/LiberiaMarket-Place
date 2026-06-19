@@ -9,43 +9,40 @@ Prerequisites
 
 ## 1) Environment variables
 
-Create backend/.env (recommended)
-```env
-# filepath: backend/.env
-NODE_ENV=development
-PORT=5000
-DATABASE_URL=postgresql://user:password@localhost:5432/libmarket
-JWT_SECRET=change-this-secret
-JWT_EXPIRE=7d
-# Allow one or more frontend origins (comma-separated)
-FRONTEND_ALLOWED_ORIGINS=http://localhost:5173
-```
-
-Windows (Command Prompt) temporary envs (alternative)
-```bat
-cd backend
-set NODE_ENV=development
-set PORT=5000
-set DATABASE_URL=postgresql://user:password@localhost:5432/libmarket
-set JWT_SECRET=change-this-secret
-set JWT_EXPIRE=7d
-set FRONTEND_ALLOWED_ORIGINS=http://localhost:5173
-```
-
-macOS/Linux (bash) temporary envs (alternative)
+Easiest: copy the example file and edit it
 ```bash
 cd backend
-export NODE_ENV=development
-export PORT=5000
-export DATABASE_URL=postgresql://user:password@localhost:5432/libmarket
-export JWT_SECRET=change-this-secret
-export JWT_EXPIRE=7d
-export FRONTEND_ALLOWED_ORIGINS=http://localhost:5173
+cp .env.example .env
+# Then generate a real JWT_SECRET and paste it into .env:
+node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+```
+The defaults in `.env.example` use SQLite (`DB_DIALECT=sqlite`), so no
+PostgreSQL setup is required for local development.
+
+Key variables in `backend/.env`
+```env
+NODE_ENV=development
+PORT=5000
+DB_DIALECT=sqlite
+DB_STORAGE=./database.sqlite
+JWT_SECRET=<generate a 64+ char random string, see above>
+JWT_EXPIRE=7d
+CORS_ORIGIN=http://localhost:5173
+```
+
+To use PostgreSQL instead of SQLite, set:
+```env
+DB_DIALECT=postgres
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=libmarket
+DB_USER=your_db_user
+DB_PASSWORD=your_db_password
 ```
 
 Notes
-- FRONTEND_ALLOWED_ORIGINS supports comma-separated values and “*”.
-- Ensure DATABASE_URL points to an existing DB.
+- `CORS_ORIGIN` is the env var the backend actually reads (`backend/src/server.js`) — it must match the frontend's URL exactly.
+- The server validates required env vars on startup (`backend/src/utils/validateEnv.js`) and will refuse to boot if `JWT_SECRET` is missing/placeholder, or if production is misconfigured.
 
 ## 2) Backend (Terminal 1)
 
