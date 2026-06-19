@@ -50,14 +50,24 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to AWS
-        uses: aws-actions/configure-aws-credentials@v2
+      - uses: actions/checkout@v3
+
+      - name: Deploy backend to Railway
+        uses: bervProject/railway-deploy@main
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-      
-      - name: Deploy backend
-        run: |
-          # Your deployment script here
-          echo "Deploying to production..."
+          railway_token: ${{ secrets.RAILWAY_TOKEN }}
+          service: backend
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: frontend-build
+          path: frontend/dist
+
+      - name: Deploy frontend to Netlify
+        uses: nwtgck/actions-netlify@v3
+        with:
+          publish-dir: frontend/dist
+          production-deploy: true
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}

@@ -14,6 +14,10 @@ const path = require('path');
 
 dotenv.config()
 
+if (process.env.NODE_ENV !== 'test') {
+  require('./utils/validateEnv')();
+}
+
 const app = express()
 
 // Trust proxy
@@ -36,7 +40,7 @@ app.use(express.urlencoded({
 // CORS Configuration - MUST be before other middleware
 // const cors = require('cors'); // Removed duplicate import
 app.use(cors({
-  origin: 'http://localhost:5173', // Always allow local frontend for POC
+  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
   credentials: true, // Allow cookies
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
@@ -66,7 +70,7 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'"], // Allow inline styles for React
       scriptSrc: ["'self'"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'", process.env.CLIENT_URL || "http://localhost:5173"],
+      connectSrc: ["'self'", process.env.CORS_ORIGIN || "http://localhost:5173"],
       fontSrc: ["'self'", "https:", "data:"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
