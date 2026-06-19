@@ -1,16 +1,4 @@
-const { Sequelize } = require('sequelize');
-const path = require('path');
-
-// Database configuration
-const sequelize = new Sequelize({
-  dialect: 'sqlite',
-  storage: path.join(__dirname, '../../libmarket_dev.sqlite'),
-  logging: process.env.NODE_ENV === 'development' ? console.log : false,
-  define: {
-    timestamps: true,
-    underscored: false
-  }
-});
+const { sequelize } = require('../config/database');
 
 // Import model classes
 const User = require('./User');
@@ -25,8 +13,7 @@ console.log('🔧 Initializing models...');
 User.init(sequelize);
 Product.init(sequelize);
 Category.init(sequelize);
-Conversation.init(sequelize);
-Message.init(sequelize);
+// Conversation and Message are already defined via sequelize.define() in their own files
 
 console.log('✅ Models initialized');
 

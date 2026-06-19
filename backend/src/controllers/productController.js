@@ -405,4 +405,48 @@ const getUserProducts = async (req, res, next) => {
 
     console.log('🔍 Where clause:', JSON.stringify(where, null, 2))
 
-    const { count, rows } = await Product.findAnd
+    const { count, rows: products } = await Product.findAndCountAll({
+      where,
+      include: [
+        {
+          model: Category,
+          as: 'category',
+          attributes: ['id', 'name', 'icon', 'color']
+        },
+        {
+          model: User,
+          as: 'seller',
+          attributes: ['id', 'name', 'phone']
+        }
+      ],
+      order: [['createdAt', 'DESC']],
+      limit,
+      offset,
+      distinct: true
+    });
+
+    res.status(200).json({
+      success: true,
+      count: products.length,
+      totalProducts: count,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(count / limit),
+        hasMore: page < Math.ceil(count / limit),
+        limit
+      },
+      data: products
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+module.exports = {
+  getProducts,
+  getProduct,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  getUserProducts
+}
