@@ -18,7 +18,7 @@ describe('authService', () => {
   })
 
   describe('register', () => {
-    it('registers a new user and stores token', async () => {
+    it('registers a new user and stores user data', async () => {
       const registerData = {
         name: 'John Doe',
         phone: '881234567',
@@ -33,7 +33,6 @@ describe('authService', () => {
 
       expect(api.post).toHaveBeenCalledWith('/auth/register', registerData)
       expect(result).toEqual(mockAuthResponse)
-      expect(localStorage.getItem('token')).toBe(mockAuthResponse.token)
       expect(localStorage.getItem('user')).toBe(
         JSON.stringify(mockAuthResponse.user)
       )
@@ -51,12 +50,12 @@ describe('authService', () => {
         })
       ).rejects.toThrow('Registration failed')
 
-      expect(localStorage.getItem('token')).toBeNull()
+      expect(localStorage.getItem('user')).toBeNull()
     })
   })
 
   describe('login', () => {
-    it('logs in user and stores token', async () => {
+    it('logs in user and stores user data', async () => {
       const credentials = {
         phone: '881234567',
         password: 'password123',
@@ -70,7 +69,6 @@ describe('authService', () => {
 
       expect(api.post).toHaveBeenCalledWith('/auth/login', credentials)
       expect(result).toEqual(mockAuthResponse)
-      expect(localStorage.getItem('token')).toBe(mockAuthResponse.token)
       expect(localStorage.getItem('user')).toBe(
         JSON.stringify(mockAuthResponse.user)
       )
@@ -87,8 +85,7 @@ describe('authService', () => {
   })
 
   describe('logout', () => {
-    it('clears token and user from localStorage', async () => {
-      localStorage.setItem('token', 'test-token')
+    it('clears user from localStorage', async () => {
       localStorage.setItem('user', JSON.stringify(mockUser))
 
       vi.mocked(api.post).mockResolvedValueOnce({ data: {} } as any)
@@ -96,19 +93,16 @@ describe('authService', () => {
       await authService.logout()
 
       expect(api.post).toHaveBeenCalledWith('/auth/logout')
-      expect(localStorage.getItem('token')).toBeNull()
       expect(localStorage.getItem('user')).toBeNull()
     })
 
     it('clears localStorage even if API call fails', async () => {
-      localStorage.setItem('token', 'test-token')
       localStorage.setItem('user', JSON.stringify(mockUser))
 
       vi.mocked(api.post).mockRejectedValueOnce(new Error('Network error'))
 
       await authService.logout()
 
-      expect(localStorage.getItem('token')).toBeNull()
       expect(localStorage.getItem('user')).toBeNull()
     })
   })
@@ -133,14 +127,9 @@ describe('authService', () => {
   })
 
   describe('updatePassword', () => {
-    it('updates password and stores new token', async () => {
-      const newAuthResponse = {
-        ...mockAuthResponse,
-        token: 'new-token-123',
-      }
-
+    it('updates password', async () => {
       vi.mocked(api.put).mockResolvedValueOnce({
-        data: newAuthResponse,
+        data: mockAuthResponse,
       } as any)
 
       const result = await authService.updatePassword('oldpass', 'newpass')
@@ -149,8 +138,7 @@ describe('authService', () => {
         currentPassword: 'oldpass',
         newPassword: 'newpass',
       })
-      expect(result).toEqual(newAuthResponse)
-      expect(localStorage.getItem('token')).toBe('new-token-123')
+      expect(result).toEqual(mockAuthResponse)
     })
   })
 
@@ -186,7 +174,6 @@ describe('authService', () => {
         password: 'newpass',
       })
       expect(result).toEqual(mockAuthResponse)
-      expect(localStorage.getItem('token')).toBe(mockAuthResponse.token)
       expect(localStorage.getItem('user')).toBe(
         JSON.stringify(mockAuthResponse.user)
       )
@@ -215,35 +202,4 @@ describe('authService', () => {
     })
   })
 
-  describe('getStoredToken', () => {
-    it('returns token from localStorage', () => {
-      localStorage.setItem('token', 'test-token')
-
-      const result = authService.getStoredToken()
-
-      expect(result).toBe('test-token')
-    })
-
-    it('returns null when no token in localStorage', () => {
-      const result = authService.getStoredToken()
-
-      expect(result).toBeNull()
-    })
-  })
-
-  describe('isAuthenticated', () => {
-    it('returns true when token exists', () => {
-      localStorage.setItem('token', 'test-token')
-
-      const result = authService.isAuthenticated()
-
-      expect(result).toBe(true)
-    })
-
-    it('returns false when no token exists', () => {
-      const result = authService.isAuthenticated()
-
-      expect(result).toBe(false)
-    })
-  })
 })

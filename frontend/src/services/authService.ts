@@ -28,32 +28,25 @@ export interface RegisterData {
 export interface AuthResponse {
   success: boolean
   message: string
-  token: string
   user: User
 }
 
+// The auth token itself lives only in the backend's httpOnly cookie
+// (sent automatically via withCredentials) - it's never readable from JS.
+// We cache the user object in localStorage purely so the UI can paint
+// instantly on reload; checkAuth() always re-validates against the server.
 const authService = {
   // Register new user
   register: async (data: RegisterData): Promise<AuthResponse> => {
     const response = await api.post<AuthResponse>('/auth/register', data)
-
-    if (response.data.token) {
-      localStorage.setItem('token', response.data.token)
-      localStorage.setItem('user', JSON.stringify(response.data.user))
-    }
-
+    localStorage.setItem('user', JSON.stringify(response.data.user))
     return response.data
   },
 
   // Login user
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
     const response = await api.post<AuthResponse>('/auth/login', credentials)
-
-    if (response.data.token) {
-      localStorage.setItem('token', response.data.token)
-      localStorage.setItem('user', JSON.stringify(response.data.user))
-    }
-
+    localStorage.setItem('user', JSON.stringify(response.data.user))
     return response.data
   },
 
@@ -64,7 +57,6 @@ const authService = {
     } catch (error) {
       console.error('Logout error:', error)
     } finally {
-      localStorage.removeItem('token')
       localStorage.removeItem('user')
     }
   },
@@ -81,11 +73,6 @@ const authService = {
       currentPassword,
       newPassword
     })
-
-    if (response.data.token) {
-      localStorage.setItem('token', response.data.token)
-    }
-
     return response.data
   },
 
@@ -100,29 +87,14 @@ const authService = {
     const response = await api.put<AuthResponse>(`/auth/reset-password/${resetToken}`, {
       password
     })
-
-    if (response.data.token) {
-      localStorage.setItem('token', response.data.token)
-      localStorage.setItem('user', JSON.stringify(response.data.user))
-    }
-
+    localStorage.setItem('user', JSON.stringify(response.data.user))
     return response.data
   },
 
-  // Get stored user from localStorage
+  // Get cached user from localStorage (for instant UI hydration only)
   getStoredUser: (): User | null => {
     const userStr = localStorage.getItem('user')
     return userStr ? JSON.parse(userStr) : null
-  },
-
-  // Get stored token from localStorage
-  getStoredToken: (): string | null => {
-    return localStorage.getItem('token')
-  },
-
-  // Check if user is authenticated
-  isAuthenticated: (): boolean => {
-    return !!localStorage.getItem('token')
   }
 }
 

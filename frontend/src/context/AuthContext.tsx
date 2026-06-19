@@ -22,40 +22,25 @@ interface AuthProviderProps {
 export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const [user, setUser] = useState<User | null>(() => {
-    // Try to restore user from localStorage on initial load
+    // Optimistically restore cached user for instant paint; checkAuth()
+    // below re-validates against the server (the real auth state lives
+    // in the httpOnly cookie, which JS can't read).
     return authService.getStoredUser()
   })
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return authService.isAuthenticated()
-  })
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const checkAuth = async () => {
-    const storedToken = authService.getStoredToken()
-    const storedUser = authService.getStoredUser()
-
-    // If no token, skip auth check
-    if (!storedToken) {
-      setUser(null)
-      setIsAuthenticated(false)
-      setLoading(false)
-      return
-    }
-
-    // If we have a token, verify it with the server
     try {
       const currentUser = await authService.getCurrentUser()
       setUser(currentUser)
       setIsAuthenticated(true)
-      // Sync localStorage
       localStorage.setItem('user', JSON.stringify(currentUser))
     } catch (error: any) {
-      // Token is invalid, clear auth state
-      console.error('Auth check failed:', error.message)
+      // No valid session cookie
       setUser(null)
       setIsAuthenticated(false)
       localStorage.removeItem('user')
-      localStorage.removeItem('token')
     } finally {
       setLoading(false)
     }

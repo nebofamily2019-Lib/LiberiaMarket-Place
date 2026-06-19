@@ -35,14 +35,6 @@ export const getCurrentUser = (): User | null => {
 export const user = getCurrentUser()
 
 /**
- * Check if user is authenticated
- * @returns boolean
- */
-export const isAuthenticated = (): boolean => {
-  return !!localStorage.getItem('token') && !!getCurrentUser()
-}
-
-/**
  * Get user's role
  * @returns user role or null
  */
@@ -73,7 +65,6 @@ export const getUserId = (): string | null => {
 export default {
   getCurrentUser,
   user,
-  isAuthenticated,
   getUserRole,
   hasRole,
   getUserId

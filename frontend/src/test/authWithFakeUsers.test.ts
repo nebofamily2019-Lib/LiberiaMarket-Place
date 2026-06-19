@@ -34,7 +34,6 @@ describe('Authentication Service with Fake Users', () => {
       vi.mocked(authService.login).mockResolvedValueOnce({
         success: true,
         message: 'Login successful',
-        token: 'mtn-user-token',
         user: user
       })
 
@@ -57,7 +56,6 @@ describe('Authentication Service with Fake Users', () => {
       vi.mocked(authService.login).mockResolvedValueOnce({
         success: true,
         message: 'Login successful',
-        token: 'lonestar-user-token',
         user: user
       })
 
@@ -79,7 +77,6 @@ describe('Authentication Service with Fake Users', () => {
       vi.mocked(authService.login).mockResolvedValueOnce({
         success: true,
         message: 'Login successful',
-        token: 'rural-farmer-token',
         user: user
       })
 
@@ -136,7 +133,6 @@ describe('Authentication Service with Fake Users', () => {
       vi.mocked(authService.register).mockResolvedValueOnce({
         success: true,
         message: 'Registration successful',
-        token: 'new-buyer-token',
         user: newUser
       })
 
@@ -163,7 +159,6 @@ describe('Authentication Service with Fake Users', () => {
       vi.mocked(authService.register).mockResolvedValueOnce({
         success: true,
         message: 'Registration successful',
-        token: 'new-seller-token',
         user: newUser
       })
 
@@ -189,7 +184,6 @@ describe('Authentication Service with Fake Users', () => {
       vi.mocked(authService.register).mockResolvedValueOnce({
         success: true,
         message: 'Registration successful',
-        token: 'rural-seller-token',
         user: newUser
       })
 
@@ -231,7 +225,6 @@ describe('Authentication Service with Fake Users', () => {
       vi.mocked(authService.login).mockResolvedValueOnce({
         success: true,
         message: 'Login successful',
-        token: 'voinjama-user-token',
         user: user
       })
 
@@ -250,7 +243,6 @@ describe('Authentication Service with Fake Users', () => {
       vi.mocked(authService.login).mockResolvedValueOnce({
         success: true,
         message: 'Login successful',
-        token: 'harper-user-token',
         user: user
       })
 
@@ -294,14 +286,12 @@ describe('Authentication Service with Fake Users', () => {
   describe('Session Management with Fake Users', () => {
     it('stores user session correctly after login', () => {
       const user = fakeTestUsers.regularBuyer
-      const token = 'session-token-123'
 
       // Mock localStorage behavior
       const mockGetItem = vi.fn()
       const mockSetItem = vi.fn()
-      
+
       mockGetItem.mockImplementation((key) => {
-        if (key === 'token') return token
         if (key === 'user') return JSON.stringify(user)
         return null
       })
@@ -316,13 +306,9 @@ describe('Authentication Service with Fake Users', () => {
       })
 
       // Simulate service calls
-      authService.getStoredToken = vi.fn().mockReturnValue(token)
       authService.getStoredUser = vi.fn().mockReturnValue(user)
-      authService.isAuthenticated = vi.fn().mockReturnValue(true)
 
-      expect(authService.getStoredToken()).toBe(token)
       expect(authService.getStoredUser()).toEqual(user)
-      expect(authService.isAuthenticated()).toBe(true)
     })
 
     it('handles user role changes during session', () => {
