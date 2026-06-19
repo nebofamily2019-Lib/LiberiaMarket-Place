@@ -18,11 +18,13 @@ api.interceptors.response.use(
   (error) => {
     console.error('API Error:', error.response?.status, error.response?.data)
 
-    if (error.response?.status === 401) {
-      // Redirect to login on 401
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login'
-      }
+    const isAuthCheck = error.config?.url?.includes('/auth/me')
+    const publicPages = ['/login', '/register', '/']
+
+    if (error.response?.status === 401 && !isAuthCheck && !publicPages.includes(window.location.pathname)) {
+      // Redirect to login on 401 from a protected request, but not from the
+      // background auth-check (anonymous visitors hit /auth/me on every load)
+      window.location.href = '/login'
     }
     return Promise.reject(error)
   }
