@@ -1,0 +1,126 @@
+Perfect! I can see you have a comprehensive PowerShell test script. Here's how to run your tests:
+
+  Running Tests in PowerShell
+
+  Option 1: Full Automated Test Suite (FullTestProcess.ps1)
+
+  # Navigate to project root
+  cd C:\Users\Maeyen\CommunityE-commerce-SPA-Liberia
+
+  # Run the full test suite
+  .\FullTestProcess.ps1
+
+  This script runs all 8 test steps:
+  1. Backend dependencies installation
+  2. Category seeding
+  3. Backend unit/integration tests
+  4. Backend coverage report
+  5. Frontend dependencies installation
+  6. Frontend unit/integration tests
+  7. Frontend coverage report
+  8. E2E tests (Playwright)
+
+  Note: The script will create test-errors.log if any step fails.
+
+  ---
+  Option 2: Backend Tests Only
+
+  # Navigate to backend
+  cd C:\Users\Maeyen\CommunityE-commerce-SPA-Liberia\backend
+
+  # Run all backend tests
+  npm test
+
+  # Run tests in watch mode (re-runs on file changes)
+  npm run test:watch
+
+  # Run with coverage report
+  npm run test:coverage
+
+  # Run security tests only
+  npm run test:security
+
+  ---
+  Option 3: Frontend Tests Only
+
+  # Navigate to frontend
+  cd C:\Users\Maeyen\CommunityE-commerce-SPA-Liberia\frontend
+
+  # Run all frontend tests
+  npm test
+
+  # Run tests with UI (visual test runner)
+  npm run test:ui
+
+  # Run tests once (no watch mode)
+  npm run test:run
+
+  # Run with coverage report
+  npm run test:coverage
+
+  ---
+  Option 4: Manual Testing (Run Dev Servers)
+
+  # Terminal 1 - Backend
+  cd C:\Users\Maeyen\CommunityE-commerce-SPA-Liberia\backend
+  npm run dev
+
+  # Terminal 2 - Frontend (open new PowerShell window)
+  cd C:\Users\Maeyen\CommunityE-commerce-SPA-Liberia\frontend
+  npm run dev
+
+  Then access: http://localhost:5173 (frontend) and http://localhost:5000 (backend API)
+
+  ---
+  Option 5: Database Management Scripts
+
+  cd C:\Users\Maeyen\CommunityE-commerce-SPA-Liberia\backend
+
+  # Run database migrations
+  npm run migrate
+
+  # Undo last migration
+  npm run migrate:undo
+
+  # Sync database (force recreate tables)
+  npm run db:sync
+
+  # Create admin user
+  npm run create-admin
+
+  # Fix user roles
+  npm run fix-roles
+
+  ---
+  Troubleshooting
+
+  If you get execution policy errors:
+  # Check current policy
+  Get-ExecutionPolicy
+
+  # Set policy to allow scripts (run as Administrator)
+  Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+  # Or run script with bypass
+  powershell -ExecutionPolicy Bypass -File .\FullTestProcess.ps1
+
+  ---
+  Recommended Testing Workflow for Domain UI Testing
+
+  Since you mentioned domain UI testing, I recommend:
+
+  # 1. Start backend server (Terminal 1)
+  cd C:\Users\Maeyen\CommunityE-commerce-SPA-Liberia\backend
+  npm run dev
+
+  # 2. Start frontend server (Terminal 2 - new window)
+  cd C:\Users\Maeyen\CommunityE-commerce-SPA-Liberia\frontend
+  npm run dev
+
+  # 3. (Optional) Run automated tests in background (Terminal 3)
+  cd C:\Users\Maeyen\CommunityE-commerce-SPA-Liberia\frontend
+  npm run test:ui
+
+  Then manually test the UI at http://localhost:5173 and report any issues to me! 🚀
+
+  Which testing approach would you like to start with?

@@ -1,0 +1,10 @@
+TO DOS:
+UI / UX Review
+Review Customer CSS to use optimized version
+Security Review 
+Review App for unnecessary complexity 
+
+CICD Pipe line using Gitops
+ 
+
+

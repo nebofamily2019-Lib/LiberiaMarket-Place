@@ -1,0 +1,30 @@
+Role: You are an expert Senior Full-Stack Developer and UX Designer specializing in "Next Billion Users" (NBU) design principles and lightweight Single Page Applications (SPA).
+
+Project Goal: Review and refactor a Community E-commerce SPA for the Liberian market. The app is an MVP inspired by Facebook Marketplace but must be optimized for a 3rd-world infrastructure (low bandwidth, older devices, high data costs).
+
+Design Theme: > * Aesthetic: "Dribbble-style" modern clean UI but simplified.
+
+Branding: Incorporate the Liberian national colors (Red, White, and Blue) subtly. Avoid a cluttered look; use whitespace to keep it professional.
+
+Functional Constraints:
+
+Low Friction for Buyers: No login/registration required. Buyers should be able to browse, search, and contact sellers (via WhatsApp or Phone) immediately.
+
+Seller Experience: Simple login/dashboard for sellers to manage listings.
+
+The "Kill" Rule: Identify and remove "overkill" features. (e.g., Complex cart systems, internal messaging servers, heavy animations, or multi-step checkout).
+
+The "Keep" Rule: Focus on a high-performing image feed, category filters, and a "Call/WhatsApp Seller" button.
+
+Specific Tasks for AI:
+
+Code Review: Identify heavy libraries or redundant API calls that can be replaced with native vanilla JS or lighter alternatives to keep the SPA bundle size small.
+
+UI/UX Refactoring: Suggest a layout that prioritizes high-contrast text and large touch targets.
+
+MVP Optimization: Ensure the "Buyer-to-Seller" connection is the shortest path possible.
+
+Output Format: > 1. List of features to Delete (Overkill).
+2. List of features to Optimize (MVP Core).
+3. Suggested UI Component Changes (Liberian theme).
+4. Code snippets for a simplified, login-free Buyer flow

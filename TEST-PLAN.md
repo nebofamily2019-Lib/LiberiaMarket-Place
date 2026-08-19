@@ -399,7 +399,12 @@ VITE_API_URL=http://localhost:5000/api
 | COMP-022 | ProtectedRoute | Renders children if authenticated | P0 | ⏳ Pending |
 | COMP-023 | BottomNav | Renders on mobile only | P1 | ⏳ Pending |
 | COMP-024 | BottomNav | Highlights active route | P1 | ⏳ Pending |
-| ... | ... | (Additional component tests) | ... | ⏳ Pending |
+| COMP-025 | SellerOverview | Groups offers by product | P0 | ✅ Pass |
+| COMP-026 | SellerOverview | Renders product summary correctly | P0 | ✅ Pass |
+| COMP-027 | BuyerOverview | Groups sent offers by product | P0 | ✅ Pass |
+| COMP-028 | BuyerOverview | Renders product summary correctly | P0 | ✅ Pass |
+| COMP-029 | Wallet | Renders without voice input | P1 | ✅ Pass |
+| COMP-030 | Wallet | Renders without emoji | P1 | ✅ Pass |
 
 #### 5.2.2 Service Tests (20 tests)
 

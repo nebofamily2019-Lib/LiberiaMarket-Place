@@ -1,0 +1,17 @@
+CREATE TABLE users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT,
+  phone TEXT UNIQUE,
+  email TEXT UNIQUE,
+  password TEXT,
+  role TEXT DEFAULT 'buyer',
+  isActive BOOLEAN DEFAULT 1,
+  lockUntil DATETIME,
+  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+sqlite3 "c:/Users/Maeyen/CommunityE-commerce-SPA-Liberia/backend/database/libmarket.sqlite" < create_users.sql
+
+
+sqlite3 "c:/Users/Maeyen/CommunityE-commerce-SPA-Liberia/backend/database/libmarket.sqlite" ".tables"

@@ -1,81 +1,75 @@
 # Copilot Instructions for Liberia Marketplace
 
-## Project Architecture
+## Project Context & Architecture
 
-- **Monorepo Structure**:  
-  - `frontend/`: React SPA (mobile-first, accessibility-focused)  
-  - `backend/`: Node.js/Express API (JWT auth, SQLite/PostgreSQL)  
-  - `database/`: SQL schema, migrations, seeds  
+- **Monorepo Structure**:
+  - `frontend/`: React SPA (Vite, Mobile-first, Accessibility-focused)
+  - `backend/`: Node.js/Express API (Sequelize ORM)
+  - `database/`: SQL schema, migrations, seeds
   - `docs/`: Architecture, API, and workflow documentation
 
-- **Major Data Flows**:  
-  - Auth: JWT tokens, httpOnly cookies, CORS configured for cross-origin frontend/backend  
-  - Product/Offer: CRUD via REST API, category-based search, offer negotiation  
-  - User: Multi-role (buyer/seller/admin), phone verification, ratings
+- **Tech Stack**:
+  - **Frontend**: React, Vite, CSS Variables (Design Tokens)
+  - **Backend**: Node.js, Express, Sequelize
+  - **Database**: PostgreSQL (Production), SQLite (Dev/Test)
+  - **Auth**: JWT (httpOnly cookies), Phone-based verification (Liberian 9-digit format)
 
-## Developer Workflows
+## Critical Developer Workflows
 
-- **Development**:  
-  - Start backend: `cd backend && npm run dev`  
-  - Start frontend: `cd frontend && npm start`  
-  - Hot reload enabled for both; run in separate terminals
+- **Backend Setup**:
+  - Install: `cd backend && npm install`
+  - Dev Server: `cd backend && npm run dev` (uses `nodemon`)
+  - Database: `npm run migrate` (Sequelize migrations)
+  - **Testing**:
+    - Unit/Integration: `npm test` (Jest)
+    - Watch Mode: `npm run test:watch`
+    - Coverage: `npm run test:coverage` (Target: 90%+)
+    - Security: `npm run test:security`
 
-- **Testing**:  
-  - Backend: Jest + Supertest (`npm test`, `npm run test:watch`, `npm run test:coverage`)  
-  - Frontend: Vitest + React Testing Library (`npm test` in `frontend/`)  
-  - E2E: Playwright/Cypress (see `TEST-PLAN.md` for setup)  
-  - Test data: `backend/src/scripts/seed-test-data.js`
+- **Frontend Setup**:
+  - Install: `cd frontend && npm install`
+  - Dev Server: `cd frontend && npm start` (Vite)
+  - Build: `npm run build`
+  - **Testing**:
+    - Unit: `npm test` (Vitest + React Testing Library)
+    - Coverage Target: 80%+
 
-- **Build & Deploy**:  
-  - Build frontend: `cd frontend && npm run build`  
-  - Build backend: `cd backend && npm run build` (if configured)  
-  - Docker: See `Dockerfile`, `docker-compose.yml`  
-  - CI/CD: GitHub Actions (`.github/workflows/deploy.yml`) runs tests, audits, builds, and deploys
+- **Full Stack Run**:
+  - Run backend and frontend in separate terminals.
+  - Ensure `.env` files are configured (see `.env.example`).
 
 ## Key Conventions & Patterns
 
-- **Environment Variables**:  
-  - Use `.env.example` as template; never commit `.env`  
-  - Validate env on startup (`backend/src/config/validateEnv.js`)
+- **Security First**:
+  - **Env Vars**: Validate on startup (`backend/src/config/validateEnv.js`). Never commit `.env`.
+  - **JWT**: Use secure, long `JWT_SECRET`. Store in httpOnly cookies.
+  - **CORS**: strict origin configuration.
 
-- **Security**:  
-  - Always set secure, long JWT_SECRET in production  
-  - CORS: `origin` set from env, `credentials: true`  
-  - Cookies: `httpOnly`, `secure` in production, `sameSite: 'strict'`  
-  - See `PRODUCTION-SECURITY-CHECKLIST.md` for deployment steps
+- **Accessibility & AI-First UX (Critical)**:
+  - **Target Audience**: Low-literacy users in Liberia.
+  - **Design**: Icon-first, minimal text, large touch targets (≥44px).
+  - **Audio/Voice**: TTS prompts for forms, audio confirmations.
+  - **Localization**: English + Liberian Pidgin variants.
+  - **AI Features**: Smart form fill, auto-generated descriptions, voice-to-text.
 
-- **Testing Strategy**:  
-  - TDD encouraged for new features  
-  - 90%+ backend, 80%+ frontend coverage targets  
-  - Risk-based: prioritize auth, payments, data integrity  
-  - Regression: full suite after bug fixes/new features
-
-- **Accessibility & Localization**:  
-  - Icon-first, minimal text, large touch targets  
-  - Audio/voice prompts for key flows  
-  - English + Liberian Pidgin variants
+- **Database & Data**:
+  - Use Sequelize for all DB interactions.
+  - Migrations in `backend/migrations` or `database/migrations`.
+  - Seed data available in `backend/seeders`.
 
 ## Integration Points
 
-- **Frontend/Backend**:  
-  - API base URL set via env  
-  - Auth flows use cookies, CORS, JWT  
-  - Database: SQLite for dev/test, PostgreSQL for staging/prod
+- **API Communication**:
+  - Frontend uses `VITE_API_URL` to talk to Backend.
+  - Standardized error responses (JSON).
 
-- **External Services**:  
-  - Phone verification (see backend implementation)  
-  - Future: Messaging, payment gateway, notifications (see `TEST-PLAN.md` for out-of-scope)
+- **External Services**:
+  - **Cloudinary**: Image uploads.
+  - **Twilio** (implied): SMS/Phone verification.
 
 ## Reference Files
 
-- `README.md`, `backend/README.md`: Setup, architecture, and feature overview
-- `PRODUCTION-SECURITY-CHECKLIST.md`: Security and deployment
-- `TEST-PLAN.md`, `frontend/TEST_PLAN.md`: Testing strategy, coverage, and tools
-- `MANUAL-RUN.md`: Step-by-step environment setup
-- `docs/`: Architecture diagrams, API docs
-
----
-
-**Feedback requested:**  
-- Are any workflows, conventions, or integration points unclear or missing?  
-- Is there a specific pattern or file you want documented in more detail?
+- **Architecture**: `README.md`, `backend/README.md`
+- **Testing**: `TEST-PLAN.md` (Comprehensive strategy)
+- **Security**: `PRODUCTION-SECURITY-CHECKLIST.md`, `backend/SECURITY.md`
+- **Deployment**: `DEPLOYMENT.md`, `MANUAL-RUN.md`

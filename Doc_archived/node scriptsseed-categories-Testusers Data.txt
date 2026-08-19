@@ -1,0 +1,101 @@
+7635875663@charter.net
+
+ Todos
+  ☐ Investigate buyer follow seller failure
+  ☐ Check follower API endpoint
+  ☐ Check database schema for followers table
+  ☐ Fix follower functionality
+  ☐ Test follow/unfollow feature
+
+Buyers
+
+
+Name: Alice Johnson
+Phone: 0771234567
+Password: TestBuyer1!
+
+Name: Samuel Doe
+Phone: 0882345678
+Password: TestBuyer2!
+
+Name: Blessing Kpannah
+Phone: 0779876543
+Password: TestBuyer3!
+
+Kenan-s-S25-FE	192.168.1.218	9A:15:E9:D8:40:1F
+
+Name: Emmanuel Smith
+Phone: 088876541
+Password: TestSeller1!
+
+Name: Comfort Williams
+Phone: 0773456787
+Password: TestSeller2!
+
+Name: Comfort Nebo
+0773 456 788
+Name: TestSeller2!
+
+
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true,
+  // ...other options
+}));
+
+Name: Josephine Kollie
+Phone: 0881122334
+Password: TestSeller3!
+
+
+
+Here are 3 locally relevant test listings tailored for your marketplace, priced in Liberian Dollars 🇱🇷:
+
+---
+
+### 🚗 **Category: Cars**
+**Title:** 2008 Toyota Corolla – Clean & Reliable  
+**Description:**  
+Well-maintained Toyota Corolla with cold AC, smooth transmission, and fuel efficiency. Perfect for city driving or long trips.  
+- Year: 2008  
+- Transmission: Automatic  
+- Condition: Used, excellent  
+- Location: Monrovia  
+**Price:** L$1,150,000  
+
+---
+
+### 🍲 **Category: Food**  
+**Title:** Fresh Palm Butter with Country Rice – 2-Serving Pack  
+**Description:**  
+Delicious homemade palm butter stew with smoked fish, served with fluffy country rice. Packed fresh daily and ready for pickup or delivery.  
+- Quantity: 2 servings  
+- Packaging: Eco-friendly container  
+- Delivery: Available in central Monrovia  
+**Price:** L$850  
+
+---
+
+### 📱 **Category: Electronics**  
+**Title:** Tecno Spark 10 – 128GB, Dual SIM  
+**Description:**  
+Brand new Tecno Spark 10 with large display, long battery life, and dual SIM support. Ideal for business and entertainment.  
+- Storage: 128GB  
+- Color: Midnight Black  
+- Warranty: 6 months  
+**Price:** L$18,500  
+
+Get-Item "C:\Users\Maeyen\CommunityE-commerce-SPA-Liberia\backend\database\libmarket_dev.sqlite" | Format-List *
+
+Get-Item "C:\Users\Maeyen\CommunityE-commerce-SPA-Liberia\backend\database\libmarket.sqlite" | Format-List *
+
+Remove-Item "C:\Users\Maeyen\CommunityE-commerce-SPA-Liberia\backend\database\libmarket_dev.sqlite" -Force
+
+sqlite3 "C:\Users\Maeyen\CommunityE-commerce-SPA-Liberia\backend\database\libmarket.sqlite" ".tables"; sqlite3 "C:\Users\Maeyen\CommunityE-commerce-SPA-Liberia\backend\database\libmarket.sqlite" ".schema users"; sqlite3 "C:\Users\Maeyen\CommunityE-commerce-SPA-Liberia\backend\database\libmarket.sqlite" ".schema users_backup"; sqlite3 "C:\Users\Maeyen\CommunityE-commerce-SPA-Liberia\backend\database\libmarket.sqlite" "PRAGMA integrity_check;"
+
+sqlite3 "C:\Users\Maeyen\CommunityE-commerce-SPA-Liberia\backend\database\libmarket.sqlite" "DROP INDEX IF EXISTS idx_categories_active_sorted;"
+
+ Fix remaining product test failures
+     ☐ Update frontend authService tests for httpOnly cookies
+     ☐ Review and commit recent code changes
+     ☐ Verify MVP tests still pass after fixes

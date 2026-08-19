@@ -1,0 +1,399 @@
+
+# Technical Brief & Architecture Use Case: Liberia Marketplace MVP
+
+## 1. Project Overview & Architectural Philosophy
+
+**LibMarket** is a mobile-first community marketplace designed for high-density usability under strict infrastructure constraints. Because our target demographic operates in an environment characterized by **high mobile data costs, intermittent electrical power, and fluctuating cellular network connectivity**, our core engineering philosophy is **Defensive Design for Low-Bandwidth Infrastructure**. The application must prioritize aggressive asset optimization, minimal payload delivery, and elegant fault tolerance over heavy real-time data streaming.
+
+A secondary design mandate is **Low-Literacy Accessibility**: the UI leads with icons over text, enforces large touch targets (≥44px), supports voice-to-text input for listing descriptions and search, and ships in both **English and Liberian Pidgin** via a runtime language toggle.
+
+---
+
+## 2. Core Architectural Principles
+
+* **Mobile-First SPA:** The client is a React 19 Single-Page Application built with Vite. All pages are lazy-loaded via `React.lazy` to keep the initial bundle small. There is no server-side rendering; fast perceived load is achieved through skeleton screens and immediate cache population.
+
+* **Offline-First Resilience:** If a network request fails or times out due to a weak cellular signal, the client falls back to cached `localStorage` data without breaking UI state, and surfaces a non-obtrusive toast: *"Viewing offline listings. Prices and availability will refresh once connection stabilizes."*
+
+* **Asset Economy:** All user-submitted media is compressed client-side (via `imageCompression.ts` + `sharp` server-side) before transmission. The media pipeline serves WebP-converted assets. Cloudinary is used in production; local `uploads/` directory is used in development.
+
+* **Liberian Infrastructure Assumptions:** Phone numbers are the primary identity anchor (9-digit Liberian format). Payments are exclusively mobile money (Orange Money, MTN MoMo, Lonestar Money) — no card rails. Location filtering is scoped to Liberia's **15 counties**.
+
+---
+
+## 3. High-Level System Architecture
+
+```
+[ Client: React 19 + Vite SPA ]
+       │
+       ├── withCredentials: true (httpOnly cookie auth)
+       ├── X-CSRF-Token header (non-GET mutations)
+       │
+       ▼
+[ Backend: Node.js + Express API  |  Port 5000 ]
+       │
+       ├──► [ Auth: JWT in httpOnly cookie ]
+       │         └── Token revocation via token_version column
+       │
+       ├──► [ Database ]
+       │         ├── SQLite (development / test in-memory)
+       │         └── PostgreSQL + SSL (production)
+       │
+       ├──► [ Media Pipeline ]
+       │         ├── multer + sharp  (local dev)
+       │         └── Cloudinary      (production, USE_CLOUD_STORAGE=true)
+       │
+       └──► [ Real-Time Layer: Socket.io ]
+                 └── JWT auth via cookie on handshake
+                     Tracks: userSockets map, conversationRooms map
+```
+
+---
+
+## 4. Data Model & Schema
+
+The schema is managed via **Sequelize migrations** (`backend/migrations/`). `sequelize.sync()` is disabled; all schema changes require a migration file. The test environment uses an in-memory SQLite instance (`storage: ':memory:'`) that is force-synced and wiped between each test.
+
+### Core Entities
+
+```sql
+-- Identity
+CREATE TABLE Users (
+    id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name                      VARCHAR(100) NOT NULL,
+    email                     VARCHAR(255) UNIQUE,              -- optional
+    phone                     VARCHAR(20)  UNIQUE NOT NULL,     -- 9-digit Liberian format
+    password                  VARCHAR(255) NOT NULL,            -- bcrypt, 12 rounds
+    avatar                    VARCHAR(255),                     -- uploaded profile image URL
+    location                  VARCHAR(100),                     -- optional county/city
+    role                      VARCHAR(20)  DEFAULT 'buyer',     -- buyer | seller | admin
+    roles                     TEXT[],                           -- array for multi-role support
+    token_version             INT          DEFAULT 0,           -- incremented to revoke all sessions
+    is_active                 BOOLEAN      DEFAULT TRUE,
+    email_verified            BOOLEAN      DEFAULT FALSE,
+    phone_verified            BOOLEAN      DEFAULT FALSE,
+    last_login                TIMESTAMPTZ,
+    reset_password_token      VARCHAR(255),                     -- SHA256-hashed, 10-min expiry
+    reset_password_expire     TIMESTAMPTZ,
+    email_verification_token  VARCHAR(255),
+    preferred_payment_methods JSONB,                            -- stored payment method preferences
+    created_at                TIMESTAMPTZ  DEFAULT NOW(),
+    updated_at                TIMESTAMPTZ  DEFAULT NOW()
+);
+
+-- Catalogue
+-- 8 categories are pre-seeded: Electronics, Fashion, Home & Garden, Sports, Books, Vehicles, Services, Other
+CREATE TABLE Categories (
+    id          SERIAL PRIMARY KEY,
+    name        VARCHAR(50) UNIQUE NOT NULL,
+    slug        VARCHAR(50) UNIQUE NOT NULL,
+    description TEXT,
+    icon        VARCHAR(100),           -- emoji or icon name
+    color       VARCHAR(7),             -- hex color, e.g. '#E63946'
+    is_active   BOOLEAN DEFAULT TRUE,
+    sort_order  INT     DEFAULT 0,
+    created_at  TIMESTAMPTZ DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE Products (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    seller_id       UUID REFERENCES Users(id) ON DELETE CASCADE,
+    category_id     INT  REFERENCES Categories(id),
+    title           VARCHAR(150) NOT NULL,
+    slug            VARCHAR(200),                     -- auto-generated from title
+    description     TEXT,
+    price           DECIMAL(10, 2) NOT NULL CHECK (price >= 0),
+    currency        VARCHAR(3) DEFAULT 'LRD',         -- LRD or USD
+    condition       VARCHAR(20) DEFAULT 'good',       -- new | like-new | good | fair | poor
+    location        VARCHAR(100),                     -- Liberian county
+    contact_phone   VARCHAR(20),                      -- seller contact phone for this listing
+    image_url       TEXT,
+    images          JSONB,                            -- array of additional image URLs
+    status          VARCHAR(20) DEFAULT 'active',     -- active | sold | inactive | pending
+    views           INT     DEFAULT 0,
+    is_featured     BOOLEAN DEFAULT FALSE,
+    is_negotiable   BOOLEAN DEFAULT TRUE,
+    tags            JSONB,                            -- array of tag strings
+    specifications  JSONB,                            -- key-value product attributes
+    deleted_at      TIMESTAMPTZ,                      -- soft delete
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ DEFAULT NOW()
+
+    -- Indexes: idx_products_seller, idx_products_category, idx_products_status, idx_products_price, idx_products_created
+);
+
+CREATE TABLE Counties (
+    id   SERIAL PRIMARY KEY,
+    name VARCHAR(50) UNIQUE NOT NULL,      -- all 15 Liberian counties
+    code VARCHAR(10) UNIQUE NOT NULL
+);
+
+-- Negotiation
+CREATE TABLE Offers (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id  UUID REFERENCES Products(id) ON DELETE CASCADE,
+    buyer_id    UUID REFERENCES Users(id)  ON DELETE CASCADE,
+    seller_id   UUID REFERENCES Users(id)  ON DELETE CASCADE,
+    amount      DECIMAL(10, 2) NOT NULL,
+    status      VARCHAR(20) DEFAULT 'pending',  -- pending | accepted | rejected | expired
+    expires_at  TIMESTAMPTZ,
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- In-App Messaging (real-time via Socket.io)
+CREATE TABLE Conversations (
+    id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    buyer_id              UUID REFERENCES Users(id),
+    seller_id             UUID REFERENCES Users(id),
+    listing_id            UUID REFERENCES Products(id),
+    last_message_text     TEXT,
+    last_message_at       TIMESTAMPTZ,
+    buyer_unread_count    INT DEFAULT 0,
+    seller_unread_count   INT DEFAULT 0,
+    deleted_by_buyer      BOOLEAN DEFAULT FALSE,  -- soft-delete per participant
+    deleted_by_seller     BOOLEAN DEFAULT FALSE,
+    status                VARCHAR(20) DEFAULT 'active',  -- active | archived | blocked
+    created_at            TIMESTAMPTZ DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (listing_id, buyer_id, seller_id),     -- one conversation per buyer-seller-product combo
+    CHECK  (buyer_id != seller_id)
+);
+
+CREATE TABLE Messages (
+    id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    conversation_id      UUID REFERENCES Conversations(id) ON DELETE CASCADE,
+    sender_id            UUID REFERENCES Users(id),
+    recipient_id         UUID REFERENCES Users(id),
+    content              TEXT NOT NULL,
+    message_type         VARCHAR(20) DEFAULT 'text',  -- text | image | offer | system
+    is_read              BOOLEAN DEFAULT FALSE,
+    read_at              TIMESTAMPTZ,
+    deleted_by_sender    BOOLEAN DEFAULT FALSE,
+    deleted_by_recipient BOOLEAN DEFAULT FALSE,
+    metadata             JSONB,                       -- extensible payload (e.g. offer details)
+    created_at           TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Payments (Mobile Money only)
+CREATE TABLE Payments (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    buyer_id        UUID REFERENCES Users(id),
+    seller_id       UUID REFERENCES Users(id),
+    product_id      UUID REFERENCES Products(id),
+    amount          DECIMAL(10, 2) NOT NULL,
+    currency        VARCHAR(3) DEFAULT 'LRD',
+    provider        VARCHAR(50),   -- orange_money | mtn_momo | lonestar_money
+    status          VARCHAR(20) DEFAULT 'pending',
+    transaction_ref VARCHAR(100),
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE MobileMoneyAccounts (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id      UUID REFERENCES Users(id) ON DELETE CASCADE,
+    provider     VARCHAR(50) NOT NULL,
+    phone_number VARCHAR(20) NOT NULL,
+    is_primary   BOOLEAN DEFAULT FALSE
+);
+
+-- Social & Trust
+CREATE TABLE Reviews (
+    id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id       UUID REFERENCES Products(id) ON DELETE CASCADE,
+    reviewer_id      UUID REFERENCES Users(id),
+    seller_id        UUID REFERENCES Users(id),
+    rating           INT CHECK (rating BETWEEN 1 AND 5),
+    comment          TEXT,
+    transaction_type VARCHAR(20),        -- buying | selling
+    is_anonymous     BOOLEAN DEFAULT FALSE,
+    is_verified      BOOLEAN DEFAULT FALSE,
+    is_hidden        BOOLEAN DEFAULT FALSE,
+    created_at       TIMESTAMPTZ DEFAULT NOW(),
+    updated_at       TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (reviewer_id, seller_id, transaction_type),   -- no duplicate reviews per type
+    CHECK  (reviewer_id != seller_id)                    -- cannot self-rate
+);
+
+CREATE TABLE SavedItems (
+    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id    UUID REFERENCES Users(id) ON DELETE CASCADE,
+    product_id UUID REFERENCES Products(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (user_id, product_id)
+);
+
+-- Platform Operations
+CREATE TABLE Notifications (
+    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id    UUID REFERENCES Users(id) ON DELETE CASCADE,
+    type       VARCHAR(50),
+    message    TEXT,
+    is_read    BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE Reports (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    reporter_id UUID REFERENCES Users(id),
+    product_id  UUID REFERENCES Products(id),
+    reason      VARCHAR(100),
+    description TEXT,
+    status      VARCHAR(20) DEFAULT 'pending',
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE SmsLogs (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID REFERENCES Users(id),
+    phone       VARCHAR(20),
+    message     TEXT,
+    status      VARCHAR(20),
+    provider    VARCHAR(50),  -- Twilio
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE UserActivity (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID REFERENCES Users(id) ON DELETE CASCADE,
+    action      VARCHAR(100),
+    metadata    JSONB,
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+---
+
+## 5. API Surface
+
+All routes are prefixed `/api`. Auth uses httpOnly cookie (`token`). CSRF protection is required on all non-GET state-changing endpoints (except `/api/auth/*`); the frontend fetches a bootstrap token from `GET /api/csrf-token` on startup.
+
+| Prefix                         | Auth Required | Notes                                           |
+|--------------------------------|---------------|-------------------------------------------------|
+| `/api/auth/register`           | No            | Phone + password; phone normalized to 9-digit   |
+| `/api/auth/login`              | No            | Returns JWT in httpOnly cookie                  |
+| `/api/auth/logout`             | Yes           | Clears cookie                                   |
+| `/api/auth/me`                 | Yes           | Get current user (no rate limit)                |
+| `/api/auth/forgot-password`    | No            | Issues SHA256-hashed reset token (10-min TTL)   |
+| `/api/auth/reset-password/:token` | No         | Consume token and set new password              |
+| `/api/auth/update-password`    | Yes           | Requires current password verification          |
+| `/api/users`                   | Admin only    | List all users                                  |
+| `/api/users/:id`               | Admin only    | Get / update / delete any user                  |
+| `/api/users/profile`           | Yes           | Get or update own profile, upload avatar        |
+| `/api/users/payment-preferences` | Yes         | Save preferred mobile money accounts            |
+| `/api/csrf-token`              | No            | Bootstrap CSRF token (GET only)                 |
+| `/api/products`                | Optional      | Public browse; write ops need `seller` role     |
+| `/api/products/search`         | No            | Full-text on title, description, location       |
+| `/api/categories`              | No            | Read-only for public; admin write               |
+| `/api/offers`                  | Yes           | Buyer initiates; cron job auto-expires stale    |
+| `/api/messages`                | Yes           | REST bootstrap; Socket.io for real-time         |
+| `/api/dashboard`               | Yes           | Seller/buyer analytics                          |
+| `/api/counties`                | No            | 15 Liberian counties for location filter        |
+| `/api/reviews`                 | Yes (write)   | 5-star ratings with transaction type            |
+| `/api/mobile-money`            | Yes           | Link/manage mobile money accounts               |
+| `/api/payments`                | Yes           | Initiate and track mobile money payments        |
+| `/api/saved-items`             | Yes           | Wishlist (unique per user-product pair)         |
+| `/api/notifications`           | Yes           | In-app notification feed                        |
+| `/api/reports`                 | Yes           | Flag inappropriate listings                     |
+| `/health`                      | No            | Health check (no rate limit)                    |
+
+---
+
+## 6. Primary Use Case: Item Listing & Discovery Loop
+
+### Use Case ID: UC-001 (Core Loop)
+
+* **Actors:** Seller, Buyer, Client Application, Backend API, Storage Service.
+* **Preconditions:** Seller is authenticated via phone number + password. Buyer has the application open (online or offline).
+
+### A. Listing Creation (Seller Side)
+
+1. Seller navigates to `/products/add` (protected: `seller` or `admin` role).
+2. Seller inputs title, price (LRD or USD), description, county location, category, and captures/selects an image.
+3. **Client-Side Optimization Intercept:** `imageCompression.ts` resizes and compresses the raw image before transmission. The voice input component (`VoiceRecorder.tsx`) can populate the description field via speech-to-text for low-literacy sellers.
+4. The client submits a single `multipart/form-data` payload containing listing metadata and the compressed image binary. The `Content-Type` header is omitted from the Axios request so the browser sets the correct multipart boundary automatically.
+5. The backend processes the binary through `sharp` (resize + WebP conversion), stores the result (Cloudinary in production, `uploads/` in dev), and inserts the record.
+
+### B. Discovery & Data Fetching (Buyer Side)
+
+1. Buyer opens the home feed or `/products`.
+2. The client immediately populates the UI from `localStorage` cache to ensure instantaneous visual readiness (skeleton cards render during background fetch).
+3. A background async fetch is dispatched with a 10-second Axios timeout.
+4. **Scenario A (Network Success):** Fresh data arrives. Client updates the cache and re-renders the feed.
+5. **Scenario B (Network Timeout/Failure):** The client catches the error silently, retains cached data on-screen, and surfaces a toast notification: *"Viewing offline listings. Prices and availability will refresh once connection stabilizes."*
+
+### C. Transaction Handshake (In-App Messaging)
+
+1. Buyer selects a product and opens the detail view (`/products/:id`).
+2. Buyer initiates contact via the in-app "Message Seller" button, which creates or resumes a `Conversation` record linking buyer, seller, and product.
+3. The `MessageThread` page (`/messages/:id`) opens a Socket.io connection. Messages are delivered in real-time to both parties. Typing indicators and read receipts are tracked server-side via `conversationRooms` and `typingUsers` maps in `socketManager.js`.
+4. Buyer can alternatively submit an **Offer** (a counter-price proposal) via the `MakeOfferModal`. Offers expire automatically via a `node-cron` job (`src/cron/offerExpirationJob.js`).
+5. Accepted offers progress to a **Payment** flow: the buyer selects their registered mobile money account (Orange Money, MTN MoMo, or Lonestar Money) and confirms. The seller receives an SMS notification (Twilio) and an in-app notification.
+
+---
+
+## 7. Security Model
+
+* **JWT** stored in `httpOnly`, `SameSite=Strict` cookies. Never exposed to `document.cookie` in the frontend.
+* **Token revocation** via `token_version` on the User model — incrementing this value on logout-all or password change invalidates all existing sessions without a blocklist.
+* **CSRF** protection via `csurf` on all state-changing routes; skipped in the `test` environment.
+* **Rate limiting** (production): auth endpoints 5 req/15 min, all other API routes 100 req/15 min. Keyed by phone number (if present in body) or IP.
+* **Helmet** sets CSP, HSTS (1 year + preload), `X-Content-Type-Options`, and hides `X-Powered-By`.
+* **Input sanitization**: `xss-clean`, `express-mongo-sanitize`, `hpp` (HTTP Parameter Pollution), and `Joi` schema validation on auth and product routes.
+* **Passwords** hashed with `bcryptjs` at **12 salt rounds**. Password strength enforced client-side via `PasswordStrengthMeter.tsx`. Password resets use a 20-byte random token, SHA256-hashed before DB storage, with a 10-minute expiry. Users must supply the current password to change it via the update-password endpoint.
+* **Image uploads** validated for MIME type and size (max 5 MB configured via `MAX_FILE_SIZE` env var).
+
+### Role-Based Access Control (RBAC)
+
+| Action                         | Public | Buyer | Seller | Admin |
+|-------------------------------|--------|-------|--------|-------|
+| Browse / search products       | YES    | YES   | YES    | YES   |
+| View product detail            | YES    | YES   | YES    | YES   |
+| Create product listing         | NO     | NO    | YES    | YES   |
+| Edit / delete own product      | NO     | NO    | YES*   | YES   |
+| Mark product sold/inactive     | NO     | NO    | YES*   | YES   |
+| Create / send offer            | NO     | YES   | NO     | YES   |
+| Message a seller               | NO     | YES   | YES    | YES   |
+| Leave a review                 | NO     | YES   | YES    | YES   |
+| Save items to wishlist         | NO     | YES   | YES    | YES   |
+| View own dashboard             | NO     | YES   | YES    | YES   |
+| View seller financial dashboard| NO     | NO    | YES    | YES   |
+| Manage categories              | NO     | NO    | NO     | YES   |
+| Manage all users               | NO     | NO    | NO     | YES   |
+| View detailed health check     | NO     | NO    | NO     | YES   |
+
+*Owner only
+
+---
+
+## 8. Frontend Context & State Architecture
+
+```
+<ErrorBoundary>
+  <AuthProvider>          ← JWT session verified via /api/auth/me on mount
+    <LanguageProvider>    ← 'en' | 'pidgin' toggle, persisted to localStorage
+      <ToastProvider>     ← Global toast notifications
+        <Router>
+          <AppContent />  ← HamburgerMenu + BottomNav hidden on /, /login, /register
+        </Router>
+      </ToastProvider>
+    </LanguageProvider>
+  </AuthProvider>
+</ErrorBoundary>
+```
+
+All API calls flow through a single Axios instance (`utils/api.ts`) configured with `withCredentials: true`. The CSRF token interceptor attaches `X-CSRF-Token` to every mutating request and automatically retries on a 403 CSRF error with a freshly fetched token.
+
+---
+
+## 9. Deployment Targets
+
+| Environment | Frontend          | Backend         | Database            |
+|-------------|-------------------|-----------------|---------------------|
+| Development | Vite dev server   | nodemon         | SQLite (file-based) |
+| Test        | Vitest (jsdom)    | Jest + Supertest| SQLite (in-memory)  |
+| Production  | Vercel (CDN)      | Railway         | PostgreSQL + SSL    |
+| Self-hosted | nginx (dist/)     | `npm start`     | PostgreSQL + SSL    |
+
+Frontend env var: `VITE_API_URL=https://<railway-url>/api`
+Backend required: `JWT_SECRET` (64+ chars), `DATABASE_URL`, `FRONTEND_URL`, `NODE_ENV=production`
