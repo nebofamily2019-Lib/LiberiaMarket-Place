@@ -1,0 +1,346 @@
+/* Offer Card Styles */
+.offer-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #E5E7EB;
+  position: relative;
+  transition: all 0.3s ease;
+  margin-bottom: 1rem;
+}
+
+.offer-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.offer-status-badge {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.offer-product-info {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  cursor: pointer;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid #F3F4F6;
+}
+
+.offer-product-info:hover .offer-product-details h3 {
+  color: var(--color-primary);
+}
+
+.offer-product-image {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 8px;
+  border: 2px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.offer-product-image-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface-alt, #f3f4f6);
+}
+
+.offer-product-details h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #374151;
+  transition: color 0.3s ease;
+}
+
+.product-price {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #6B7280;
+  font-weight: 600;
+}
+
+.offer-details {
+  margin-bottom: 1rem;
+}
+
+.offer-amounts {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.amount-item {
+  flex: 1;
+  background: linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%);
+  padding: 1rem;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.amount-item.counter-amount {
+  background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%);
+}
+
+.amount-label {
+  display: block;
+  font-size: 0.85rem;
+  color: #6B7280;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.amount-value {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #374151;
+}
+
+.offer-message {
+  background: #F9FAFB;
+  padding: 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  border-left: 4px solid #667eea;
+}
+
+.offer-message.counter-message {
+  background: #EFF6FF;
+  border-left-color: #3B82F6;
+}
+
+.offer-message strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.offer-message p {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #6B7280;
+  line-height: 1.5;
+}
+
+.offer-contact {
+  background: #FFFBEB;
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #FDE68A;
+  margin-bottom: 0.75rem;
+}
+
+.offer-contact p {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #92400E;
+}
+
+.offer-date {
+  font-size: 0.85rem;
+  color: #9CA3AF;
+  margin: 0;
+}
+
+/* Counter Form */
+.counter-form {
+  background: #F9FAFB;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 2px solid #E5E7EB;
+  margin: 1rem 0;
+}
+
+.counter-form h4 {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  color: #374151;
+}
+
+.counter-form .form-group {
+  margin-bottom: 1rem;
+}
+
+.counter-form label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.counter-form input,
+.counter-form textarea {
+  width: 100%;
+  padding: 0.65rem;
+  border: 2px solid #E5E7EB;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: border-color 0.3s ease;
+}
+
+.counter-form input:focus,
+.counter-form textarea:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.counter-form input:disabled,
+.counter-form textarea:disabled {
+  background: #F3F4F6;
+  cursor: not-allowed;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.btn-cancel,
+.btn-submit {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+}
+
+.btn-cancel {
+  background: white;
+  color: #374151;
+  border: 2px solid #E5E7EB;
+}
+
+.btn-cancel:hover:not(:disabled) {
+  background: #F3F4F6;
+}
+
+.btn-submit {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-submit:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.btn-cancel:disabled,
+.btn-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Action Buttons */
+.offer-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding-top: 1rem;
+  border-top: 2px solid #F3F4F6;
+}
+
+.offer-actions button {
+  flex: 1;
+  min-width: 120px;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-accept {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.btn-accept:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+}
+
+.btn-counter {
+  background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.btn-counter:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+}
+
+.btn-reject {
+  background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.btn-reject:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
+}
+
+.offer-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .offer-card {
+    padding: 1rem;
+  }
+
+  .offer-product-info {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .offer-amounts {
+    flex-direction: column;
+  }
+
+  .amount-value {
+    font-size: 1.25rem;
+  }
+
+  .offer-actions {
+    flex-direction: column;
+  }
+
+  .offer-actions button {
+    width: 100%;
+    min-width: auto;
+  }
+}

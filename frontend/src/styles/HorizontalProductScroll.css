@@ -1,0 +1,430 @@
+/* Horizontal Product Scroll Component Styles */
+
+.horizontal-scroll-section {
+  margin: 2.5rem 0;
+  padding: 0 1rem;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding: 0 0.5rem;
+}
+
+.section-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1f2937;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.title-icon {
+  font-size: 2rem;
+}
+
+.view-all-button {
+  background: linear-gradient(135deg, #11235A 0%, #bf0a30 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 25px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(17, 35, 90, 0.2);
+}
+
+.view-all-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(17, 35, 90, 0.3);
+}
+
+.view-all-button:active {
+  transform: translateY(0);
+}
+
+/* Scroll Wrapper */
+.horizontal-scroll-wrapper {
+  position: relative;
+}
+
+.horizontal-scroll-container {
+  display: flex;
+  gap: 1.25rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 1rem 0.5rem 1.5rem;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #11235A #f3f4f6;
+}
+
+.horizontal-scroll-container::-webkit-scrollbar {
+  height: 8px;
+}
+
+.horizontal-scroll-container::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+.horizontal-scroll-container::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #11235A 0%, #bf0a30 100%);
+  border-radius: 4px;
+}
+
+.horizontal-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #bf0a30 0%, #11235A 100%);
+}
+
+/* Scroll Buttons */
+.scroll-button {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: white;
+  border: 2px solid #11235A;
+  color: #11235A;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  font-size: 1.5rem;
+  font-weight: bold;
+  cursor: pointer;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scroll-button:hover {
+  background: linear-gradient(135deg, #11235A 0%, #bf0a30 100%);
+  color: white;
+  transform: translateY(-50%) scale(1.1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+
+.scroll-button:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+.scroll-button-left {
+  left: -16px;
+}
+
+.scroll-button-right {
+  right: -16px;
+}
+
+/* Product Card */
+.horizontal-product-card {
+  min-width: 280px;
+  max-width: 280px;
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.horizontal-product-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 12px 24px rgba(17, 35, 90, 0.2);
+  border-color: #11235A;
+}
+
+.product-card-image {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  background: #f3f4f6;
+}
+
+.product-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.horizontal-product-card:hover .product-card-image img {
+  transform: scale(1.1);
+}
+
+.product-card-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 4rem;
+  color: #9ca3af;
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+}
+
+/* Badges */
+.view-count-badge,
+.trending-badge,
+.category-badge {
+  position: absolute;
+  padding: 0.35rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.view-count-badge {
+  top: 0.75rem;
+  right: 0.75rem;
+  background: rgba(255, 255, 255, 0.95);
+  color: #1f2937;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.trending-badge {
+  top: 0.75rem;
+  left: 0.75rem;
+  background: linear-gradient(135deg, #bf0a30 0%, #ff4444 100%);
+  color: white;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.95;
+  }
+}
+
+.category-badge {
+  bottom: 0.75rem;
+  left: 0.75rem;
+  border: 1px solid;
+  font-size: 0.75rem;
+}
+
+/* Product Info */
+.product-card-info {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.product-card-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+  line-height: 1.4;
+  min-height: 2.8rem;
+}
+
+.product-card-price {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0.25rem 0;
+}
+
+.product-card-price .price-primary {
+  font-size: 1.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #11235A 0%, #bf0a30 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+}
+
+.product-card-price .price-secondary {
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.product-card-condition {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background: #f0fdf4;
+  color: #15803d;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  width: fit-content;
+  text-transform: capitalize;
+}
+
+.product-card-location {
+  font-size: 0.85rem;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.product-card-seller {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: #6b7280;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e5e7eb;
+  margin-top: 0.5rem;
+}
+
+.seller-rating {
+  color: #f59e0b;
+  font-weight: 600;
+}
+
+/* Loading State */
+.horizontal-scroll-loading {
+  display: flex;
+  gap: 1.25rem;
+  overflow: hidden;
+  padding: 1rem 0.5rem;
+}
+
+.product-card-skeleton {
+  min-width: 280px;
+  max-width: 280px;
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.skeleton-image {
+  width: 100%;
+  height: 200px;
+  background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.skeleton-title,
+.skeleton-price {
+  margin: 1.25rem;
+  height: 1rem;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.skeleton-price {
+  width: 60%;
+  height: 1.5rem;
+  margin-top: 0.5rem;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Empty State */
+.horizontal-scroll-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #6b7280;
+  font-size: 1.1rem;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .horizontal-scroll-section {
+    margin: 1.5rem 0;
+    padding: 0 0.5rem;
+  }
+
+  .section-header {
+    margin-bottom: 1rem;
+    padding: 0;
+  }
+
+  .section-title {
+    font-size: 1.4rem;
+  }
+
+  .title-icon {
+    font-size: 1.6rem;
+  }
+
+  .view-all-button {
+    padding: 0.6rem 1.2rem;
+    font-size: 0.85rem;
+  }
+
+  .horizontal-product-card {
+    min-width: 240px;
+    max-width: 240px;
+  }
+
+  .product-card-image {
+    height: 170px;
+  }
+
+  .scroll-button {
+    width: 40px;
+    height: 40px;
+    font-size: 1.2rem;
+  }
+
+  .scroll-button-left {
+    left: -8px;
+  }
+
+  .scroll-button-right {
+    right: -8px;
+  }
+}
+
+/* Small Mobile */
+@media (max-width: 480px) {
+  .horizontal-product-card {
+    min-width: 200px;
+    max-width: 200px;
+  }
+
+  .product-card-image {
+    height: 150px;
+  }
+
+  .product-card-info {
+    padding: 1rem;
+  }
+
+  .section-title {
+    font-size: 1.2rem;
+  }
+
+  .view-all-button {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+  }
+}

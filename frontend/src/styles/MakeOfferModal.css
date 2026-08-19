@@ -1,0 +1,321 @@
+/* Make Offer Modal Styles */
+
+/* ── Backdrop overlay ── */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+  backdrop-filter: blur(4px);
+  padding: 1rem;
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+/* ── Modal card ── */
+.modal-content {
+  background: white;
+  border-radius: 16px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: modalSlideUp 0.25s ease-out;
+}
+
+.make-offer-modal {
+  max-width: 550px;
+}
+
+/* ── Modal header ── */
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #6b7280;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.modal-close-btn:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+/* ── Modal body ── */
+.modal-body {
+  padding: 1.5rem;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes modalSlideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.product-info-summary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+}
+
+.product-info-summary h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.asking-price {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #ffffff;
+  opacity: 1;
+}
+
+.asking-price strong {
+  font-size: 1.5rem;
+  display: inline-block;
+  margin-left: 0.5rem;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.input-with-icon {
+  position: relative;
+}
+
+.input-icon {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #667eea;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.input-with-icon input {
+  padding-left: 3.25rem;
+}
+
+.form-group input[type="number"],
+.form-group textarea {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid #E5E7EB;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-family: inherit;
+  transition: all 0.3s ease;
+}
+
+.form-group input[type="number"]:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-group input[type="number"]:disabled,
+.form-group textarea:disabled {
+  background: #F3F4F6;
+  cursor: not-allowed;
+}
+
+.savings-info {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #D1FAE5 0%, #A7F3D0 100%);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #065F46;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.char-count {
+  text-align: right;
+  font-size: 0.85rem;
+  color: #6B7280;
+  margin-top: 0.25rem;
+}
+
+.offer-tips {
+  background: #F9FAFB;
+  padding: 1rem;
+  border-radius: 8px;
+  border-left: 4px solid #667eea;
+  margin-bottom: 1.5rem;
+}
+
+.offer-tips h4 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  color: #374151;
+}
+
+.offer-tips ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.offer-tips li {
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  color: #6B7280;
+  line-height: 1.5;
+}
+
+.offer-tips li:last-child {
+  margin-bottom: 0;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+.btn-primary,
+.btn-secondary {
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  background: white;
+  color: #374151;
+  border: 2px solid #E5E7EB;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #F3F4F6;
+  border-color: #D1D5DB;
+}
+
+.btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .make-offer-modal {
+    width: 95%;
+  }
+
+  .product-info-summary {
+    padding: 1rem;
+  }
+
+  .product-info-summary h3 {
+    font-size: 1.1rem;
+  }
+
+  .asking-price strong {
+    font-size: 1.25rem;
+  }
+
+  .modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .modal-actions button {
+    width: 100%;
+  }
+}
+
+.currency-input-group {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.currency-select {
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background-color: #f9fafb;
+  font-weight: 600;
+  cursor: pointer;
+  flex: 0 0 110px;
+}
+
+.amount-input {
+  flex: 1;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.amount-input:focus, .currency-select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
