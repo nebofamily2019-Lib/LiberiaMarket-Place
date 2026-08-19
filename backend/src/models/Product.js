@@ -23,6 +23,14 @@ class Product extends Model {
         allowNull: true,
         defaultValue: 0
       },
+      currency: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: 'USD',
+        validate: {
+          isIn: [['USD', 'LRD']]
+        }
+      },
       category_id: {
         type: DataTypes.UUID,
         allowNull: true,
@@ -36,6 +44,19 @@ class Product extends Model {
         allowNull: true,
         defaultValue: null
       },
+      latitude: {
+        type: DataTypes.DECIMAL(10, 8),
+        allowNull: true
+      },
+      longitude: {
+        type: DataTypes.DECIMAL(11, 8),
+        allowNull: true
+      },
+      expires_at: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'expires_at'
+      },
       condition: {
         type: DataTypes.STRING,
         defaultValue: 'good'
@@ -44,20 +65,12 @@ class Product extends Model {
         type: DataTypes.STRING,
         allowNull: true,
         defaultValue: null,
-        field: 'contact_phone'
+        field: 'contactPhone'
       },
-      tags: {
+      images: {
         type: DataTypes.JSON,
+        allowNull: true,
         defaultValue: []
-      },
-      isNegotiable: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: false,
-        field: 'is_negotiable'
-      },
-      image: {
-        type: DataTypes.STRING,
-        allowNull: true
       },
       seller_id: {
         type: DataTypes.UUID,
@@ -77,29 +90,67 @@ class Product extends Model {
       deleted_at: {
         type: DataTypes.DATE,
         allowNull: true
+      },
+      county_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        references: {
+          model: 'counties',
+          key: 'id'
+        }
+      },
+      specific_location: {
+        type: DataTypes.STRING(200),
+        allowNull: true,
+        comment: 'Specific area/street within county'
+      },
+      coordinates: {
+        type: DataTypes.JSON,
+        allowNull: true,
+        comment: 'Lat/Long coordinates'
+      },
+      sold_at: {
+        type: DataTypes.DATE,
+        allowNull: true
+      },
+      sold_price: {
+        type: DataTypes.DECIMAL(10, 2),
+        allowNull: true
+      },
+      buyer_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        references: {
+          model: 'users',
+          key: 'id'
+        }
+      },
+      payment_method: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        validate: {
+          isIn: [['cash', 'mobile_money', 'other']]
+        }
       }
     }, {
       sequelize,
       modelName: 'Product',
       tableName: 'products',
-      timestamps: true,
-      underscored: false, // IMPORTANT: Set to false to use camelCase (deletedAt)
-      paranoid: true, // Enables soft deletes
+      paranoid: true, // Soft deletes
+      createdAt: 'created_at',
+      updatedAt: 'updated_at',
+      deletedAt: 'deleted_at'
     })
   }
 
   static associate(models) {
-    this.belongsTo(models.User, {
-      foreignKey: 'seller_id',
-      as: 'seller'
-    });
-
-    this.belongsTo(models.Category, {
-      foreignKey: 'category_id',
-      as: 'category'
-    });
-
-    // REMOVED: Offer association (using raw SQL queries in controller instead)
+    // Define associations here
+    this.belongsTo(models.User, { foreignKey: 'seller_id', as: 'seller' })
+    this.belongsTo(models.User, { foreignKey: 'buyer_id', as: 'buyer' })
+    this.belongsTo(models.Category, { foreignKey: 'category_id', as: 'category' })
+    this.belongsTo(models.County, { foreignKey: 'county_id', as: 'county' })
+    this.hasMany(models.SavedItem, { foreignKey: 'product_id', as: 'savedBy' })
+    this.hasMany(models.Offer, { foreignKey: 'product_id', as: 'offers' })
   }
 }
 

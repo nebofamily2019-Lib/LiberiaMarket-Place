@@ -1,8 +1,37 @@
+'use strict';
 const { Model, DataTypes } = require('sequelize');
 
-class Payment extends Model {
-  static init(sequelize) {
-    return super.init({
+module.exports = (sequelize) => {
+  class Payment extends Model {
+    static associate(models) {
+      // Payment belongs to Offer
+      Payment.belongsTo(models.Offer, {
+        foreignKey: 'offer_id',
+        as: 'offer'
+      });
+
+      // Payment belongs to payer (User)
+      Payment.belongsTo(models.User, {
+        foreignKey: 'payer_id',
+        as: 'payer'
+      });
+
+      // Payment belongs to payee (User)
+      Payment.belongsTo(models.User, {
+        foreignKey: 'payee_id',
+        as: 'payee'
+      });
+
+      // Payment belongs to MobileMoneyAccount
+      Payment.belongsTo(models.MobileMoneyAccount, {
+        foreignKey: 'mobile_money_account_id',
+        as: 'mobileMoneyAccount'
+      });
+    }
+  }
+
+  Payment.init(
+    {
       id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
@@ -16,7 +45,7 @@ class Payment extends Model {
           key: 'id'
         }
       },
-      buyer_id: {
+      payer_id: {
         type: DataTypes.UUID,
         allowNull: false,
         references: {
@@ -24,7 +53,7 @@ class Payment extends Model {
           key: 'id'
         }
       },
-      seller_id: {
+      payee_id: {
         type: DataTypes.UUID,
         allowNull: false,
         references: {
@@ -32,75 +61,122 @@ class Payment extends Model {
           key: 'id'
         }
       },
-      product_id: {
+      mobile_money_account_id: {
         type: DataTypes.UUID,
-        allowNull: false,
+        allowNull: true,
         references: {
-          model: 'products',
+          model: 'mobile_money_accounts',
           key: 'id'
         }
       },
       amount: {
         type: DataTypes.DECIMAL(10, 2),
-        allowNull: false,
-        validate: {
-          min: 0
-        }
-      },
-      payment_method: {
-        type: DataTypes.ENUM('mtn_mobile_money', 'orange_money', 'lonestar_cell', 'cash', 'bank_transfer'),
         allowNull: false
       },
-      payment_phone: {
-        type: DataTypes.STRING(20),
-        allowNull: true,
-        comment: 'Mobile money phone number'
+      currency: {
+        type: DataTypes.ENUM('USD', 'LRD'),
+        defaultValue: 'USD'
+      },
+      payment_method: {
+        type: DataTypes.ENUM(
+          'orange_money',
+          'mtn_mobile_money',
+          'lonestar_money',
+          'cash',
+          'bank_transfer'
+        ),
+        allowNull: false
       },
       transaction_id: {
         type: DataTypes.STRING(100),
         allowNull: true,
-        comment: 'External payment reference'
+        comment: 'Provider transaction ID'
       },
       status: {
-        type: DataTypes.ENUM('pending', 'processing', 'completed', 'failed', 'refunded'),
+        type: DataTypes.ENUM(
+          'pending',
+          'processing',
+          'completed',
+          'failed',
+          'refunded',
+          'cancelled'
+        ),
         defaultValue: 'pending'
       },
-      payment_proof: {
-        type: DataTypes.TEXT,
-        allowNull: true,
-        comment: 'Screenshot or reference for manual verification'
+      escrow_status: {
+        type: DataTypes.ENUM('held', 'released', 'refunded'),
+        defaultValue: 'held',
+        comment: 'Escrow state for buyer protection'
       },
-      notes: {
+      platform_fee: {
+        type: DataTypes.DECIMAL(10, 2),
+        allowNull: true,
+        comment: 'Platform commission (2%)'
+      },
+      payment_metadata: {
+        type: DataTypes.JSON,
+        allowNull: true,
+        comment: 'Provider-specific payment data'
+      },
+      error_message: {
         type: DataTypes.TEXT,
+        allowNull: true
+      },
+      paid_at: {
+        type: DataTypes.DATE,
         allowNull: true
       },
       completed_at: {
         type: DataTypes.DATE,
         allowNull: true
+      },
+      refunded_at: {
+        type: DataTypes.DATE,
+        allowNull: true
+      },
+      created_at: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW,
+        field: 'created_at'
+      },
+      updated_at: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW,
+        field: 'updated_at'
       }
-    }, {
+    },
+    {
       sequelize,
       modelName: 'Payment',
       tableName: 'payments',
       timestamps: true,
-      underscored: false
-    });
-  }
+      underscored: true,
+      createdAt: 'created_at',
+      updatedAt: 'updated_at',
+      indexes: [
+        {
+          fields: ['offer_id']
+        },
+        {
+          fields: ['payer_id']
+        },
+        {
+          fields: ['payee_id']
+        },
+        {
+          fields: ['status']
+        },
+        {
+          fields: ['escrow_status']
+        },
+        {
+          fields: ['transaction_id']
+        }
+      ]
+    }
+  );
 
-  static associate(models) {
-    this.belongsTo(models.Product, {
-      foreignKey: 'product_id',
-      as: 'product'
-    });
-    this.belongsTo(models.User, {
-      foreignKey: 'buyer_id',
-      as: 'buyer'
-    });
-    this.belongsTo(models.User, {
-      foreignKey: 'seller_id',
-      as: 'seller'
-    });
-  }
-}
-
-module.exports = Payment;
+  return Payment;
+};

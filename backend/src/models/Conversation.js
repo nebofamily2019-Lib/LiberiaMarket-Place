@@ -18,74 +18,91 @@
  * - hasMany Message (all messages in this conversation)
  */
 
-const { DataTypes } = require('sequelize');
-const sequelize = require('../../config/database');
+const { Model, DataTypes } = require('sequelize');
 
 /**
  * Conversation Model
  * Represents a chat conversation between buyer and seller about a product
  */
-const Conversation = sequelize.define('Conversation', {
-  id: {
-    type: DataTypes.UUID,
-    defaultValue: DataTypes.UUIDV4,
-    primaryKey: true
-  },
-  buyer_id: {
-    type: DataTypes.UUID,
-    allowNull: false,
-    references: {
-      model: 'users',
-      key: 'id'
-    }
-  },
-  seller_id: {
-    type: DataTypes.UUID,
-    allowNull: false,
-    references: {
-      model: 'users',
-      key: 'id'
-    }
-  },
-  listing_id: {
-    type: DataTypes.UUID,
-    allowNull: false,
-    references: {
-      model: 'products',
-      key: 'id'
-    },
-    comment: 'The product this conversation is about'
-  },
-  lastMessageAt: {
-    type: DataTypes.DATE,
-    allowNull: true,
-    comment: 'Timestamp of the last message sent'
-  },
-  isActive: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: true,
-    comment: 'Whether the conversation is active'
+class Conversation extends Model {
+  static init(sequelize) {
+    return super.init({
+      id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
+      },
+      buyer_id: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        references: {
+          model: 'users',
+          key: 'id'
+        }
+      },
+      seller_id: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        references: {
+          model: 'users',
+          key: 'id'
+        }
+      },
+      listing_id: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        references: {
+          model: 'products',
+          key: 'id'
+        },
+        comment: 'The product this conversation is about'
+      },
+      isActive: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true,
+        field: 'is_active',
+        comment: 'Whether the conversation is active (not archived/deleted)'
+      },
+      lastMessageAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'last_message_at',
+        comment: 'Timestamp of the last message in this conversation'
+      }
+    }, {
+      sequelize,
+      tableName: 'conversations',
+      timestamps: true,
+      underscored: true,
+      indexes: [
+        // Unique conversation per product-buyer-seller combo
+        {
+          unique: true,
+          fields: ['buyer_id', 'seller_id', 'listing_id'],
+          name: 'idx_conversations_unique'
+        },
+        // Foreign key indexes
+        {
+          name: 'idx_conversations_buyer_id',
+          fields: ['buyer_id']
+        },
+        {
+          name: 'idx_conversations_seller_id',
+          fields: ['seller_id']
+        },
+        {
+          name: 'idx_conversations_listing_id',
+          fields: ['listing_id']
+        },
+        // Active conversation filtering
+        {
+          name: 'idx_conversations_is_active',
+          fields: ['is_active']
+        }
+      ]
+    });
   }
-}, {
-  tableName: 'conversations',
-  timestamps: true,
-  indexes: [
-    {
-      unique: true,
-      fields: ['buyer_id', 'seller_id', 'listing_id'],
-      name: 'unique_conversation'
-    },
-    {
-      fields: ['buyer_id']
-    },
-    {
-      fields: ['seller_id']
-    },
-    {
-      fields: ['listing_id']
-    }
-  ]
-});
+}
 
 module.exports = Conversation;
 
@@ -93,26 +110,6 @@ module.exports = Conversation;
  * INSTANCE METHODS
  * Methods that can be called on individual conversation instances
  */
-
-// Mark conversation as read for a specific user
-Conversation.prototype.markAsRead = async function(userId) {
-  if (this.buyerId === userId) {
-    this.buyerUnreadCount = 0
-  } else if (this.sellerId === userId) {
-    this.sellerUnreadCount = 0
-  }
-  await this.save()
-}
-
-// Get unread count for a specific user
-Conversation.prototype.getUnreadCount = function(userId) {
-  if (this.buyerId === userId) {
-    return this.buyerUnreadCount
-  } else if (this.sellerId === userId) {
-    return this.sellerUnreadCount
-  }
-  return 0
-}
 
 // Check if user is a participant in this conversation
 Conversation.prototype.isParticipant = function(userId) {
@@ -176,11 +173,12 @@ Conversation.findOrCreateConversation = async function(productId, buyerId, selle
 
 // Get all conversations for a user (as buyer or seller)
 Conversation.getConversationsForUser = async function(userId, options = {}) {
+  const { Sequelize } = require('sequelize');
   const { limit = 50, offset = 0, status = 'active' } = options
 
   return await Conversation.findAll({
     where: {
-      [sequelize.Sequelize.Op.or]: [
+      [Sequelize.Op.or]: [
         {
           buyerId: userId,
           deletedByBuyer: false
@@ -192,7 +190,7 @@ Conversation.getConversationsForUser = async function(userId, options = {}) {
       ],
       status
     },
-    order: [['last_message_at', 'DESC NULLS LAST']],
+    order: [['created_at', 'DESC']],
     limit,
     offset
   })

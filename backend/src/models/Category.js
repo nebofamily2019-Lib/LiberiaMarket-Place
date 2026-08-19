@@ -74,6 +74,22 @@ class Category extends Model {
       underscored: true,
       createdAt: 'created_at',
       updatedAt: 'updated_at',
+      indexes: [
+        // Unique slug for URL-based lookup
+        // Name for search/autocomplete
+        // Active category filtering
+        {
+          name: 'idx_categories_is_active',
+          fields: ['is_active']
+        },
+        // Sort order for display
+        {
+          name: 'idx_categories_sort_order',
+          fields: ['sort_order']
+        },
+        // Composite: Active categories sorted
+        // Removed idx_categories_active_sorted to prevent duplicate index creation crash
+      ],
       hooks: {
         beforeValidate: (category) => {
           if (category.name && !category.slug) {
