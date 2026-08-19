@@ -2,6 +2,12 @@
 
 module.exports = {
   async up(queryInterface, Sequelize) {
+    const tables = await queryInterface.showAllTables();
+    if (tables.includes('offers')) {
+      console.log('ℹ️ Offers table already exists');
+      return;
+    }
+
     await queryInterface.createTable('offers', {
       id: {
         type: Sequelize.UUID,
@@ -11,30 +17,21 @@ module.exports = {
       product_id: {
         type: Sequelize.UUID,
         allowNull: false,
-        references: {
-          model: 'products',
-          key: 'id'
-        },
+        references: { model: 'products', key: 'id' },
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE'
       },
       buyer_id: {
         type: Sequelize.UUID,
         allowNull: false,
-        references: {
-          model: 'users',
-                // filename: 20250117000004-create-offers-table.js
-        },
+        references: { model: 'users', key: 'id' },
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE'
       },
       seller_id: {
         type: Sequelize.UUID,
         allowNull: false,
-        references: {
-          model: 'users',
-          key: 'id'
-        },
+        references: { model: 'users', key: 'id' },
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE'
       },

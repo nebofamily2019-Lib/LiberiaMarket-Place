@@ -40,19 +40,19 @@ module.exports = {
           },
           onDelete: 'CASCADE'
         },
-        lastMessageAt: {
+        last_message_at: {
           type: Sequelize.DATE,
           allowNull: true
         },
-        isActive: {
+        is_active: {
           type: Sequelize.BOOLEAN,
           defaultValue: true
         },
-        createdAt: {
+        created_at: {
           type: Sequelize.DATE,
           allowNull: false
         },
-        updatedAt: {
+        updated_at: {
           type: Sequelize.DATE,
           allowNull: false
         }
@@ -108,28 +108,28 @@ module.exports = {
           type: Sequelize.TEXT,
           allowNull: false
         },
-        isRead: {
+        is_read: {
           type: Sequelize.BOOLEAN,
           defaultValue: false
         },
-        readAt: {
+        read_at: {
           type: Sequelize.DATE,
           allowNull: true
         },
-        createdAt: {
+        created_at: {
           type: Sequelize.DATE,
           allowNull: false
         },
-        updatedAt: {
+        updated_at: {
           type: Sequelize.DATE,
           allowNull: false
         }
       });
 
       // Add indexes
-      await queryInterface.addIndex('messages', ['conversation_id', 'createdAt']);
+      await queryInterface.addIndex('messages', ['conversation_id', 'created_at']);
       await queryInterface.addIndex('messages', ['sender_id']);
-      await queryInterface.addIndex('messages', ['isRead']);
+      await queryInterface.addIndex('messages', ['is_read']);
 
       console.log('✅ Messages table created');
     } else {

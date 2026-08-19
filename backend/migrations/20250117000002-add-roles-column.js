@@ -2,13 +2,13 @@
 
 module.exports = {
   async up(queryInterface, Sequelize) {
-    // Add roles column to users table
-    await queryInterface.addColumn('users', 'roles', {
-      type: Sequelize.STRING,
-      allowNull: true,
-      defaultValue: null,
-      comment: 'Comma-separated roles: buyer,seller,admin'
-    });
+    // Add roles column to users_test table
+    // await queryInterface.addColumn('users', 'roles', {
+    //   type: Sequelize.STRING,
+    //   allowNull: true,
+    //   defaultValue: null,
+    //   comment: 'Comma-separated roles: buyer,seller,admin'
+    // });
 
     // Migrate existing single role to roles field
     await queryInterface.sequelize.query(`
@@ -21,6 +21,6 @@ module.exports = {
   },
 
   async down(queryInterface, Sequelize) {
-    await queryInterface.removeColumn('users', 'roles');
+    // await queryInterface.removeColumn('users', 'roles');
   }
 };

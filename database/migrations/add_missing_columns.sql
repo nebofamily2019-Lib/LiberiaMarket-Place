@@ -1,0 +1,14 @@
+-- Add missing columns to products table
+ALTER TABLE products ADD COLUMN images TEXT;
+ALTER TABLE products ADD COLUMN createdAt DATETIME DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE products ADD COLUMN updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE products ADD COLUMN deletedAt DATETIME;
+
+-- Add missing columns to users table
+ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT 1;
+ALTER TABLE users ADD COLUMN deleted_at DATETIME;
+
+-- Add missing columns to offers table
+ALTER TABLE offers ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE offers ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE offers ADD COLUMN deleted_at DATETIME;
