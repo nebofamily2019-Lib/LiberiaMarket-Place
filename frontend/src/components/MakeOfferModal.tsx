@@ -70,7 +70,7 @@ const MakeOfferModal = ({ productId, productTitle, productPrice, productCurrency
       onClose();
     } catch (error: any) {
       console.error('Error sending offer:', error);
-      const errorMessage = error.message || error.response?.data?.error || 'Failed to send offer. Please try again.';
+      const errorMessage = error.response?.data?.error || 'Failed to send offer. Please try again.';
       setSubmitError(errorMessage);
       toast.error(errorMessage);
     } finally {

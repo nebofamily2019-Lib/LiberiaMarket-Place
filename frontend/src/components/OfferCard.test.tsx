@@ -68,6 +68,8 @@ describe('OfferCard', () => {
     message: 'Can you do 450?',
     offer_count: 1,
     status: 'pending',
+    seller_confirmed: false,
+    buyer_confirmed: false,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     product: mockProduct,

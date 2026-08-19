@@ -101,7 +101,7 @@ const OfferCard = ({ offer, viewType, onOfferUpdated }: OfferCardProps) => {
           }
         } catch (error: any) {
           console.error('Error accepting offer:', error);
-          toast.error(error.message || 'Failed to accept offer');
+          toast.error(error.response?.data?.error || 'Failed to accept offer');
           throw error;
         }
       }
@@ -139,7 +139,7 @@ const OfferCard = ({ offer, viewType, onOfferUpdated }: OfferCardProps) => {
           }
         } catch (error: any) {
           console.error('Error rejecting offer:', error);
-          toast.error(error.message || 'Failed to reject offer');
+          toast.error(error.response?.data?.error || 'Failed to reject offer');
           throw error;
         }
       }
@@ -175,7 +175,7 @@ const OfferCard = ({ offer, viewType, onOfferUpdated }: OfferCardProps) => {
       }
     } catch (error: any) {
       console.error('Error countering offer:', error);
-      toast.error(error.message || 'Failed to send counter-offer');
+      toast.error(error.response?.data?.error || 'Failed to send counter-offer');
     } finally {
       setLoading(false);
     }
