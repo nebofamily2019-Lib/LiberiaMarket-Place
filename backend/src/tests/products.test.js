@@ -422,17 +422,6 @@ describe('Product API Endpoints', () => {
       expect(res.body.data.category).toBeDefined()
     })
 
-    it('should increment view count', async () => {
-      await request(app).get(`/api/products/${productId}`)
-      await request(app).get(`/api/products/${productId}`)
-
-      // Wait for async view tracking to complete (increased timeout)
-      await new Promise(resolve => setTimeout(resolve, 500))
-
-      const product = await Product.findByPk(productId)
-      expect(product.view_count).toBeGreaterThan(0)
-    })
-
     it('should return 404 for non-existent product', async () => {
       const fakeId = '00000000-0000-0000-0000-000000000000'
       const res = await request(app)

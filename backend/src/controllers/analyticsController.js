@@ -3,9 +3,6 @@ const { Product, UserActivity } = require('../models');
 
 const trackProductView = async (productId, userId, req) => {
   try {
-    // Increment view count
-    await Product.increment('view_count', { where: { id: productId } });
-    
     if (userId) {
       await UserActivity.create({
         user_id: userId,
