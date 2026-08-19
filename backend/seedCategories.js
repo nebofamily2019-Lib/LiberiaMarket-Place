@@ -2,30 +2,36 @@
 const { Category } = require('./src/models');
 
 const defaultCategories = [
-  { name: 'Electronics', slug: 'electronics', description: 'Electronic devices and gadgets', icon: '📱', color: '#3B82F6', sortOrder: 1 },
-  { name: 'Fashion', slug: 'fashion', description: 'Clothing, shoes, and accessories', icon: '👗', color: '#EC4899', sortOrder: 2 },
-  { name: 'Home & Garden', slug: 'home-garden', description: 'Furniture, appliances, and home decor', icon: '🏡', color: '#10B981', sortOrder: 3 },
-  { name: 'Sports', slug: 'sports', description: 'Sports equipment and accessories', icon: '⚽', color: '#F59E0B', sortOrder: 4 },
-  { name: 'Books', slug: 'books', description: 'Books, magazines, and educational materials', icon: '📚', color: '#8B5CF6', sortOrder: 5 },
-  { name: 'Vehicles', slug: 'vehicles', description: 'Cars, motorcycles, and vehicle parts', icon: '🚗', color: '#EF4444', sortOrder: 6 },
-  { name: 'Services', slug: 'services', description: 'Professional and personal services', icon: '🔧', color: '#06B6D4', sortOrder: 7 },
-  { name: 'Other', slug: 'other', description: 'Miscellaneous items', icon: '📦', color: '#6B7280', sortOrder: 8 }
+  { name: 'Market Grounds', slug: 'market-grounds', description: 'Rice, palm oil, dry goods, and daily market provisions', icon: '🍚', color: '#10B981', sortOrder: 1 },
+  { name: 'Fashion & Tailoring', slug: 'fashion-tailoring', description: 'Lappa suits, country cloth, tailoring, and used clothes', icon: '🧵', color: '#EC4899', sortOrder: 2 },
+  { name: 'Phones & Electronics', slug: 'phones-electronics', description: 'Smartphones, scratch cards, solar lights, and gadgets', icon: '📱', color: '#3B82F6', sortOrder: 3 },
+  { name: 'Vehicles & Pehn-Pehn', slug: 'vehicles-transport', description: 'Cars, kekehs, motorbikes, and parts', icon: '🏍️', color: '#EF4444', sortOrder: 4 },
+  { name: 'Building Materials', slug: 'building-materials', description: 'Cement, zinc, blocks, and construction tools', icon: '🧱', color: '#F59E0B', sortOrder: 5 },
+  { name: 'Home & Solar Energy', slug: 'home-energy', description: 'Furniture, solar panels, batteries, and home goods', icon: '☀️', color: '#FBBF24', sortOrder: 6 },
+  { name: 'Services & Labor', slug: 'services-labor', description: 'Plumbers, electricians, mechanics, and hair braiding', icon: '🛠️', color: '#06B6D4', sortOrder: 7 },
+  { name: 'Education', slug: 'education', description: 'School books, uniforms, and learning materials', icon: '📚', color: '#8B5CF6', sortOrder: 8 }
 ];
 
 async function seedCategories() {
   try {
     console.log('Starting category seeding...');
 
-    // Check if categories already exist
-    const existingCount = await Category.count();
-
-    if (existingCount > 0) {
-      console.log(`Database already has ${existingCount} categories. Skipping seed.`);
-      process.exit(0);
+    // Iterate and upsert based on slug to handle existing/soft-deleted categories
+    const categories = [];
+    for (const cat of defaultCategories) {
+      const existing = await Category.findOne({ where: { slug: cat.slug }, paranoid: false });
+      
+      if (existing) {
+        if (existing.deletedAt) {
+          await existing.restore();
+        }
+        await existing.update(cat);
+        categories.push(existing);
+      } else {
+        const newCat = await Category.create(cat);
+        categories.push(newCat);
+      }
     }
-
-    // Insert categories
-    const categories = await Category.bulkCreate(defaultCategories);
 
     console.log(`Successfully seeded ${categories.length} categories:`);
     categories.forEach(cat => {

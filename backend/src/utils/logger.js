@@ -29,9 +29,10 @@ const format = winston.format.combine(
   winston.format.json()
 );
 
-// Define transports
+
+// Define transports based on environment
+const isTestEnv = process.env.NODE_ENV === 'test';
 const transports = [
-  // Console transport
   new winston.transports.Console({
     format: winston.format.combine(
       winston.format.colorize({ all: true }),
@@ -39,25 +40,35 @@ const transports = [
         (info) => `${info.timestamp} ${info.level}: ${info.message}`
       )
     ),
-  }),
-  
-  // Error log file
-  new winston.transports.File({
-    filename: path.join(__dirname, '../../logs/error.log'),
-    level: 'error',
-    maxsize: 5242880, // 5MB
-    maxFiles: 5,
-  }),
-  
-  // Combined log file
-  new winston.transports.File({
-    filename: path.join(__dirname, '../../logs/combined.log'),
-    maxsize: 5242880, // 5MB
-    maxFiles: 5,
-  }),
+  })
 ];
 
-// Create logger
+if (!isTestEnv) {
+  // Only add file transports and create logs directory if not in test mode
+  transports.push(
+    new winston.transports.File({
+      filename: path.join(__dirname, '../../logs/error.log'),
+      level: 'error',
+      maxsize: 5242880, // 5MB
+      maxFiles: 5,
+    })
+  );
+  transports.push(
+    new winston.transports.File({
+      filename: path.join(__dirname, '../../logs/combined.log'),
+      maxsize: 5242880, // 5MB
+      maxFiles: 5,
+    })
+  );
+
+  // Create logs directory if it doesn't exist
+  const fs = require('fs');
+  const logsDir = path.join(__dirname, '../../logs');
+  if (!fs.existsSync(logsDir)) {
+    fs.mkdirSync(logsDir, { recursive: true });
+  }
+}
+
 const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
   levels,
@@ -68,12 +79,5 @@ const logger = winston.createLogger({
     environment: process.env.NODE_ENV || 'development'
   },
 });
-
-// Create logs directory if it doesn't exist
-const fs = require('fs');
-const logsDir = path.join(__dirname, '../../logs');
-if (!fs.existsSync(logsDir)) {
-  fs.mkdirSync(logsDir, { recursive: true });
-}
 
 module.exports = logger;

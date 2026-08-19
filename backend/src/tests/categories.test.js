@@ -107,17 +107,22 @@ describe('Category API Endpoints', () => {
       .post('/api/auth/register')
       .send({
         name: 'Admin User',
-        phone: `0777${Math.floor(1000000 + Math.random() * 8999999)}`,
+        phone: `077${Math.floor(1000000 + Math.random() * 8999999)}`,
         password: 'StrongPass!@#2025',
         role: 'admin'
       })
+    
+    if (adminRes.status !== 201) {
+      console.error('Admin registration failed:', adminRes.status, adminRes.body);
+    }
+
     const adminCookies = adminRes.headers['set-cookie']
     const adminTokenValue = extractTokenValue(adminCookies)
     adminCookie = adminTokenValue ? `token=${adminTokenValue}` : null
     adminUserId = adminRes.body.user?.id
     adminToken = adminTokenValue; // For tests using Authorization
     if (adminUserId) {
-      await User.update({ role: 'admin' }, { where: { id: adminUserId } })
+      await User.update({ role: 'admin', roles: 'admin' }, { where: { id: adminUserId } })
     }
 
     // Create regular user with Liberia-valid phone and strong password
@@ -127,7 +132,7 @@ describe('Category API Endpoints', () => {
         name: 'Regular User',
         email: `user.${uniqueSuffix}@example.com`,
         password: 'Password123!@#',
-        phone: `0777${Math.floor(1000000 + Math.random() * 8999999)}`,
+        phone: `077${Math.floor(1000000 + Math.random() * 8999999)}`,
         role: 'buyer'
       })
     const userCookies = userRes.headers['set-cookie']
@@ -164,6 +169,7 @@ describe('Category API Endpoints', () => {
   describe('GET /api/categories', () => {
     beforeEach(async () => {
       // Force delete all categories using TRUNCATE-like approach
+      try { await Product.destroy({ where: {}, force: true }); } catch (e) {}
       await Category.destroy({ where: {}, force: true, truncate: true });
 
       // Add delay to ensure unique timestamps
@@ -178,6 +184,7 @@ describe('Category API Endpoints', () => {
       await Category.bulkCreate([
         {
           name: `Electronics-${uniqueSuffix}`,
+          slug: `electronics-${uniqueSuffix}`,
           description: 'Electronic devices and gadgets',
           icon: 'laptop',
           color: '#3B82F6',
@@ -186,6 +193,7 @@ describe('Category API Endpoints', () => {
         },
         {
           name: `Fashion-${uniqueSuffix}`,
+          slug: `fashion-${uniqueSuffix}`,
           description: 'Clothing and accessories',
           icon: 'shirt',
           color: '#EC4899',
@@ -194,13 +202,14 @@ describe('Category API Endpoints', () => {
         },
         {
           name: `Inactive-${uniqueSuffix}`,
+          slug: `inactive-${uniqueSuffix}`,
           description: 'Inactive category for test',
           icon: 'box',
           color: '#6B7280',
           sortOrder: 3,
           isActive: false
         }
-      ])
+      ], { validate: true, hooks: true })
     })
 
     it('should get all active categories', async () => {
@@ -341,14 +350,14 @@ describe('Category API Endpoints', () => {
         // Skip test if adminCookie is missing
         return
       }
-      const csrfData = await getCsrfToken(adminCookie);
-      expect(csrfData).toBeDefined();
-      expect(csrfData.token).toBeDefined();
+      const csrfToken = await getCsrfToken(adminCookie);
+      expect(csrfToken).toBeDefined();
+      
       const uuid = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
       const res = await request(app)
         .post('/api/categories')
-        .set('Cookie', csrfData.cookie)
-        .set('X-CSRF-Token', csrfData.token)
+        .set('Cookie', adminCookie)
+        .set('X-CSRF-Token', csrfToken)
         .send({
           name: `Vehicles-${uuid}`,
           description: 'Cars and motorcycles',
@@ -458,7 +467,7 @@ describe('Category API Endpoints', () => {
         .set('Cookie', adminCookie)
         .set('X-CSRF-Token', csrfToken2)
         .send(categoryData)
-        .expect(403)
+        .expect(400)
 
       expect(res.body.success).toBe(false)
       expect(res.body.error).toContain('already exists')
@@ -475,7 +484,7 @@ describe('Category API Endpoints', () => {
         .set('Cookie', adminCookie)
         .set('X-CSRF-Token', csrfToken)
         .send({})
-        .expect(403)
+        .expect(400)
 
       expect(res.body.success).toBe(false)
     })
@@ -498,7 +507,7 @@ describe('Category API Endpoints', () => {
         .set('Cookie', adminCookie)
         .set('X-CSRF-Token', csrfToken)
         .send(categoryData)
-        .expect(403)
+        .expect(400)
 
       expect(res.body.success).toBe(false)
     })
@@ -617,7 +626,7 @@ describe('Category API Endpoints', () => {
         .put(`/api/categories/${fakeId}`)
         .set('Cookie', adminCookie)
         .send({ name: 'Updated' })
-        .expect(403)
+        .expect(404)
 
       expect(res.body.success).toBe(false)
     })
@@ -641,7 +650,7 @@ describe('Category API Endpoints', () => {
         .set('Cookie', adminCookie)
         .set('X-CSRF-Token', csrfToken)
         .send({ name: 'Another Category' })
-        .expect(403)
+        .expect(400)
 
       expect(res.body.success).toBe(false)
       expect(res.body.error).toContain('already exists')
@@ -743,7 +752,7 @@ describe('Category API Endpoints', () => {
       const res = await request(app)
         .delete(`/api/categories/${fakeId}`)
         .set('Cookie', adminCookie)
-        .expect(403)
+        .expect(404)
 
       expect(res.body.success).toBe(false)
     })
@@ -775,7 +784,7 @@ describe('Category API Endpoints', () => {
         .delete(`/api/categories/${categoryId}`)
         .set('Cookie', adminCookie)
         .set('X-CSRF-Token', csrfToken)
-        .expect(403)
+        .expect(400)
 
       expect(res.body.success).toBe(false)
       expect(res.body.error).toContain('Cannot delete category')
@@ -820,7 +829,7 @@ describe('Category API Endpoints', () => {
         .delete(`/api/categories/${categoryId}`)
         .set('Cookie', adminCookie)
         .set('X-CSRF-Token', csrfToken)
-        .expect(403)
+        .expect(400)
 
       expect(res.body.success).toBe(false)
       expect(res.body.error).toContain('2 products')

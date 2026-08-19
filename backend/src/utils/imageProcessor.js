@@ -3,6 +3,11 @@ const path = require('path');
 const fs = require('fs').promises;
 const crypto = require('crypto');
 const logger = require('./logger');
+const { cloudinary, configureCloudinary } = require('../config/cloudinary');
+const stream = require('stream');
+
+// Initialize Cloudinary
+const isCloudinaryConfigured = configureCloudinary();
 
 // Image size configurations
 const IMAGE_SIZES = {
@@ -75,6 +80,32 @@ const processImage = async (buffer, size = 'original') => {
 };
 
 /**
+ * Save image buffer to Cloudinary
+ */
+const saveImageToCloud = async (buffer, filename, folder = 'products') => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: `libmarket/${folder}`,
+        public_id: path.parse(filename).name,
+        resource_type: 'image'
+      },
+      (error, result) => {
+        if (error) {
+          logger.error('Cloudinary upload error', { error });
+          return reject(error);
+        }
+        resolve(result.secure_url);
+      }
+    );
+
+    const bufferStream = new stream.PassThrough();
+    bufferStream.end(buffer);
+    bufferStream.pipe(uploadStream);
+  });
+};
+
+/**
  * Save image buffer to disk
  */
 const saveImageToDisk = async (buffer, filename, folder = 'products') => {
@@ -101,17 +132,26 @@ const processAndSaveImage = async (buffer, originalName, folder = 'products') =>
   try {
     const sizes = ['thumbnail', 'medium', 'original'];
     const results = {};
+    const useCloud = process.env.USE_CLOUD_STORAGE === 'true' && isCloudinaryConfigured;
 
     for (const size of sizes) {
       const filename = generateFilename(originalName, size);
       const processedBuffer = await processImage(buffer, size);
-      const url = await saveImageToDisk(processedBuffer, filename, folder);
+      
+      let url;
+      if (useCloud) {
+        url = await saveImageToCloud(processedBuffer, filename, folder);
+      } else {
+        url = await saveImageToDisk(processedBuffer, filename, folder);
+      }
+      
       results[size] = url;
     }
 
     logger.info('Image processed and saved', {
       original: originalName,
-      sizes: Object.keys(results)
+      sizes: Object.keys(results),
+      storage: useCloud ? 'cloud' : 'disk'
     });
 
     return results;
@@ -125,12 +165,29 @@ const processAndSaveImage = async (buffer, originalName, folder = 'products') =>
 };
 
 /**
- * Delete image file from disk
+ * Delete image file from disk or cloud
  */
 const deleteImage = async (imageUrl) => {
   if (!imageUrl) return;
 
   try {
+    // Check if it's a Cloudinary URL
+    if (imageUrl.includes('cloudinary.com')) {
+      if (isCloudinaryConfigured) {
+        // Extract public_id from URL
+        // Example: https://res.cloudinary.com/demo/image/upload/v1234567890/libmarket/products/thumbnail-123.jpg
+        const parts = imageUrl.split('/');
+        const filename = parts.pop();
+        const folder = parts.pop(); // 'products'
+        const rootFolder = parts.pop(); // 'libmarket'
+        const publicId = `${rootFolder}/${folder}/${path.parse(filename).name}`;
+        
+        await cloudinary.uploader.destroy(publicId);
+        logger.info('Image deleted from cloud', { publicId });
+      }
+      return;
+    }
+
     const filename = path.basename(imageUrl);
     const folder = path.dirname(imageUrl).split('/').pop();
     const filepath = path.join(__dirname, '../../uploads', folder, filename);
@@ -152,6 +209,38 @@ const deleteAllImageSizes = async (imageUrl) => {
   if (!imageUrl) return;
 
   try {
+    // Handle Cloudinary deletion
+    if (imageUrl.includes('cloudinary.com')) {
+      if (isCloudinaryConfigured) {
+        const parts = imageUrl.split('/');
+        const filename = parts.pop();
+        const folder = parts.pop();
+        const rootFolder = parts.pop();
+        
+        // Extract base filename parts to reconstruct other sizes
+        const nameParts = filename.split('-');
+        if (nameParts.length >= 3) {
+          const timestamp = nameParts[1];
+          const randomPart = nameParts.slice(2).join('-');
+          const ext = path.extname(filename);
+          const baseName = path.basename(randomPart, ext); // remove extension for public_id
+
+          for (const size of ['thumbnail', 'medium', 'original']) {
+            // Reconstruct filename: size-timestamp-random
+            // Note: Cloudinary public_id doesn't include extension usually, but depends on upload
+            // Our upload uses filename as public_id (without extension? no, path.parse(filename).name)
+            
+            const sizedFilename = `${size}-${timestamp}-${baseName}`; 
+            const publicId = `${rootFolder}/${folder}/${sizedFilename}`;
+            
+            await cloudinary.uploader.destroy(publicId);
+            logger.info('Image size deleted from cloud', { publicId });
+          }
+        }
+      }
+      return;
+    }
+
     const filename = path.basename(imageUrl);
     const folder = path.dirname(imageUrl).split('/').pop();
 

@@ -1,3 +1,6 @@
+// Force NODE_ENV to test to prevent database wipes
+process.env.NODE_ENV = 'test';
+
 module.exports = {
   testEnvironment: 'node',
   setupFilesAfterEnv: ['<rootDir>/src/tests/setup.js'],
@@ -15,6 +18,9 @@ module.exports = {
     '/node_modules/',
     '/config/',
     '/database/'
+  ],
+  transformIgnorePatterns: [
+    'node_modules/sharp'
   ],
   testTimeout: 30000,
   verbose: true,
