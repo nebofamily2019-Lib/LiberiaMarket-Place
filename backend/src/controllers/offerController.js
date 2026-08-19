@@ -1,291 +1,435 @@
-const { sequelize } = require('../models');
+const { sequelize, Offer, Product, User, Notification, UserActivity } = require('../models');
+const { Op } = require('sequelize');
 
-// @desc    Create a new offer
+// Finalise a transaction once both parties have confirmed
+const completeTransaction = async (offer) => {
+  const product = await Product.findByPk(offer.product_id);
+  if (!product) return;
+
+  // Use counter_amount if a counter was made, otherwise the original offer_amount
+  const acceptedAmount = offer.counter_amount || offer.offer_amount;
+
+  await product.update({
+    status: 'sold',
+    sold_price: acceptedAmount,
+    sold_at: new Date()
+  });
+
+  await offer.update({ status: 'completed' });
+
+  try {
+    await UserActivity.create({
+      user_id: offer.seller_id,
+      activity_type: 'sold_product',
+      entity_id: offer.product_id,
+      details: { sold_price: acceptedAmount, via: 'offer_delivery_confirmed' }
+    });
+  } catch (logErr) {
+    console.warn('Failed to log sold_product activity:', logErr.message);
+  }
+};
+
+// Helper to calculate expiry
+const getExpiryDate = () => {
+  const date = new Date();
+  date.setHours(date.getHours() + 24);
+  return date;
+};
+
+// @desc    Create a new offer (negotiation)
 // @route   POST /api/offers
 // @access  Private (Buyer)
 const createOffer = async (req, res, next) => {
   try {
-    console.log('📥 Creating offer:', req.body);
-    
-    const { product_id, offer_amount, message } = req.body;
+    const { product_id, offer_amount, message, currency } = req.body;
     const buyer_id = req.user.id;
 
-    // Validate required fields
     if (!product_id || !offer_amount) {
-      return res.status(400).json({
-        success: false,
-        error: 'Product ID and offer amount are required'
-      });
+      return res.status(400).json({ success: false, error: 'Product ID and offer amount are required' });
     }
 
-    // Check if product exists (using raw query since model associations are having issues)
-    const [products] = await sequelize.query(
-      'SELECT * FROM products WHERE id = ? LIMIT 1',
-      { replacements: [product_id] }
-    );
+    const product = await Product.findByPk(product_id);
+    if (!product) return res.status(404).json({ success: false, error: 'Product not found' });
+    if (product.status !== 'active') return res.status(400).json({ success: false, error: 'Product is not active' });
+    if (product.seller_id === buyer_id) return res.status(400).json({ success: false, error: 'Cannot make offer on your own product' });
 
-    if (!products || products.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Product not found'
-      });
-    }
-
-    const product = products[0];
-
-    // Check if buyer is not the seller
-    if (product.seller_id === buyer_id) {
-      return res.status(400).json({
-        success: false,
-        error: 'You cannot make an offer on your own product'
-      });
-    }
-
-    // Validate offer amount
-    if (parseFloat(offer_amount) >= parseFloat(product.price)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Offer amount must be less than the asking price'
-      });
-    }
-
-    // Create offer using raw query
-    const offerId = require('crypto').randomUUID();
-    const now = new Date().toISOString();
-    
-    await sequelize.query(
-      `INSERT INTO offers (id, product_id, buyer_id, seller_id, offer_amount, message, status, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
-      { 
-        replacements: [
-          offerId, 
-          product_id, 
-          buyer_id, 
-          product.seller_id, 
-          parseFloat(offer_amount), 
-          message || '', 
-          now, 
-          now
-        ] 
-      }
-    );
-
-    console.log(`✅ Offer created: $${offer_amount} for product ${product.title}`);
-
-    res.status(201).json({
-      success: true,
-      message: 'Offer sent successfully',
-      data: {
-        id: offerId,
+    // CAP: Check if buyer already has an active offer (pending or countered)
+    const existingOffer = await Offer.findOne({
+      where: {
         product_id,
         buyer_id,
-        seller_id: product.seller_id,
-        offer_amount: parseFloat(offer_amount),
-        message: message || '',
-        status: 'pending'
+        status: { [Op.in]: ['pending', 'countered'] }
       }
     });
+
+    if (existingOffer) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'You already have an active offer for this item. Please wait for the seller to respond.' 
+      });
+    }
+
+    // Create Offer
+    const offer = await Offer.create({
+      product_id,
+      buyer_id,
+      seller_id: product.seller_id,
+      offer_amount,
+      currency: currency || 'USD',
+      product_price_snapshot: product.price,
+      message,
+      status: 'pending',
+      expires_at: getExpiryDate()
+    });
+
+    // Notify Seller (Placeholder)
+    // await Notification.create(...)
+
+    res.status(201).json({ success: true, data: offer });
+
   } catch (error) {
-    console.error('❌ Error creating offer:', error);
+    console.error('Error creating offer:', error);
     next(error);
   }
 };
 
-// @desc    Get offers for a seller
-// @route   GET /api/offers/received
+// @desc    Counter an offer
+// @route   PATCH /api/offers/:id/counter
 // @access  Private (Seller)
-const getReceivedOffers = async (req, res, next) => {
+const counterOffer = async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const { counter_amount, counter_message, counter_currency } = req.body;
     const seller_id = req.user.id;
 
-    console.log('📥 Fetching offers for seller:', seller_id);
+    const offer = await Offer.findByPk(id);
+    if (!offer) return res.status(404).json({ success: false, error: 'Offer not found' });
 
-    // Use raw SQL query to get offers
-    const [offers] = await sequelize.query(
-      `SELECT 
-        o.id, o.offer_amount, o.message, o.status, o.createdAt,
-        p.id as product_id, p.title as product_title, p.price as product_price,
-        u.id as buyer_id, u.name as buyer_name, u.phone as buyer_phone
-       FROM offers o
-       INNER JOIN products p ON o.product_id = p.id
-       INNER JOIN users u ON o.buyer_id = u.id
-       WHERE o.seller_id = ?
-       ORDER BY o.createdAt DESC`,
-      { replacements: [seller_id] }
-    );
+    if (offer.seller_id !== seller_id) {
+      return res.status(403).json({ success: false, error: 'Not authorized to counter this offer' });
+    }
 
-    // Format the response
-    const formattedOffers = offers.map(offer => ({
-      id: offer.id,
-      offer_amount: parseFloat(offer.offer_amount),
-      message: offer.message,
-      status: offer.status,
-      createdAt: offer.createdAt,
-      product: {
-        id: offer.product_id,
-        title: offer.product_title,
-        price: parseFloat(offer.product_price)
-      },
-      buyer: {
-        id: offer.buyer_id,
-        name: offer.buyer_name,
-        phone: offer.buyer_phone
-      }
-    }));
+    if (offer.status !== 'pending') {
+      return res.status(400).json({ success: false, error: 'Can only counter pending offers' });
+    }
 
-    console.log(`✅ Found ${formattedOffers.length} offers`);
+    // CAP: Check if already countered
+    if (offer.counter_amount) {
+      return res.status(400).json({ success: false, error: 'You have already submitted a counteroffer.' });
+    }
 
-    res.status(200).json({
-      success: true,
-      data: formattedOffers
-    });
+    // Update Offer
+    offer.counter_amount = counter_amount;
+    offer.counter_currency = counter_currency || offer.currency;
+    offer.counter_message = counter_message;
+    offer.status = 'countered';
+    offer.expires_at = getExpiryDate(); // Reset expiry
+    offer.responded_by = seller_id;
+    
+    await offer.save();
+
+    res.status(200).json({ success: true, data: offer });
+
   } catch (error) {
-    console.error('❌ Error fetching received offers:', error);
-    next(error);
-  }
-};
-
-// @desc    Get offers sent by buyer
-// @route   GET /api/offers/sent
-// @access  Private (Buyer)
-const getSentOffers = async (req, res, next) => {
-  try {
-    const buyer_id = req.user.id;
-
-    console.log('📤 Fetching offers sent by buyer:', buyer_id);
-
-    // Use raw SQL query to get offers
-    const [offers] = await sequelize.query(
-      `SELECT 
-        o.id, o.offer_amount, o.message, o.status, o.createdAt, o.updatedAt,
-        p.id as product_id, p.title as product_title, p.price as product_price,
-        u.id as seller_id, u.name as seller_name, u.phone as seller_phone
-       FROM offers o
-       INNER JOIN products p ON o.product_id = p.id
-       INNER JOIN users u ON o.seller_id = u.id
-       WHERE o.buyer_id = ?
-       ORDER BY o.createdAt DESC`,
-      { replacements: [buyer_id] }
-    );
-
-    // Format the response
-    const formattedOffers = offers.map(offer => ({
-      id: offer.id,
-      offer_amount: parseFloat(offer.offer_amount),
-      message: offer.message,
-      status: offer.status,
-      createdAt: offer.createdAt,
-      updatedAt: offer.updatedAt,
-      product: {
-        id: offer.product_id,
-        title: offer.product_title,
-        price: parseFloat(offer.product_price)
-      },
-      seller: {
-        id: offer.seller_id,
-        name: offer.seller_name,
-        phone: offer.seller_phone
-      }
-    }));
-
-    console.log(`✅ Found ${formattedOffers.length} sent offers`);
-
-    res.status(200).json({
-      success: true,
-      data: formattedOffers
-    });
-  } catch (error) {
-    console.error('❌ Error fetching sent offers:', error);
+    console.error('Error countering offer:', error);
     next(error);
   }
 };
 
 // @desc    Accept an offer
 // @route   PATCH /api/offers/:id/accept
-// @access  Private (Seller)
+// @access  Private (Seller or Buyer)
 const acceptOffer = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const seller_id = req.user.id;
+    const userId = req.user.id;
 
-    console.log('✅ Accepting offer:', id);
+    const offer = await Offer.findByPk(id, { include: ['offerProduct'] });
+    if (!offer) return res.status(404).json({ success: false, error: 'Offer not found' });
 
-    // Check if offer exists and belongs to this seller
-    const [offers] = await sequelize.query(
-      'SELECT * FROM offers WHERE id = ? AND seller_id = ? LIMIT 1',
-      { replacements: [id, seller_id] }
-    );
+    // Determine role and validate
+    const isSeller = offer.seller_id === userId;
+    const isBuyer = offer.buyer_id === userId;
 
-    if (!offers || offers.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Offer not found or you do not have permission'
-      });
+    if (!isSeller && !isBuyer) {
+      return res.status(403).json({ success: false, error: 'Not authorized' });
     }
 
-    // Update offer status
-    await sequelize.query(
-      'UPDATE offers SET status = ?, updatedAt = ? WHERE id = ?',
-      { replacements: ['accepted', new Date().toISOString(), id] }
+    if (isSeller && offer.status !== 'pending') {
+      return res.status(400).json({ success: false, error: 'Can only accept pending offers' });
+    }
+
+    if (isBuyer && offer.status !== 'countered') {
+      return res.status(400).json({ success: false, error: 'Can only accept countered offers' });
+    }
+
+    // Update Offer
+    offer.status = 'accepted';
+    offer.responded_by = userId;
+    await offer.save();
+
+    // Reserve the product (pending delivery confirmation — will become 'sold' when both parties confirm)
+    const product = await Product.findByPk(offer.product_id);
+    if (product) {
+      product.status = 'pending';
+      await product.save();
+    }
+
+    // Reject all other pending offers for this product
+    await Offer.update(
+      { status: 'rejected' },
+      { 
+        where: { 
+          product_id: offer.product_id, 
+          status: 'pending',
+          id: { [Op.ne]: offer.id }
+        } 
+      }
     );
 
-    console.log('✅ Offer accepted');
+    res.status(200).json({ success: true, data: offer });
 
-    res.status(200).json({
-      success: true,
-      message: 'Offer accepted successfully'
-    });
   } catch (error) {
-    console.error('❌ Error accepting offer:', error);
+    console.error('Error accepting offer:', error);
     next(error);
   }
 };
 
 // @desc    Reject an offer
 // @route   PATCH /api/offers/:id/reject
-// @access  Private (Seller)
+// @access  Private (Seller or Buyer)
 const rejectOffer = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const seller_id = req.user.id;
+    const userId = req.user.id;
 
-    console.log('❌ Rejecting offer:', id);
+    const offer = await Offer.findByPk(id);
+    if (!offer) return res.status(404).json({ success: false, error: 'Offer not found' });
 
-    // Check if offer exists and belongs to this seller
-    const [offers] = await sequelize.query(
-      'SELECT * FROM offers WHERE id = ? AND seller_id = ? LIMIT 1',
-      { replacements: [id, seller_id] }
-    );
+    const isSeller = offer.seller_id === userId;
+    const isBuyer = offer.buyer_id === userId;
 
-    if (!offers || offers.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Offer not found or you do not have permission'
-      });
+    if (!isSeller && !isBuyer) {
+      return res.status(403).json({ success: false, error: 'Not authorized' });
     }
 
-    // Update offer status
-    await sequelize.query(
-      'UPDATE offers SET status = ?, updatedAt = ? WHERE id = ?',
-      { replacements: ['rejected', new Date().toISOString(), id] }
-    );
+    if (offer.status === 'accepted' || offer.status === 'rejected' || offer.status === 'expired') {
+      return res.status(400).json({ success: false, error: 'Cannot reject this offer' });
+    }
 
-    console.log('✅ Offer rejected');
+    offer.status = 'rejected';
+    offer.responded_by = userId;
+    await offer.save();
 
-    res.status(200).json({
-      success: true,
-      message: 'Offer rejected'
-    });
+    res.status(200).json({ success: true, data: offer });
+
   } catch (error) {
-    console.error('❌ Error rejecting offer:', error);
+    console.error('Error rejecting offer:', error);
+    next(error);
+  }
+};
+
+// @desc    Get received offers
+// @route   GET /api/offers/received
+// @access  Private (Seller)
+const getReceivedOffers = async (req, res, next) => {
+  try {
+    const offers = await Offer.findAll({
+      where: { seller_id: req.user.id },
+      include: [
+        { model: Product, as: 'offerProduct', attributes: ['id', 'title', 'price', 'images', 'status'] },
+        { model: User, as: 'buyer', attributes: ['id', 'name', 'phone'] }
+      ],
+      order: [['created_at', 'DESC']]
+    });
+    // Remap offerProduct → product so the frontend receives a consistent key
+    const data = offers.map(o => {
+      const plain = o.toJSON();
+      plain.product = plain.offerProduct;
+      delete plain.offerProduct;
+      return plain;
+    });
+    res.status(200).json({ success: true, count: data.length, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get sent offers
+// @route   GET /api/offers/sent
+// @access  Private (Buyer)
+const getSentOffers = async (req, res, next) => {
+  try {
+    const offers = await Offer.findAll({
+      where: { buyer_id: req.user.id },
+      include: [
+        { model: Product, as: 'offerProduct', attributes: ['id', 'title', 'price', 'images', 'status'] },
+        { model: User, as: 'seller', attributes: ['id', 'name', 'phone'] }
+      ],
+      order: [['created_at', 'DESC']]
+    });
+    // Remap offerProduct → product so the frontend receives a consistent key
+    const data = offers.map(o => {
+      const plain = o.toJSON();
+      plain.product = plain.offerProduct;
+      delete plain.offerProduct;
+      return plain;
+    });
+    res.status(200).json({ success: true, count: data.length, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Buy Now (Legacy support or direct purchase)
+const buyNow = async (req, res, next) => {
+  try {
+    const { product_id } = req.body;
+    const buyer_id = req.user.id;
+
+    const product = await Product.findByPk(product_id);
+    if (!product) return res.status(404).json({ success: false, error: 'Product not found' });
+    if (product.status !== 'active') return res.status(400).json({ success: false, error: 'Product not available' });
+    if (product.seller_id === buyer_id) return res.status(400).json({ success: false, error: 'Cannot buy your own product' });
+
+    product.status = 'sold';
+    await product.save();
+
+    const offer = await Offer.create({
+      product_id,
+      buyer_id,
+      seller_id: product.seller_id,
+      offer_amount: product.price,
+      status: 'accepted',
+      expires_at: getExpiryDate()
+    });
+
+    res.status(200).json({ success: true, message: 'Product purchased successfully' });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get my offer for a specific product
+// @route   GET /api/offers/my-offer/:productId
+// @access  Private
+const getMyOfferForProduct = async (req, res, next) => {
+  try {
+    const { productId } = req.params;
+    const buyer_id = req.user.id;
+
+    const offer = await Offer.findOne({
+      where: {
+        product_id: productId,
+        buyer_id
+      },
+      order: [['created_at', 'DESC']] // Get the most recent one
+    });
+
+    res.status(200).json({ success: true, data: offer });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Seller sets delivery method (delivery or pickup)
+// @route   PATCH /api/offers/:id/delivery-method
+// @access  Private (Seller)
+const setDeliveryMethod = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { delivery_method } = req.body;
+    const userId = req.user.id;
+
+    if (!['delivery', 'pickup'].includes(delivery_method)) {
+      return res.status(400).json({ success: false, error: 'delivery_method must be "delivery" or "pickup"' });
+    }
+
+    const offer = await Offer.findByPk(id);
+    if (!offer) return res.status(404).json({ success: false, error: 'Offer not found' });
+    if (offer.seller_id !== userId) return res.status(403).json({ success: false, error: 'Only the seller can set the delivery method' });
+    if (offer.status !== 'accepted') return res.status(400).json({ success: false, error: 'Offer must be accepted before setting delivery method' });
+
+    await offer.update({ delivery_method });
+    res.status(200).json({ success: true, data: offer });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Seller confirms they have delivered / handed over the item
+// @route   PATCH /api/offers/:id/seller-confirm
+// @access  Private (Seller)
+const sellerConfirmDelivery = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const offer = await Offer.findByPk(id);
+    if (!offer) return res.status(404).json({ success: false, error: 'Offer not found' });
+    if (offer.seller_id !== userId) return res.status(403).json({ success: false, error: 'Not authorized' });
+    if (offer.status !== 'accepted') return res.status(400).json({ success: false, error: 'Offer must be accepted first' });
+    if (!offer.delivery_method) return res.status(400).json({ success: false, error: 'Please choose a delivery method before confirming' });
+    if (offer.seller_confirmed) return res.status(400).json({ success: false, error: 'You have already confirmed delivery' });
+
+    await offer.update({ seller_confirmed: true, seller_confirmed_at: new Date() });
+
+    // Complete the transaction if the buyer has already confirmed
+    if (offer.buyer_confirmed) {
+      await completeTransaction(offer);
+      const updated = await Offer.findByPk(id);
+      return res.status(200).json({ success: true, data: updated, completed: true });
+    }
+
+    const updated = await Offer.findByPk(id);
+    res.status(200).json({ success: true, data: updated });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Buyer confirms they have received the item
+// @route   PATCH /api/offers/:id/buyer-confirm
+// @access  Private (Buyer)
+const buyerConfirmReceipt = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const offer = await Offer.findByPk(id);
+    if (!offer) return res.status(404).json({ success: false, error: 'Offer not found' });
+    if (offer.buyer_id !== userId) return res.status(403).json({ success: false, error: 'Not authorized' });
+    if (offer.status !== 'accepted') return res.status(400).json({ success: false, error: 'Offer must be accepted first' });
+    if (offer.buyer_confirmed) return res.status(400).json({ success: false, error: 'You have already confirmed receipt' });
+
+    await offer.update({ buyer_confirmed: true, buyer_confirmed_at: new Date() });
+
+    // Complete the transaction if the seller has already confirmed
+    if (offer.seller_confirmed) {
+      await completeTransaction(offer);
+      const updated = await Offer.findByPk(id);
+      return res.status(200).json({ success: true, data: updated, completed: true });
+    }
+
+    const updated = await Offer.findByPk(id);
+    res.status(200).json({ success: true, data: updated });
+  } catch (error) {
     next(error);
   }
 };
 
 module.exports = {
   createOffer,
+  placeBid: createOffer,
+  buyNow,
   getReceivedOffers,
   getSentOffers,
+  getMyOfferForProduct,
+  counterOffer,
   acceptOffer,
-  rejectOffer
+  rejectOffer,
+  setDeliveryMethod,
+  sellerConfirmDelivery,
+  buyerConfirmReceipt
 };

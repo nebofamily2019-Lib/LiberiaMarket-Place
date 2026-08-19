@@ -48,12 +48,24 @@ const protect = async (req, res, next) => {
 
       if (!req.user) {
         logger.warn('Authentication failed: User not found', {
-          userId: decoded.id,
-          ip: req.ip
+          userId: decoded.id
         });
         return res.status(401).json({
           success: false,
           error: 'User not found'
+        });
+      }
+
+      // Check token version for revocation
+      if (decoded.v !== undefined && req.user.token_version !== decoded.v) {
+        logger.warn('Authentication failed: Token revoked', {
+          userId: decoded.id,
+          tokenVersion: decoded.v,
+          userVersion: req.user.token_version
+        });
+        return res.status(401).json({
+          success: false,
+          error: 'Session expired or revoked'
         });
       }
 

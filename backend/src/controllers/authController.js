@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const validator = require('validator');
 const { User } = require('../models');
 const { validatePassword } = require('../utils/passwordValidator');
+const logger = require('../utils/logger');
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -35,41 +36,49 @@ const sendTokenResponse = (user, statusCode, res) => {
   // Create token
   const token = user.getSignedJwtToken ? user.getSignedJwtToken() : generateToken(user.id);
 
-  console.log('🍪 Setting token cookie for user:', user.id);
+  logger.debug('Setting token cookie for user', { userId: user.id });
 
-  const options = {
+    const cookieOptions = {
     expires: new Date(
       Date.now() + (process.env.JWT_COOKIE_EXPIRE || 7) * 24 * 60 * 60 * 1000 // 7 days
     ),
     httpOnly: true, // Prevents JavaScript access
     secure: process.env.NODE_ENV === 'production', // HTTPS only in production
-    sameSite: 'lax', // Changed from 'strict' to 'lax' for better compatibility
+      sameSite: (process.env.NODE_ENV === 'production') ? 'lax' : 'strict',
     path: '/'
   };
 
-  console.log('🍪 Cookie options:', {
-    expires: options.expires,
-    httpOnly: options.httpOnly,
-    secure: options.secure,
-    sameSite: options.sameSite
+  logger.debug('Cookie options configured', {
+    httpOnly: cookieOptions.httpOnly,
+    secure: cookieOptions.secure,
+    sameSite: cookieOptions.sameSite
   });
+
+  // Prepare response body
+  const responseBody = {
+    success: true,
+    user: {
+      id: user.id,
+      name: user.name,
+      phone: user.phone,
+      email: user.email || null,
+      role: user.role,
+      roles: user.roles || [user.role], // Include roles array
+      gender: user.gender, // Include gender for localized greetings
+      isActive: user.isActive,
+      isPhoneVerified: user.isPhoneVerified || false
+    }
+  };
+
+  // In test environment, include token in response body for testing
+  if (process.env.NODE_ENV === 'test') {
+    responseBody.token = token;
+  }
 
   res
     .status(statusCode)
-    .cookie('token', token, options)
-    .json({
-      success: true,
-      user: {
-        id: user.id,
-        name: user.name,
-        phone: user.phone,
-        email: user.email || null,
-        role: user.role,
-        roles: user.roles, // Send multiple roles
-        isActive: user.isActive,
-        isPhoneVerified: user.isPhoneVerified || false
-      }
-    });
+    .cookie('token', token, cookieOptions)
+    .json(responseBody);
 };
 
 // @desc    Register user
@@ -77,7 +86,7 @@ const sendTokenResponse = (user, statusCode, res) => {
 // @access  Public
 const register = async (req, res, next) => {
   try {
-    const { name, email, password, phone, role, roles } = req.body;
+  const { name, email, password, phone, role, roles, gender } = req.body;
 
     // Validate email format (if provided)
     if (email && !validator.isEmail(email)) {
@@ -87,16 +96,12 @@ const register = async (req, res, next) => {
       });
     }
 
+    // Defensive: validate required fields before sanitization
+    if (typeof name !== 'string' || typeof phone !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ success: false, error: 'All fields are required and must be strings' });
+    }
     // Sanitize name input
     const sanitizedName = validator.escape(name.trim());
-
-    // Validate required fields
-    if (!sanitizedName || !phone || !password) {
-      return res.status(400).json({
-        success: false,
-        error: 'Please provide name, phone number, and password'
-      });
-    }
 
     // Enhanced password validation
     const passwordValidation = validatePassword(password);
@@ -111,7 +116,10 @@ const register = async (req, res, next) => {
 
     // Normalize phone number to 8-9 digit format
     const normalizedPhone = normalizePhone(phone);
-    console.log('📱 Registration - Original:', phone, '→ Normalized:', normalizedPhone, 'Length:', normalizedPhone.length);
+    logger.debug('Phone number normalized', {
+      originalLength: phone.length,
+      normalizedLength: normalizedPhone.length
+    });
 
     // Validate phone number format (8 or 9 digits with valid Liberian prefix)
     // Allow 7, 8, or 9 digits for flexibility with different carrier formats
@@ -136,35 +144,57 @@ const register = async (req, res, next) => {
     // Check if user exists with this phone number (using normalized format)
     const userExists = await User.findOne({ where: { phone: normalizedPhone } });
     if (userExists) {
+      logger.warn(`Registration attempt with existing phone number: ${normalizedPhone}`);
       return res.status(400).json({
         success: false,
         error: 'Phone number already registered. Please login or use a different number.'
       });
     }
 
-    console.log('✅ Creating user with data:', { 
-      name: sanitizedName, 
-      email: email || null, 
-      phone: normalizedPhone, 
-      role: role || 'buyer',
-      roles: roles || ['buyer']
-    });
+    // Determine roles
+    let userRoles = [];
+    if (roles && Array.isArray(roles) && roles.length > 0) {
+      userRoles = roles;
+    } else if (role) {
+      userRoles = [role];
+    } else {
+      userRoles = ['buyer'];
+    }
+
+    // Filter valid roles (ensure only buyer/seller for public registration)
+    const validRoles = ['buyer', 'seller'];
+    userRoles = userRoles.filter(r => validRoles.includes(r));
     
+    if (userRoles.length === 0) {
+      userRoles = ['buyer'];
+    }
+
+    // Determine primary role (prefer seller if present, otherwise first one)
+    // This ensures if someone is both, they get seller features by default in some checks
+    const primaryRole = userRoles.includes('seller') ? 'seller' : userRoles[0];
+
+    logger.info('Creating new user', {
+      roles: userRoles,
+      primaryRole,
+      hasEmail: !!email
+    });
+
     const user = await User.create({
       name: sanitizedName,
       email: email || null,
       password: password,
       phone: normalizedPhone,
-      role: role || 'buyer',
-      roles: roles || ['buyer']
+      role: primaryRole,
+      roles: userRoles, // Explicitly set roles array
+      gender: gender || null
     });
 
-    console.log('🎉 User created successfully:', user.id, user.name, user.phone);
+    logger.info('User created successfully', { userId: user.id, role: user.role });
 
     // Send token in httpOnly cookie
     sendTokenResponse(user, 201, res);
   } catch (error) {
-    console.error('❌ Registration error:', error.message)
+    logger.error('Registration error', { error: error.message, stack: error.stack })
     if (error.name === 'SequelizeValidationError') {
       return res.status(400).json({
         success: false,
@@ -198,7 +228,7 @@ const login = async (req, res, next) => {
 
     // Normalize phone number
     const normalizedPhone = normalizePhone(phone);
-    console.log('📱 Login - Original:', phone, '→ Normalized:', normalizedPhone);
+    logger.debug('Login attempt - phone normalized', { normalizedLength: normalizedPhone.length });
 
     // Validate phone number format
     if (!normalizedPhone || normalizedPhone.length < 7 || normalizedPhone.length > 9) {
@@ -217,16 +247,6 @@ const login = async (req, res, next) => {
       });
     }
 
-    // Check if account is locked
-    if (user.isLocked()) {
-      const lockTimeRemaining = Math.ceil((user.lockUntil - Date.now()) / 1000 / 60);
-      return res.status(423).json({ // 423 Locked
-        success: false,
-        error: `Account is locked due to too many failed login attempts. Please try again in ${lockTimeRemaining} minutes.`,
-        lockedUntil: user.lockUntil
-      });
-    }
-
     // Check if user is active
     if (!user.isActive) {
       return res.status(401).json({
@@ -238,33 +258,20 @@ const login = async (req, res, next) => {
     // Check if password matches
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-     // Increment failed login attempts
-     await user.incLoginAttempts();
-     
-     const attemptsLeft = 5 - user.loginAttempts;
-     const errorMessage = attemptsLeft > 0
-       ? `Invalid phone number or password. ${attemptsLeft} attempt(s) remaining before account lock.`
-       : 'Invalid phone number or password.';
-     
       return res.status(401).json({
         success: false,
-        error: errorMessage,
-        attemptsRemaining: Math.max(0, attemptsLeft)
+        error: 'Invalid phone number or password'
       });
     }
 
-   // Reset login attempts on successful login
-   if (user.loginAttempts > 0 || user.lockUntil) {
-     await user.resetLoginAttempts();
-   }
-
     // Log admin access attempts
     if (user.role === 'admin') {
-      console.log(`🔐 Admin login: ${user.name} (${user.phone}) from IP: ${req.ip}`);
+      logger.info('Admin login successful', {
+        userId: user.id,
+        role: user.role,
+        ip: req.ip
+      });
     }
-
-    // Update last login
-    await user.update({ lastLogin: new Date() });
 
     // Send token in httpOnly cookie
     sendTokenResponse(user, 200, res);
@@ -289,6 +296,33 @@ const logout = async (req, res, next) => {
     res.status(200).json({
       success: true,
       message: 'Logged out successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Logout from all devices (revoke all sessions)
+// @route   POST /api/auth/logout-all
+// @access  Private
+const logoutAll = async (req, res, next) => {
+  try {
+    const user = await User.findByPk(req.user.id);
+    
+    // Increment token version to invalidate all existing tokens
+    await user.increment('token_version');
+    
+    // Clear the cookie
+    res.cookie('token', 'none', {
+      expires: new Date(Date.now() + 10 * 1000),
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict'
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Logged out from all devices successfully'
     });
   } catch (error) {
     next(error);
@@ -370,12 +404,19 @@ const forgotPassword = async (req, res, next) => {
       resetPasswordExpire
     });
 
-    // In production, send email with reset token
-    // For now, just return the token (REMOVE IN PRODUCTION)
+    // TODO: Send email with reset token in production
+    // For development: Log to console (never expose in response)
+    if (process.env.NODE_ENV === 'development') {
+      logger.info('🔐 Password reset token generated (DEV ONLY)', {
+        email: user.email,
+        token: resetToken,
+        expiresAt: new Date(resetPasswordExpire)
+      });
+    }
+
     res.status(200).json({
       success: true,
-      message: 'Reset token sent',
-      resetToken: resetToken // REMOVE IN PRODUCTION
+      message: 'If an account exists with that email, a password reset link has been sent.'
     });
   } catch (error) {
     next(error);
@@ -453,14 +494,19 @@ const sendVerificationCode = async (req, res, next) => {
     });
 
     // TODO: Send SMS with verification code using Africa's Talking API
-    // For now, return code in response (REMOVE IN PRODUCTION)
-    console.log(`📱 Verification code for ${user.phone}: ${verificationCode}`);
+    // For development: Log to console (never expose in response)
+    if (process.env.NODE_ENV === 'development') {
+      logger.info('📱 Phone verification code generated (DEV ONLY)', {
+        userId: user.id,
+        phone: user.phone,
+        code: verificationCode,
+        expiresAt: new Date(verificationTokenExpire)
+      });
+    }
 
     res.status(200).json({
       success: true,
-      message: 'Verification code sent to your phone',
-      // REMOVE IN PRODUCTION:
-      verificationCode: process.env.NODE_ENV === 'development' ? verificationCode : undefined
+      message: 'Verification code sent to your phone'
     });
   } catch (error) {
     next(error);
@@ -526,6 +572,7 @@ module.exports = {
   register,
   login,
   logout,
+  logoutAll,
   getMe,
   updatePassword,
   forgotPassword,

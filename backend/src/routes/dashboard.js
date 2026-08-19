@@ -3,6 +3,12 @@ const router = express.Router()
 const { protect, authorize } = require('../middleware/auth')
 const { User, Product, Category } = require('../models')
 const { Op } = require('sequelize')
+const { getRecentActivity } = require('../controllers/analyticsController')
+
+// @desc    Get recent activity
+// @route   GET /api/dashboard/activity
+// @access  Private
+router.get('/activity', protect, getRecentActivity)
 
 // @desc    Get dashboard stats for current user
 // @route   GET /api/dashboard/stats
@@ -32,17 +38,19 @@ router.get('/stats', protect, async (req, res, next) => {
       }
     } else if (userRole === 'seller') {
       // Seller sees their own product stats
-      const [myProducts, activeProducts, totalViews] = await Promise.all([
+      const [myProducts, activeProducts, pendingProducts, soldProducts] = await Promise.all([
         Product.count({ where: { seller_id: userId } }),
         Product.count({ where: { seller_id: userId, status: 'active' } }),
-        Promise.resolve(0) // Placeholder for views (implement later)
+        Product.count({ where: { seller_id: userId, status: 'pending' } }),
+        Product.count({ where: { seller_id: userId, status: 'sold' } })
       ])
 
       stats = {
         myProducts,
         activeProducts,
-        pendingProducts: myProducts - activeProducts,
-        totalViews
+        pendingProducts,
+        soldProducts,
+        totalViews: 0 // Placeholder
       }
     } else {
       // Buyer sees general marketplace stats
@@ -57,7 +65,7 @@ router.get('/stats', protect, async (req, res, next) => {
         newListings: await Product.count({
           where: {
             status: 'active',
-            createdAt: { [Op.gte]: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
+            created_at: { [Op.gte]: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
           }
         })
       }
@@ -83,7 +91,7 @@ router.get('/recent-products', protect, async (req, res, next) => {
     const products = await Product.findAll({
       where: { status: 'active' },
       limit,
-      order: [['createdAt', 'DESC']],
+      order: [['created_at', 'DESC']],
       include: [
         {
           model: Category,
@@ -118,11 +126,19 @@ router.get('/my-products', protect, async (req, res, next) => {
     const limit = parseInt(req.query.limit) || 10
     const offset = (page - 1) * limit
 
+    // Build where clause
+    const where = { seller_id: userId }
+
+    // Add status filter if provided
+    if (req.query.status) {
+      where.status = req.query.status
+    }
+
     const { count, rows: products } = await Product.findAndCountAll({
-      where: { seller_id: userId },
+      where,
       limit,
       offset,
-      order: [['createdAt', 'DESC']],
+      order: [['created_at', 'DESC']],
       include: [
         {
           model: Category,

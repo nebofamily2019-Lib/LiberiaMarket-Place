@@ -1,4 +1,5 @@
 const express = require('express')
+const http = require('http')
 const cors = require('cors')
 const dotenv = require('dotenv')
 const cookieParser = require('cookie-parser')
@@ -43,6 +44,9 @@ app.use(cors({
   exposedHeaders: ['set-cookie']
 }));
 
+// Serve static files from uploads directory
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // Cookie parser (needed for CSRF)
 app.use(cookieParser());
 
@@ -73,7 +77,8 @@ app.use(helmet({
       frameSrc: ["'none'"],
     },
   },
-  crossOriginEmbedderPolicy: false, // Allow images from external sources
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: false,
   hsts: {
     maxAge: 31536000, // 1 year
     includeSubDomains: true,
@@ -107,6 +112,7 @@ const authLimiter = rateLimit({
   message: 'Too many login/register attempts, please try again after 15 minutes',
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => process.env.NODE_ENV === 'test',
   keyGenerator: (req) => {
     // Rate limit by phone number if provided, otherwise by IP
     return req.body.phone || req.ip
@@ -133,6 +139,7 @@ const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
+    if (process.env.NODE_ENV === 'test') return true;
     // Skip rate limiting for local requests in development
     if (process.env.NODE_ENV === 'development') {
       const ip = req.ip || req.connection.remoteAddress;
@@ -148,7 +155,6 @@ const {
   Product,
   Category,
   Offer,
-  Payment,
   Conversation,
   Message,
   sequelize,
@@ -174,12 +180,18 @@ if (process.env.NODE_ENV !== 'test') {
 // Import routes
 const healthRoutes = require('./routes/health');
 const authRoutes = require('./routes/auth');
-const productRoutes = require('./routes/productRoutes');
+const productRoutes = require('./routes/products');
 const categoryRoutes = require('./routes/categories');
 const offerRoutes = require('./routes/offers');
-const paymentRoutes = require('./routes/payments');
 const dashboardRoutes = require('./routes/dashboard');
 const messageRoutes = require('./routes/messageRoutes');
+const countyRoutes = require('./routes/counties');
+const reviewRoutes = require('./routes/reviews');
+const mobileMoneyRoutes = require('./routes/mobileMoney');
+const paymentRoutes = require('./routes/payments');
+const savedItemRoutes = require('./routes/savedItems');
+const notificationRoutes = require('./routes/notifications');
+const reportRoutes = require('./routes/reports');
 const { protect } = require('./middleware/auth');
 const { getUnreadCount } = require('./controllers/messageController');
 
@@ -222,9 +234,15 @@ app.use('/api/auth', process.env.NODE_ENV === 'production' ? authLimiter : (req,
 app.use('/api/products', process.env.NODE_ENV === 'production' ? apiLimiter : (req, res, next) => next(), productRoutes);
 app.use('/api/categories', process.env.NODE_ENV === 'production' ? apiLimiter : (req, res, next) => next(), categoryRoutes);
 app.use('/api/offers', process.env.NODE_ENV === 'production' ? apiLimiter : (req, res, next) => next(), offerRoutes);
-app.use('/api/payments', process.env.NODE_ENV === 'production' ? apiLimiter : (req, res, next) => next(), paymentRoutes);
 app.use('/api/dashboard', protect, dashboardRoutes);
 app.use('/api/messages', process.env.NODE_ENV === 'production' ? apiLimiter : (req, res, next) => next(), messageRoutes);
+app.use('/api/counties', process.env.NODE_ENV === 'production' ? apiLimiter : (req, res, next) => next(), countyRoutes);
+app.use('/api/reviews', process.env.NODE_ENV === 'production' ? apiLimiter : (req, res, next) => next(), reviewRoutes);
+app.use('/api/mobile-money', process.env.NODE_ENV === 'production' ? apiLimiter : (req, res, next) => next(), mobileMoneyRoutes);
+app.use('/api/payments', process.env.NODE_ENV === 'production' ? apiLimiter : (req, res, next) => next(), paymentRoutes);
+app.use('/api/saved-items', process.env.NODE_ENV === 'production' ? apiLimiter : (req, res, next) => next(), savedItemRoutes);
+app.use('/api/notifications', process.env.NODE_ENV === 'production' ? apiLimiter : (req, res, next) => next(), notificationRoutes);
+app.use('/api/reports', process.env.NODE_ENV === 'production' ? apiLimiter : (req, res, next) => next(), reportRoutes);
 
 // Add missing unread-count route for conversations
 app.get('/api/conversations/unread-count', protect, getUnreadCount);
@@ -251,17 +269,26 @@ app.get('/api/health/details', requireRole('admin'), async (req, res) => {
 app.get('/', (req, res) => {
   res.status(200).json({
     success: true,
-    message: 'Welcome to Liberia Marketplace API 🇱🇷 (Claude)',
-    version: '1.0.0',
+    message: 'Welcome to Liberia Marketplace API 🇱🇷 - Enhanced Edition',
+    version: '2.1.0-enhanced',
     endpoints: {
       auth: '/api/auth',
       products: '/api/products',
       categories: '/api/categories',
       dashboard: '/api/dashboard',
       offers: '/api/offers',
-      payments: '/api/payments',
       messages: '/api/messages',
+      counties: '/api/counties',
+      reviews: '/api/reviews',
+      mobileMoney: '/api/mobile-money',
+      payments: '/api/payments',
       health: '/api/health'
+    },
+    features: {
+      location: '15 Liberian counties',
+      reviews: '5-star ratings & verified purchases',
+      payments: 'Orange Money, MTN MoMo, Lonestar Money',
+      sms: 'SMS notifications ready'
     }
   });
 });
@@ -349,13 +376,21 @@ const PORT = process.env.PORT || 5000;
 // Only start server if this file is run directly
 if (require.main === module) {
   const { setupStorageDirectories } = require('./utils/setupStorage');
+  const { initializeSocket } = require('./socket/socketManager');
 
   setupStorageDirectories()
     .then(() => {
-      app.listen(PORT, () => {
+      // Create HTTP server
+      const server = http.createServer(app);
+
+      // Initialize Socket.io
+      initializeSocket(server);
+
+      server.listen(PORT, () => {
         logger.info(`🚀 Server running on port ${PORT}`);
         logger.info(`📍 Environment: ${process.env.NODE_ENV}`);
         logger.info(`🏥 Health check: http://localhost:${PORT}/health`);
+        logger.info(`🔌 Socket.io enabled for real-time notifications`);
       });
     })
     .catch((error) => {

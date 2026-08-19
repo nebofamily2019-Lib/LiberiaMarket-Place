@@ -18,6 +18,8 @@ const storage = multer.diskStorage({
       uploadPath += 'products/'
     } else if (file.fieldname === 'avatar') {
       uploadPath += 'avatars/'
+    } else if (file.fieldname === 'audio') {
+      uploadPath += 'audio/'
     }
 
     // Ensure directory exists
@@ -36,11 +38,11 @@ const storage = multer.diskStorage({
 
 // File filter function
 const fileFilter = (req, file, cb) => {
-  // Check if file is an image
-  if (file.mimetype.startsWith('image/')) {
+  // Check if file is an image or audio
+  if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('audio/')) {
     cb(null, true)
   } else {
-    cb(new Error('Only image files are allowed!'), false)
+    cb(new Error('Only image and audio files are allowed!'), false)
   }
 }
 

@@ -1,19 +1,21 @@
-const express = require('express')
-const router = express.Router()
-const { protect, checkOwnership } = require('../middleware/auth')
-// const { Notification } = require('../models') // Uncomment when model created
-// const notificationController = require('../controllers/notificationController')
+const express = require('express');
+const router = express.Router();
+const { protect } = require('../middleware/auth');
+const {
+  getNotifications,
+  markAsRead,
+  markAllAsRead
+} = require('../controllers/notificationController');
 
-// All notification routes require authentication
-// router.use(protect) // Apply to all routes below
+router.use(protect);
 
-// User's own notifications
-// router.get('/', notificationController.getNotifications) // Only gets current user's notifications
-// router.get('/unread-count', notificationController.getUnreadCount)
-// router.patch('/read-all', notificationController.markAllAsRead)
+router.route('/')
+  .get(getNotifications);
 
-// Single notification operations (with ownership check)
-// router.patch('/:id/read', checkOwnership(Notification, 'id', 'user_id'), notificationController.markAsRead)
-// router.delete('/:id', checkOwnership(Notification, 'id', 'user_id'), notificationController.deleteNotification)
+router.route('/read-all')
+  .put(markAllAsRead);
 
-module.exports = router
+router.route('/:id/read')
+  .put(markAsRead);
+
+module.exports = router;

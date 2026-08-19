@@ -6,19 +6,23 @@ const {
   createProduct,
   updateProduct,
   deleteProduct,
-  getUserProducts
+  getUserProducts,
+  markAsSold,
+  getSellerStats,
+  renewProduct // Import renewProduct
 } = require('../controllers/productController')
 const { protect, optionalAuth, authorize, checkOwnership } = require('../middleware/auth')
 const { validateProduct, validatePagination, sanitizeBody } = require('../middleware/inputValidation')
+const { upload, handleMulterError, validateUploadedFiles } = require('../middleware/secureImageUpload')
 const { Product } = require('../models')
 
 // Apply sanitization to all routes
 router.use(sanitizeBody)
 
 // Public routes - specific routes MUST come before /:id
-router.get('/', validatePagination, getProducts)
+router.get('/', optionalAuth, validatePagination, getProducts)
 // Search products by keyword
-router.get('/search', validatePagination, (req, res, next) => {
+router.get('/search', optionalAuth, validatePagination, (req, res, next) => {
   if (!req.query.search || req.query.search.trim() === '') {
     return res.status(400).json({
       success: false,
@@ -42,7 +46,7 @@ router.get('/category/:categoryId', validatePagination, async (req, res, next) =
         { model: Category, as: 'category', attributes: ['id', 'name', 'icon', 'color'] },
         { model: User, as: 'seller', attributes: ['id', 'name', 'phone'] }
       ],
-      order: [['createdAt', 'DESC']],
+      order: [['created_at', 'DESC']],
       limit,
       offset,
       distinct: true
@@ -64,14 +68,21 @@ router.get('/category/:categoryId', validatePagination, async (req, res, next) =
 });
 // Get products by user (optional auth to check if requester is owner)
 router.get('/user/:userId', optionalAuth, validatePagination, getUserProducts)
-// Get single product by ID - MUST be last to avoid matching other routes
-router.get('/:id', getProduct)
+
+// Get seller stats
+router.get('/stats/seller', protect, authorize('seller', 'admin'), getSellerStats)
+
+// Renew product (Seller only)
+router.post('/:id/renew', protect, renewProduct)
+
+router.get('/:id', optionalAuth, getProduct)
 
 // Protected routes - authentication required
-router.post('/', protect, authorize('seller', 'admin'), validateProduct, createProduct)
+router.post('/', protect, authorize('seller', 'admin'), upload.array('images', 5), handleMulterError, validateUploadedFiles, validateProduct, createProduct)
 
 // Protected routes - ownership check required
-router.put('/:id', protect, checkOwnership(Product, 'id', 'seller_id'), validateProduct, updateProduct)
+router.post('/:id/sold', protect, checkOwnership(Product, 'id', 'seller_id'), markAsSold)
+router.put('/:id', protect, checkOwnership(Product, 'id', 'seller_id'), upload.array('images', 5), handleMulterError, validateUploadedFiles, validateProduct, updateProduct)
 router.delete('/:id', protect, checkOwnership(Product, 'id', 'seller_id'), deleteProduct)
 // PATCH /api/products/:id/status - update product status
 router.patch('/:id/status', protect, checkOwnership(Product, 'id', 'seller_id'), async (req, res, next) => {

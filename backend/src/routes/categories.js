@@ -6,13 +6,13 @@ const {
   updateCategory,
   deleteCategory
 } = require('../controllers/categoryController')
-const { protect, authorize } = require('../middleware/auth')
+const { protect, authorize, optionalAuth } = require('../middleware/auth')
 
 const router = express.Router()
 
-// Public routes
-router.get('/', getCategories)
-router.get('/:idOrSlug', getCategory)
+// Public routes (with optional auth for admin features)
+router.get('/', optionalAuth, getCategories)
+router.get('/:idOrSlug', optionalAuth, getCategory)
 
 // Admin only routes
 router.post('/', protect, authorize('admin'), createCategory)

@@ -1,4 +1,4 @@
-const { Product, User, Category } = require('../models')
+const { Product, User, Category, UserActivity } = require('../models')
 const { Op } = require('sequelize')
 const { processAndSaveImage, deleteAllImageSizes } = require('../utils/imageProcessor');
 const logger = require('../utils/logger');
@@ -25,6 +25,15 @@ const getProducts = async (req, res, next) => {
         { title: { [Op.like]: `%${searchTerm}%` } },
         { description: { [Op.like]: `%${searchTerm}%` } }
       ];
+
+      // Log search activity
+      if (req.user) {
+        UserActivity.create({
+          user_id: req.user.id,
+          activity_type: 'search',
+          details: { query: searchTerm }
+        }).catch(err => console.error('Error logging search:', err));
+      }
     }
 
     // Category filter
@@ -48,8 +57,24 @@ const getProducts = async (req, res, next) => {
       where.condition = req.query.condition;
     }
 
-    // Location filter (exact match for now, distance-based later)
-    if (req.query.location) {
+    // Location filter (Radius search if coords provided, else text search)
+    if (req.query.latitude && req.query.longitude) {
+      const lat = parseFloat(req.query.latitude);
+      const lon = parseFloat(req.query.longitude);
+      const radius = parseFloat(req.query.radius) || 10; // Default 10km
+
+      // 1 degree approx 111km
+      const deltaLat = radius / 111;
+      // Adjust longitude delta based on latitude (approximate)
+      const deltaLon = radius / (111 * Math.cos(lat * (Math.PI / 180)));
+
+      where.latitude = {
+        [Op.between]: [lat - deltaLat, lat + deltaLat]
+      };
+      where.longitude = {
+        [Op.between]: [lon - deltaLon, lon + deltaLon]
+      };
+    } else if (req.query.location) {
       where.location = { [Op.like]: `%${req.query.location}%` };
     }
 
@@ -85,7 +110,7 @@ const getProducts = async (req, res, next) => {
         {
           model: Category,
           as: 'category',
-          attributes: ['id', 'name', 'icon', 'color']
+          attributes: ['id', 'name', 'icon', 'color', 'slug']
         },
         {
           model: User,
@@ -136,6 +161,7 @@ const getProducts = async (req, res, next) => {
 // @access  Public
 const getProduct = async (req, res, next) => {
   try {
+    console.log('🔍 Fetching product:', req.params.id); // Debug log
     const product = await Product.findByPk(req.params.id, {
       include: [
         {
@@ -159,11 +185,15 @@ const getProduct = async (req, res, next) => {
     }
 
     // Track detailed view analytics (asynchronously, don't wait for it)
-    const { trackProductView } = require('./analyticsController');
-    const userId = req.user ? req.user.id : null;
-    trackProductView(req.params.id, userId, req).catch(err => {
-      console.error('Error tracking product view:', err);
-    });
+    try {
+      const { trackProductView } = require('./analyticsController');
+      const userId = req.user ? req.user.id : null;
+      trackProductView(req.params.id, userId, req).catch(err => {
+        console.error('Error tracking product view:', err);
+      });
+    } catch (err) {
+      console.warn('Analytics controller not found or failed:', err.message);
+    }
 
     res.status(200).json({
       success: true,
@@ -180,22 +210,22 @@ const getProduct = async (req, res, next) => {
 // @access  Private
 const createProduct = async (req, res, next) => {
   try {
-    console.log('Received product creation request')
-    console.log('Body:', req.body)
-    console.log('User:', req.user)
-    
-    const { title, description, price, category_id, location, condition, contactPhone } = req.body
+    const { title, description, price, currency, category_id, location, latitude, longitude, condition, contactPhone } = req.body
 
     // Use defaults if fields are missing
     const timestamp = Date.now()
     const productTitle = title || `Test Product ${timestamp}`
     const productDescription = description || 'Test description'
     const productPrice = price ? parseFloat(price) : 0
+    const productCurrency = currency || 'USD'
     const productLocation = location || 'Monrovia'
     const productContactPhone = contactPhone || req.user.phone || 'N/A'
+    const productLat = latitude ? parseFloat(latitude) : null
+    const productLon = longitude ? parseFloat(longitude) : null
 
     // Validate price is a valid number (allow 0 for testing)
     if (isNaN(productPrice) || productPrice < 0) {
+      console.log('❌ Invalid price:', productPrice, 'Original:', price); // Debug log
       return res.status(400).json({
         success: false,
         error: 'Price must be a valid number (0 or greater)'
@@ -238,32 +268,35 @@ const createProduct = async (req, res, next) => {
       }
     }
 
-    console.log('Creating product with:', {
-      title: productTitle,
-      description: productDescription,
-      price: productPrice,
-      seller_id: req.user.id
-    })
-
     // Create product with defaults
     const product = await Product.create({
       title: productTitle.trim ? productTitle.trim() : productTitle,
       description: productDescription.trim ? productDescription.trim() : productDescription,
       price: productPrice,
+      currency: productCurrency,
       category_id: category_id || null,
-      location: productLocation.trim(),
+      location: productLocation.trim ? productLocation.trim() : productLocation,
+      latitude: productLat,
+      longitude: productLon,
       condition: condition || 'good',
-      contactPhone: productContactPhone.trim(),
+      contactPhone: productContactPhone.trim ? productContactPhone.trim() : productContactPhone,
       images: imageUrls.length > 0 ? imageUrls : null,
       seller_id: req.user.id,
-      status: 'active'
+      status: 'active',
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
     })
 
     logger.info('Product created', {
       id: product.id,
-      title: product.title,
-      seller: req.user.id,
-      imageCount: imageUrls.length
+      seller_id: req.user.id
+    })
+
+    // Log activity
+    await UserActivity.create({
+      user_id: req.user.id,
+      activity_type: 'listed_product',
+      entity_id: product.id,
+      details: { title: product.title, price: product.price }
     });
 
     res.status(201).json({
@@ -503,11 +536,163 @@ const getUserProducts = async (req, res, next) => {
   }
 }
 
+// @desc    Mark product as sold
+// @route   POST /api/products/:id/sold
+// @access  Private (Seller)
+const markAsSold = async (req, res, next) => {
+  try {
+    const { soldPrice, buyerId, paymentMethod } = req.body;
+    const product = await Product.findByPk(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({ success: false, error: 'Product not found' });
+    }
+
+    // Check ownership
+    if (product.seller_id !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, error: 'Not authorized' });
+    }
+
+    // Update product
+    await product.update({
+      status: 'sold',
+      sold_at: new Date(),
+      sold_price: soldPrice || product.price,
+      buyer_id: buyerId || null,
+      payment_method: paymentMethod || null
+    });
+
+    // If cash transaction, we could log it to a Payment/Transaction table here
+    // For now, the Product update is sufficient for the dashboard
+
+    // Log activity (best-effort — don't fail the sale if logging breaks)
+    try {
+      await UserActivity.create({
+        user_id: req.user.id,
+        activity_type: 'sold_product',
+        entity_id: product.id,
+        details: { sold_price: soldPrice || product.price }
+      });
+    } catch (logErr) {
+      logger.warn('Failed to log sold_product activity:', logErr.message);
+    }
+
+    res.status(200).json({
+      success: true,
+      data: product,
+      message: 'Product marked as sold'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get seller dashboard stats
+// @route   GET /api/products/stats/seller
+// @access  Private (Seller)
+const getSellerStats = async (req, res, next) => {
+  try {
+    const sellerId = req.user.id;
+
+    // 1. Total Sales (Revenue)
+    const soldProducts = await Product.findAll({
+      where: {
+        seller_id: sellerId,
+        status: 'sold'
+      },
+      attributes: ['sold_price', 'sold_at']
+    });
+
+    const totalRevenue = soldProducts.reduce((sum, p) => sum + (parseFloat(p.sold_price) || 0), 0);
+    const totalItemsSold = soldProducts.length;
+
+    // 2. Active Listings
+    const activeCount = await Product.count({
+      where: {
+        seller_id: sellerId,
+        status: 'active'
+      }
+    });
+
+    // 3. Recent Sales (Last 5)
+    const recentSales = await Product.findAll({
+      where: {
+        seller_id: sellerId,
+        status: 'sold'
+      },
+      attributes: ['id', 'title', 'price', 'sold_price', 'sold_at', 'images'],
+      order: [['sold_at', 'DESC']],
+      limit: 5,
+      include: [{ model: Category, as: 'category', attributes: ['name'] }]
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalRevenue,
+        totalItemsSold,
+        activeListings: activeCount,
+        recentSales
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Renew a product listing
+// @route   POST /api/products/:id/renew
+// @access  Private (Seller only)
+const renewProduct = async (req, res, next) => {
+  try {
+    const product = await Product.findByPk(req.params.id)
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        error: 'Product not found'
+      })
+    }
+
+    // Check ownership
+    if (product.seller_id !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Not authorized to renew this product'
+      })
+    }
+
+    // Extend expiration by 30 days from NOW
+    const newExpiration = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    
+    await product.update({
+      expiresAt: newExpiration,
+      status: 'active', // Reactivate if it was expired
+      updatedAt: new Date() // Bump to top
+    })
+
+    res.status(200).json({
+      success: true,
+      data: product,
+      message: 'Product renewed successfully for 30 days'
+    })
+  } catch (err) {
+    console.error('Error renewing product:', err)
+    res.status(500).json({
+      success: false,
+      error: 'Server Error'
+    })
+  }
+}
+
 module.exports = {
   getProducts,
   getProduct,
   createProduct,
   updateProduct,
   deleteProduct,
-  getUserProducts
+  getUserProducts,
+  markAsSold,
+  getSellerStats,
+  renewProduct
 }

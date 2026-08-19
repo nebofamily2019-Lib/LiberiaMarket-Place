@@ -35,9 +35,18 @@ const getCategories = async (req, res, next) => {
 
     console.log(`✅ Found ${categories.length} categories`)
 
+    // Defensive: ensure productCount is always present
+    const categoriesWithCount = categories.map(cat => {
+      // Sequelize returns instance, convert to plain object
+      const plain = cat.get ? cat.get({ plain: true }) : cat;
+      return {
+        ...plain,
+        productCount: typeof plain.productCount === 'undefined' ? 0 : plain.productCount
+      };
+    });
     res.status(200).json({
       success: true,
-      data: categories
+      data: categoriesWithCount
     })
   } catch (error) {
     console.error('❌ Error fetching categories:', error)
@@ -88,9 +97,14 @@ const getCategory = async (req, res, next) => {
       });
     }
 
+    // Defensive: ensure productCount is always present
+    const plain = category.get ? category.get({ plain: true }) : category;
     res.status(200).json({
       success: true,
-      data: category
+      data: {
+        ...plain,
+        productCount: typeof plain.productCount === 'undefined' ? 0 : plain.productCount
+      }
     });
   } catch (error) {
     next(error);
@@ -103,6 +117,13 @@ const getCategory = async (req, res, next) => {
 const createCategory = async (req, res, next) => {
   try {
     const { name, description, icon, color, slug, sortOrder, isActive } = req.body;
+
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        error: 'Name is required'
+      });
+    }
 
     // Check if category with same name exists
     const existingCategory = await Category.findOne({ where: { name } });

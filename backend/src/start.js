@@ -1,7 +1,10 @@
 const app = require('./server');
+const http = require('http');
 const logger = require('./utils/logger');
 const { setupStorageDirectories, validateStorageHealth } = require('./utils/setupStorage');
 const { closeConnection } = require('./config/database');
+const { initializeSocket } = require('./socket/socketManager');
+const startOfferExpirationJob = require('./cron/offerExpirationJob');
 
 const PORT = process.env.PORT || 5000;
 
@@ -20,10 +23,18 @@ let server;
     logger.error('Failed to setup storage on startup', { error: error.message });
   }
 
-  server = app.listen(PORT, () => {
+  // Create HTTP server and initialize Socket.io
+  server = http.createServer(app);
+  initializeSocket(server);
+
+  // Start Cron Jobs
+  startOfferExpirationJob();
+
+  server.listen(PORT, () => {
     logger.info(`🚀 Server running on port ${PORT}`);
     logger.info(`📍 Environment: ${process.env.NODE_ENV}`);
     logger.info(`🏥 Health check: http://localhost:${PORT}/health`);
+    logger.info(`🔌 Socket.io enabled for real-time notifications`);
   });
 
   server.on('error', (err) => {
