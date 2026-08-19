@@ -41,6 +41,14 @@ h4 { font-size: var(--text-xl); }
 h5 { font-size: var(--text-lg); }
 h6 { font-size: var(--text-base); }
 
+/* White text readability on colored backgrounds */
+.text-white,
+[style*="color: white"],
+[style*="color:#fff"],
+[style*="color: #fff"] {
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
 p {
   margin-bottom: var(--space-4);
   color: var(--color-text-secondary);
@@ -73,24 +81,6 @@ a:hover {
   position: relative;
   overflow: hidden;
   font-family: var(--font-sans);
-}
-
-.btn::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.3);
-  transform: translate(-50%, -50%);
-  transition: width var(--transition-slow), height var(--transition-slow);
-}
-
-.btn:hover::before {
-  width: 300px;
-  height: 300px;
 }
 
 .btn:active {
@@ -232,6 +222,15 @@ a:hover {
   to { transform: rotate(360deg); }
 }
 
+.page-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--primary-blue);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
 /* Skeleton Loading */
 .skeleton {
   background: linear-gradient(
@@ -370,10 +369,6 @@ a:hover {
 
 /* Mobile Optimizations */
 @media (max-width: 768px) {
-  html {
-    font-size: 14px;
-  }
-  
   .btn {
     padding: var(--space-3) var(--space-4);
   }
@@ -387,5 +382,24 @@ a:hover {
 @media print {
   .no-print {
     display: none !important;
+  }
+}
+
+/* Main Content Layout - Sidebar Compensation */
+.app-main-content {
+  margin-left: 300px;
+  min-height: 100vh;
+  transition: margin-left 0.3s ease;
+}
+
+@media (max-width: 768px) {
+  .app-main-content {
+    margin-left: 250px;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-main-content {
+    margin-left: 0;
   }
 }

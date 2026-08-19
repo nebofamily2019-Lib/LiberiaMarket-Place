@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import categoryService from '../services/categoryService'
+import { getCategoryIcon } from '../utils/categoryIcons'
+import { Tag } from 'lucide-react'
 
 /**
  * CategoryFilter Component
@@ -15,14 +17,14 @@ interface CategoryFilterProps {
 interface Category {
   id: string
   label: string
-  icon: string
+  slug: string
   color?: string
 }
 
 const CategoryFilter = ({ onCategoryChange }: CategoryFilterProps) => {
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [categories, setCategories] = useState<Category[]>([
-    { id: 'all', label: 'All', icon: '🏷️', color: '#6B7280' }
+    { id: 'all', label: 'All', slug: 'all', color: '#6B7280' }
   ])
 
   useEffect(() => {
@@ -34,27 +36,27 @@ const CategoryFilter = ({ onCategoryChange }: CategoryFilterProps) => {
         const apiCategories: Category[] = categoriesData.map(cat => ({
           id: cat.id,
           label: cat.name,
-          icon: cat.icon || '📦',
+          slug: cat.slug,
           color: cat.color
         }))
 
         setCategories([
-          { id: 'all', label: 'All', icon: '🏷️', color: '#6B7280' },
+          { id: 'all', label: 'All', slug: 'all', color: '#6B7280' },
           ...apiCategories
         ])
       } catch (error) {
         console.error('Error fetching categories:', error)
         // Use placeholder categories matching database defaults
         setCategories([
-          { id: 'all', label: 'All', icon: '🏷️', color: '#6B7280' },
-          { id: 'electronics', label: 'Electronics', icon: '📱', color: '#3B82F6' },
-          { id: 'fashion', label: 'Fashion', icon: '👗', color: '#EC4899' },
-          { id: 'home-garden', label: 'Home & Garden', icon: '🏡', color: '#10B981' },
-          { id: 'sports', label: 'Sports', icon: '⚽', color: '#F59E0B' },
-          { id: 'books', label: 'Books', icon: '📚', color: '#8B5CF6' },
-          { id: 'vehicles', label: 'Vehicles', icon: '🚗', color: '#EF4444' },
-          { id: 'services', label: 'Services', icon: '🔧', color: '#06B6D4' },
-          { id: 'other', label: 'Other', icon: '📦', color: '#6B7280' }
+          { id: 'all', label: 'All', slug: 'all', color: '#6B7280' },
+          { id: 'market-grounds', label: 'Market Grounds', slug: 'market-grounds', color: '#10B981' },
+          { id: 'fashion-tailoring', label: 'Fashion & Tailoring', slug: 'fashion-tailoring', color: '#EC4899' },
+          { id: 'phones-electronics', label: 'Phones & Electronics', slug: 'phones-electronics', color: '#3B82F6' },
+          { id: 'vehicles-transport', label: 'Vehicles & Pehn-Pehn', slug: 'vehicles-transport', color: '#EF4444' },
+          { id: 'building-materials', label: 'Building Materials', slug: 'building-materials', color: '#F59E0B' },
+          { id: 'home-energy', label: 'Home & Solar', slug: 'home-energy', color: '#FBBF24' },
+          { id: 'services-labor', label: 'Services', slug: 'services-labor', color: '#06B6D4' },
+          { id: 'education', label: 'Education', slug: 'education', color: '#8B5CF6' }
         ])
       }
     }
@@ -81,7 +83,6 @@ const CategoryFilter = ({ onCategoryChange }: CategoryFilterProps) => {
               borderColor: isActive && category.color ? category.color : undefined,
               backgroundColor: isActive && category.color ? category.color : undefined,
               color: isActive ? 'white' : '#333',
-              fontSize: '2rem',  /* BIGGER icons */
               padding: '12px 16px',
               minWidth: '60px',  /* Wider for better touch */
               display: 'flex',
@@ -91,9 +92,11 @@ const CategoryFilter = ({ onCategoryChange }: CategoryFilterProps) => {
             }}
             title={category.label}  /* Tooltip shows full name */
           >
-            <span style={{ fontSize: '2.5rem' }}>{category.icon}</span>
+            <div className="category-icon">
+              {category.id === 'all' ? <Tag size={24} /> : getCategoryIcon(category.slug, 24, '', isActive ? 'white' : category.color)}
+            </div>
             {/* Show short label only - or hide completely for icon-only */}
-            <span style={{ fontSize: '0.65rem', opacity: 0.8 }}>
+            <span style={{ fontSize: '0.75rem', opacity: 0.9 }}>
               {category.label.split(' ')[0]}  {/* First word only */}
             </span>
           </button>

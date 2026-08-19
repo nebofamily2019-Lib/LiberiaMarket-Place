@@ -241,8 +241,8 @@ export const getDefaultLang = () => defaultLang
 // PROMPT_TEMPLATES and renderTemplate (keeps prior templates if present)
 const PROMPT_TEMPLATES: Record<string, Record<string, string>> = {
   welcome: {
-    'en-US': 'Welcome to LibMarket, {name}. Tap the microphone (🎤) to speak or the speaker (🔉) to listen.',
-    'pcm': 'Welcome to LibMarket, {name}. Tap di mic (🎤) fo tok or tap di speaker (🔉) fo listen.'
+    'en-US': 'Welcome to LibMarket, {name}. Tap the microphone icon to speak or the speaker icon to listen.',
+    'pcm': 'Welcome to LibMarket, {name}. Tap di mic icon fo tok or tap di speaker icon fo listen.'
   },
   fieldPrompt: {
     'en-US': 'Please say the {field} now.',

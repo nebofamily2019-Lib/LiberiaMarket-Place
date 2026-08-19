@@ -1,29 +1,70 @@
 import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Heart } from 'lucide-react'
 import { designSystem } from '../styles/designSystem'
+import { savedItemService } from '../services/savedItemService'
+import { useAuth } from '../context/AuthContext'
+import { ProductCardContent } from './ProductCardContent'
 
-interface ProductCardProps {
-  product: {
-    id: string
-    title: string
-    price: number
-    image?: string
-    condition?: string
-    location?: string
-    isNegotiable?: boolean
+export interface Product {
+  id: string
+  title: string
+  price: number
+  currency?: string
+  images?: string[]
+  image?: string
+  condition?: string
+  location?: string
+  isNegotiable?: boolean
+  category?: {
+    name: string
+    icon: string
+    color: string
   }
 }
 
+interface ProductCardProps {
+  product: Product
+}
+
 const ProductCard = ({ product }: ProductCardProps) => {
+  const [isSaved, setIsSaved] = useState(false);
+  const { user } = useAuth();
+
+  // Get the main image (support both images array and legacy image string)
+  const mainImage = product.images && product.images.length > 0 
+    ? product.images[0] 
+    : product.image;
+
+  useEffect(() => {
+    if (user) {
+      savedItemService.checkSavedStatus(product.id).then(res => {
+        setIsSaved(res.isSaved);
+      }).catch(() => {});
+    }
+  }, [product.id, user]);
+
+  const handleToggleSave = async (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent navigation
+    e.stopPropagation();
+    if (!user) {
+      // TODO: Show login toast
+      return;
+    }
+    try {
+      const res = await savedItemService.toggleSavedItem(product.id);
+      setIsSaved(res.saved);
+    } catch (error) {
+      console.error('Error toggling save:', error);
+    }
+  };
+
   return (
     <Link to={`/products/${product.id}`} style={{ textDecoration: 'none' }}>
       <div
         style={{
-          background: 'white',
-          borderRadius: designSystem.borderRadius.lg,
-          overflow: 'hidden',
-          boxShadow: designSystem.shadows.md,
-          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          cursor: 'pointer'
+          height: '100%',
+          transition: 'transform 0.2s ease, box-shadow 0.2s ease'
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'translateY(-4px)'
@@ -31,97 +72,50 @@ const ProductCard = ({ product }: ProductCardProps) => {
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.transform = 'translateY(0)'
-          e.currentTarget.style.boxShadow = designSystem.shadows.md
+          e.currentTarget.style.boxShadow = 'none'
         }}
       >
-        {/* Image */}
-        <div
-          style={{
-            height: '200px',
-            background: product.image
-              ? `url(${product.image}) center/cover`
-              : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            position: 'relative'
-          }}
+        <ProductCardContent
+          title={product.title}
+          price={product.price}
+          currency={product.currency}
+          image={mainImage}
+          condition={product.condition}
+          location={product.location}
+          isNegotiable={product.isNegotiable}
+          category={product.category}
         >
-          {product.condition && (
-            <div
-              style={{
-                position: 'absolute',
-                top: designSystem.spacing.md,
-                right: designSystem.spacing.md,
-                background: 'rgba(255,255,255,0.95)',
-                padding: '6px 12px',
-                borderRadius: designSystem.borderRadius.full,
-                fontSize: designSystem.typography.fontSize.xs,
-                fontWeight: designSystem.typography.fontWeight.semibold,
-                color: designSystem.colors.neutral[900],
-                backdropFilter: 'blur(10px)'
-              }}
-            >
-              {product.condition}
-            </div>
-          )}
-        </div>
-
-        {/* Content */}
-        <div style={{ padding: designSystem.spacing.md }}>
-          <h3
+          {/* Save Button Overlay */}
+          <button
+            onClick={handleToggleSave}
             style={{
-              fontSize: designSystem.typography.fontSize.lg,
-              fontWeight: designSystem.typography.fontWeight.bold,
-              color: designSystem.colors.neutral[900],
-              marginBottom: designSystem.spacing.sm,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
+              position: 'absolute',
+              top: designSystem.spacing.md,
+              right: designSystem.spacing.md, // Moved to right for consistency
+              background: 'rgba(255,255,255,0.9)',
+              border: 'none',
+              borderRadius: '50%',
+              width: '36px',
+              height: '36px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              boxShadow: designSystem.shadows.sm,
+              zIndex: 10,
+              transition: 'transform 0.2s ease'
             }}
+            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            aria-label={isSaved ? 'Unsave item' : 'Save item'}
           >
-            {product.title}
-          </h3>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: designSystem.spacing.sm, marginBottom: designSystem.spacing.md }}>
-            <span style={{ fontSize: designSystem.typography.fontSize.sm, color: designSystem.colors.neutral[500] }}>
-              📍 {product.location || 'Monrovia'}
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{
-                fontSize: designSystem.typography.fontSize['2xl'],
-                fontWeight: designSystem.typography.fontWeight.extrabold,
-                color: designSystem.colors.primary[500]
-              }}>
-                L${product.price}
-              </span>
-              {product.isNegotiable && (
-                <span style={{
-                  fontSize: designSystem.typography.fontSize.xs,
-                  color: designSystem.colors.accent.green,
-                  fontWeight: designSystem.typography.fontWeight.semibold
-                }}>
-                  Negotiable
-                </span>
-              )}
-            </div>
-
-            <button
-              style={{
-                background: designSystem.colors.primary[500],
-                color: 'white',
-                border: 'none',
-                borderRadius: designSystem.borderRadius.sm,
-                padding: '8px 16px',
-                fontSize: designSystem.typography.fontSize.sm,
-                fontWeight: designSystem.typography.fontWeight.semibold,
-                cursor: 'pointer'
-              }}
-            >
-              View
-            </button>
-          </div>
-        </div>
+            <Heart 
+              size={20} 
+              fill={isSaved ? designSystem.colors.secondary[500] : 'none'} 
+              color={isSaved ? designSystem.colors.secondary[500] : designSystem.colors.neutral[400]} 
+            />
+          </button>
+        </ProductCardContent>
       </div>
     </Link>
   )

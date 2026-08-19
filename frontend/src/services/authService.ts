@@ -1,4 +1,4 @@
-import api from './api'
+import api from '../utils/api'
 
 export interface User {
   id: string
@@ -6,10 +6,12 @@ export interface User {
   email: string
   phone: string
   role: string
+  roles?: string[]
   isActive: boolean
   avatar?: string
   location?: string
   preferredPaymentMethods?: string[]
+  gender?: 'Male' | 'Female'
 }
 
 export interface LoginCredentials {
@@ -23,6 +25,8 @@ export interface RegisterData {
   phone: string
   password: string
   role?: 'buyer' | 'seller'
+  roles?: string[]
+  gender?: 'Male' | 'Female'
 }
 
 export interface AuthResponse {
@@ -37,8 +41,8 @@ const authService = {
   register: async (data: RegisterData): Promise<AuthResponse> => {
     const response = await api.post<AuthResponse>('/auth/register', data)
 
-    if (response.data.token) {
-      localStorage.setItem('token', response.data.token)
+    // Store user data only (token is in httpOnly cookie)
+    if (response.data.user) {
       localStorage.setItem('user', JSON.stringify(response.data.user))
     }
 
@@ -49,8 +53,8 @@ const authService = {
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
     const response = await api.post<AuthResponse>('/auth/login', credentials)
 
-    if (response.data.token) {
-      localStorage.setItem('token', response.data.token)
+    // Store user data only (token is in httpOnly cookie)
+    if (response.data.user) {
       localStorage.setItem('user', JSON.stringify(response.data.user))
     }
 
@@ -64,7 +68,18 @@ const authService = {
     } catch (error) {
       console.error('Logout error:', error)
     } finally {
-      localStorage.removeItem('token')
+      // Remove user data (token is cleared by backend via cookie)
+      localStorage.removeItem('user')
+    }
+  },
+
+  // Logout from all devices
+  logoutAll: async (): Promise<void> => {
+    try {
+      await api.post('/auth/logout-all')
+    } catch (error) {
+      console.error('Logout all error:', error)
+    } finally {
       localStorage.removeItem('user')
     }
   },
@@ -82,9 +97,7 @@ const authService = {
       newPassword
     })
 
-    if (response.data.token) {
-      localStorage.setItem('token', response.data.token)
-    }
+    // Token is automatically updated in httpOnly cookie by backend
 
     return response.data
   },
@@ -101,8 +114,8 @@ const authService = {
       password
     })
 
-    if (response.data.token) {
-      localStorage.setItem('token', response.data.token)
+    // Store user data only (token is in httpOnly cookie)
+    if (response.data.user) {
       localStorage.setItem('user', JSON.stringify(response.data.user))
     }
 
@@ -115,14 +128,9 @@ const authService = {
     return userStr ? JSON.parse(userStr) : null
   },
 
-  // Get stored token from localStorage
-  getStoredToken: (): string | null => {
-    return localStorage.getItem('token')
-  },
-
-  // Check if user is authenticated
+  // Check if user is authenticated (weak check, verified by backend on load)
   isAuthenticated: (): boolean => {
-    return !!localStorage.getItem('token')
+    return !!localStorage.getItem('user')
   }
 }
 

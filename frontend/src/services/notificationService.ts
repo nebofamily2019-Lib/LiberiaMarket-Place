@@ -1,58 +1,31 @@
-import api from './api'
+import axios from 'axios';
 
-export interface Notification {
-  id: string
-  user_id: string
-  type: 'message' | 'product' | 'job' | 'system' | 'review'
-  title: string
-  message: string
-  link?: string
-  isRead: boolean
-  created_at: string
-}
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-export interface NotificationListResponse {
-  success: boolean
-  count: number
-  unreadCount: number
-  data: Notification[]
-}
+const api = axios.create({
+  baseURL: API_URL,
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
 
-export interface NotificationResponse {
-  success: boolean
-  data: Notification
-  message?: string
-}
-
-const notificationService = {
-  // Get user's notifications
-  getNotifications: async (page = 1, limit = 20): Promise<NotificationListResponse> => {
-    const response = await api.get<NotificationListResponse>('/notifications', {
-      params: { page, limit }
-    })
-    return response.data
+export const notificationService = {
+  // Get notifications
+  getNotifications: async (page = 1, limit = 20) => {
+    const response = await api.get(`/notifications?page=${page}&limit=${limit}`);
+    return response.data;
   },
 
-  // Get unread count
-  getUnreadCount: async (): Promise<number> => {
-    const response = await api.get<{ success: boolean; count: number }>('/notifications/unread-count')
-    return response.data.count
-  },
-
-  // Mark notification as read
-  markAsRead: async (id: string): Promise<void> => {
-    await api.patch(`/notifications/${id}/read`)
+  // Mark as read
+  markAsRead: async (id: string) => {
+    const response = await api.put(`/notifications/${id}/read`);
+    return response.data;
   },
 
   // Mark all as read
-  markAllAsRead: async (): Promise<void> => {
-    await api.patch('/notifications/read-all')
-  },
-
-  // Delete notification
-  deleteNotification: async (id: string): Promise<void> => {
-    await api.delete(`/notifications/${id}`)
+  markAllAsRead: async () => {
+    const response = await api.put('/notifications/read-all');
+    return response.data;
   }
-}
-
-export default notificationService
+};

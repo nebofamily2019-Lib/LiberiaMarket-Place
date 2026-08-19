@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
-import './styles/dribbble-modern.css'
+import './styles/global.css'
 import { fetchCsrfToken } from './utils/api'
 
 // Fetch CSRF token before rendering app

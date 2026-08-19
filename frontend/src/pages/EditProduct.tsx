@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import api from '../utils/api'
+import { usdToLrd } from '../utils/currency'
+import { designSystem } from '../styles/designSystem'
 import HamburgerMenu from '../components/HamburgerMenu'
 import '../styles/AddProduct.css'
 
@@ -104,7 +106,7 @@ const EditProduct = () => {
 
     // Validate file sizes and types
     const maxSize = 5 * 1024 * 1024 // 5MB
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
 
     for (const file of files) {
       if (file.size > maxSize) {
@@ -112,7 +114,7 @@ const EditProduct = () => {
         return
       }
       if (!allowedTypes.includes(file.type)) {
-        setError(`File ${file.name} has invalid type. Only JPEG, PNG, WebP, and GIF allowed.`)
+        setError(`File ${file.name} has invalid type. Only JPEG, PNG, and WebP allowed.`)
         return
       }
     }
@@ -169,11 +171,7 @@ const EditProduct = () => {
         data.append('images', image)
       })
 
-      const response = await api.put(`/products/${id}`, data, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      })
+      const response = await api.put(`/products/${id}`, data)
 
       if (response.data.success) {
         alert('✅ Product updated successfully!')
@@ -243,6 +241,13 @@ const EditProduct = () => {
               min="0"
               step="0.01"
             />
+            <span className="helper-text">
+              {formData.price && parseFloat(formData.price) > 0 && (
+                <span style={{ color: designSystem.colors.accent.green, fontWeight: 600 }}>
+                  ≈ L${usdToLrd(parseFloat(formData.price)).toLocaleString()} LRD
+                </span>
+              )}
+            </span>
           </div>
 
           {/* Category */}
@@ -303,7 +308,7 @@ const EditProduct = () => {
               onChange={(e) => setFormData({ ...formData, condition: e.target.value })}
             >
               <option value="new">New</option>
-              <option value="excellent">Excellent</option>
+              <option value="like-new">Like New</option>
               <option value="good">Good</option>
               <option value="fair">Fair</option>
             </select>

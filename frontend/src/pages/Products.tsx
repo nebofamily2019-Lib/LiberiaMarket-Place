@@ -3,16 +3,10 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../utils/api'
 import HamburgerMenu from '../components/HamburgerMenu'
 import '../styles/Products.css'
-import SearchHeader from '../components/SearchHeader'
-import CategoryFilter from '../components/CategoryFilter'
-import ProductGrid from '../components/ProductGrid'
-import ProductCard from '../components/ProductCard'
-import SkeletonCard from '../components/SkeletonCard'
-import { designSystem } from '../styles/designSystem'
-import FilterSheet from '../components/FilterSheet'
 import EnhancedSearch from '../components/EnhancedSearch'
 import { ProductGridSkeleton } from '../components/LoadingSkeleton'
 import { useToast } from '../context/ToastContext'
+import ProductCard from '../components/ProductCard'
 
 interface Product {
   id: string
@@ -51,12 +45,15 @@ const Products = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [categories, setCategories] = useState<any[]>([])
+  const [counties, setCounties] = useState<any[]>([])
+  const [selectedCounty, setSelectedCounty] = useState('')
   const [filters, setFilters] = useState<any>({})
   const pageLimit = 12
 
   // Fetch products from API
   useEffect(() => {
     fetchCategories()
+    fetchCounties()
     fetchProducts()
   }, [currentPage, categoryId])
 
@@ -69,6 +66,17 @@ const Products = () => {
     } catch (err) {
       console.error('Failed to load categories')
       toast.error('Failed to load categories. Some filters may not be available.')
+    }
+  }
+
+  const fetchCounties = async () => {
+    try {
+      const response = await api.get('/counties')
+      if (response.data.success) {
+        setCounties(response.data.data)
+      }
+    } catch (err) {
+      console.error('Failed to load counties')
     }
   }
 
@@ -89,6 +97,10 @@ const Products = () => {
         params.append('category_id', categoryId)
       }
 
+      if (selectedCounty) {
+        params.append('county', selectedCounty)
+      }
+
       const url = `/products?${params.toString()}`
 
       const response = await api.get(url)
@@ -103,7 +115,7 @@ const Products = () => {
         }
       }
     } catch (err: any) {
-      console.error('❌ Error fetching products:', err)
+      console.error('Error fetching products:', err)
       const errorMsg = err.response?.data?.error || 'Failed to load products'
       setError(errorMsg)
       toast.error(errorMsg)
@@ -116,10 +128,35 @@ const Products = () => {
     setFilters(newFilters)
     setCurrentPage(1) // Reset to first page
   }
+
+  const handleNearMe = () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser')
+      return
+    }
+
+    toast.info('Getting your location...')
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setFilters({
+          ...filters,
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          radius: 10 // 10km default
+        })
+        setCurrentPage(1)
+        toast.success('Showing products near you (10km)')
+      },
+      (error) => {
+        console.error('Error getting location:', error)
+        toast.error('Failed to get location. Please allow location access.')
+      }
+    )
+  }
   
   useEffect(() => {
     fetchProducts()
-  }, [filters, currentPage, categoryId])
+  }, [filters, currentPage, categoryId, selectedCounty])
 
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
@@ -132,20 +169,13 @@ const Products = () => {
     return (
       <div className="products-container">
         <HamburgerMenu />
-        <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '6rem 1rem 2rem' }}>
-          <div style={{
-            background: 'white',
-            borderRadius: '12px',
-            padding: '1.5rem',
-            marginBottom: '2rem',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-          }}>
-            <h1 style={{ margin: '0 0 0.5rem', fontSize: '2rem' }}>
-              🛍️ Loading Products...
-            </h1>
-          </div>
-          <ProductGridSkeleton count={pageLimit} />
+        <div className="loading-state">
+          <div className="spinner"></div>
+          <h1 style={{ margin: '0 0 0.5rem', fontSize: '2rem' }}>
+            Loading Products...
+          </h1>
         </div>
+        <ProductGridSkeleton count={pageLimit} />
       </div>
     )
   }
@@ -154,253 +184,143 @@ const Products = () => {
     <div className="products-container">
       <HamburgerMenu />
       
-      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '6rem 1rem 2rem' }}>
-        {/* Enhanced Search */}
-        <EnhancedSearch 
-          onSearch={handleSearch}
-          categories={categories}
-        />
+      {/* Enhanced Search */}
+      <EnhancedSearch
+        onSearch={handleSearch}
+        categories={categories}
+      />
 
-        <div style={{
-          background: 'white',
-          borderRadius: '12px',
-          padding: '1.5rem',
-          marginBottom: '2rem',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-            <div>
-              <h1 style={{ margin: '0 0 0.5rem', fontSize: '2rem' }}>
-                🛍️ {categoryId ? 'Filtered Products' : 'All Products'}
-              </h1>
-              <p style={{ margin: 0, color: '#10b981', fontWeight: 600 }}>
-                {products.length} product{products.length !== 1 ? 's' : ''} available
-              </p>
-            </div>
-            
-            {categoryId && (
+      {/* County Filter */}
+      {counties.length > 0 && (
+        <div style={{ padding: '0 1rem 1rem', maxWidth: '400px' }}>
+          <select
+            value={selectedCounty}
+            onChange={(e) => {
+              setSelectedCounty(e.target.value)
+              setCurrentPage(1)
+            }}
+            style={{
+              width: '100%',
+              padding: '0.5rem 1rem',
+              borderRadius: 'var(--radius-md)',
+              border: '2px solid var(--color-border)',
+              background: 'var(--color-surface)',
+              color: 'var(--color-text-primary)',
+              fontSize: '0.875rem',
+              fontWeight: 500,
+              cursor: 'pointer'
+            }}
+          >
+            <option value="">All Counties</option>
+            {counties.map((county: any) => (
+              <option key={county.id} value={county.name}>
+                {county.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <div className="products-header">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <div className="header-content">
+            <h1>
+              {categoryId ? 'Filtered Products' : 'All Products'}
+            </h1>
+            <p className="product-count">
+              {products.length} product{products.length !== 1 ? 's' : ''} available
+            </p>
+          </div>
+          
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              onClick={handleNearMe}
+              style={{
+                padding: '0.5rem 1rem',
+                background: filters.latitude ? 'var(--color-success)' : 'var(--color-background)',
+                color: filters.latitude ? 'white' : 'var(--color-text-secondary)',
+                border: filters.latitude ? '2px solid var(--color-success)' : '2px solid var(--color-border)',
+                borderRadius: 'var(--radius-md)',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}
+            >
+              Near Me
+            </button>
+
+            {(categoryId || Object.keys(filters).length > 0) && (
               <button
-                onClick={() => navigate('/products')}
+                onClick={() => {
+                  navigate('/products')
+                  setFilters({})
+                }}
                 style={{
                   padding: '0.5rem 1rem',
-                  background: '#f3f4f6',
-                  color: '#374151',
-                  border: '2px solid #d1d5db',
-                  borderRadius: '8px',
+                  background: 'var(--color-background)',
+                  color: 'var(--color-text-secondary)',
+                  border: '2px solid var(--color-border)',
+                  borderRadius: 'var(--radius-md)',
                   fontWeight: 600,
                   cursor: 'pointer'
                 }}
               >
-                Clear Filter
+                Clear Filters
               </button>
             )}
           </div>
         </div>
-
-        {/* Error Display */}
-        {error && (
-          <div style={{
-            padding: '1rem',
-            background: '#fee',
-            color: '#dc2626',
-            borderRadius: '8px',
-            marginBottom: '1rem',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
-          }}>
-            <span>⚠️ {error}</span>
-            <button onClick={fetchProducts} style={{
-              padding: '0.5rem 1rem',
-              background: '#dc2626',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer'
-            }}>Retry</button>
-          </div>
-        )}
-
-        {products.length > 0 ? (
-          <>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-              gap: '1.5rem',
-              marginBottom: '2rem'
-            }}>
-              {products.map((product) => (
-                <div key={product.id} style={{
-                  background: 'white',
-                  borderRadius: '12px',
-                  overflow: 'hidden',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                  transition: 'transform 0.2s ease',
-                  cursor: 'pointer'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                >
-                  {/* Product Image */}
-                  {product.images && product.images.length > 0 ? (
-                    <div style={{
-                      width: '100%',
-                      aspectRatio: '16 / 10',
-                      overflow: 'hidden',
-                      background: '#f3f4f6'
-                    }}>
-                      <img
-                        src={product.images[0]}
-                        alt={product.title}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover'
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <div style={{
-                      width: '100%',
-                      aspectRatio: '16 / 10',
-                      background: 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '3rem',
-                      color: '#9ca3af'
-                    }}>
-                      📦
-                    </div>
-                  )}
-
-                  <div style={{ padding: '1.5rem' }}>
-                    {/* Product Header */}
-                    <div style={{ marginBottom: '1rem' }}>
-                    <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.25rem', color: '#1f2937' }}>
-                      {product.title}
-                    </h3>
-                    {product.category && (
-                      <span style={{
-                        padding: '0.25rem 0.75rem',
-                        borderRadius: '12px',
-                        fontSize: '0.75rem',
-                        fontWeight: 600,
-                        background: product.category.color + '20',
-                        color: product.category.color
-                      }}>
-                        {product.category.icon} {product.category.name}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Description */}
-                  <p style={{ margin: '0 0 1rem', color: '#6b7280', fontSize: '0.95rem' }}>
-                    {product.description.length > 100 
-                      ? `${product.description.substring(0, 100)}...` 
-                      : product.description}
-                  </p>
-
-                  {/* Price & Location */}
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    paddingTop: '1rem',
-                    borderTop: '1px solid #e5e7eb'
-                  }}>
-                    <span style={{ fontSize: '1.5rem', fontWeight: 700, color: '#10b981' }}>
-                      ${product.price.toFixed(2)}
-                    </span>
-                    <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                      📍 {product.location}
-                    </span>
-                  </div>
-
-                    {/* View Button */}
-                    <button
-                      onClick={() => navigate(`/products/${product.id}`)}
-                      style={{
-                        width: '100%',
-                        marginTop: '1rem',
-                        padding: '0.75rem',
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        fontWeight: 600,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      View Details
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div style={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                gap: '1rem',
-                padding: '1rem',
-                background: 'white',
-                borderRadius: '12px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-              }}>
-                <button 
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    background: currentPage === 1 ? '#f3f4f6' : '#667eea',
-                    color: currentPage === 1 ? '#9ca3af' : 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  ← Previous
-                </button>
-                <span style={{ fontWeight: 600 }}>
-                  Page {currentPage} of {totalPages}
-                </span>
-                <button 
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage >= totalPages}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    background: currentPage >= totalPages ? '#f3f4f6' : '#667eea',
-                    color: currentPage >= totalPages ? '#9ca3af' : 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  Next →
-                </button>
-              </div>
-            )}
-          </>
-        ) : (
-          <div style={{
-            textAlign: 'center',
-            padding: '4rem 2rem',
-            background: 'white',
-            borderRadius: '12px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-          }}>
-            <div style={{ fontSize: '5rem', marginBottom: '1rem' }}>📦</div>
-            <h2 style={{ margin: '0 0 0.5rem', color: '#1f2937' }}>No products available</h2>
-            <p style={{ margin: 0, color: '#6b7280' }}>
-              {categoryId ? 'No products found in this category' : 'Be the first to list a product!'}
-            </p>
-          </div>
-        )}
       </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="error-state">
+          <div className="error-icon">!</div>
+          <p>{error}</p>
+          <button onClick={fetchProducts} className="retry-button">Retry</button>
+        </div>
+      )}
+
+      {products.length > 0 ? (
+        <>
+          <div className="products-grid">
+            {products.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="pagination">
+              <button 
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                ← Previous
+              </button>
+              <span>
+                Page {currentPage} of {totalPages}
+              </span>
+              <button 
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage >= totalPages}
+              >
+                Next →
+              </button>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="empty-state">
+          <div className="empty-icon">No Products</div>
+          <h2>No products available</h2>
+          <p>
+            {categoryId ? 'No products found in this category' : 'Be the first to list a product!'}
+          </p>
+        </div>
+      )}
     </div>
   )
 }

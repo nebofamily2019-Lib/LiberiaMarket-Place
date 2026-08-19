@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { Search, SlidersHorizontal, X, Folder, Banknote, Sparkles, MapPin } from 'lucide-react'
 import '../styles/EnhancedSearch.css'
 
 interface SearchFilters {
@@ -65,15 +66,17 @@ const EnhancedSearch = ({ onSearch, categories }: EnhancedSearchProps) => {
       {/* Search Bar */}
       <form onSubmit={handleSearchSubmit} className="search-form">
         <div className="search-input-wrapper">
+          <label htmlFor="search-input" className="sr-only">Search products</label>
           <input
+            id="search-input"
             type="search"
-            placeholder="🔍 Search products..."
+            placeholder="Search products..."
             value={filters.search}
             onChange={(e) => handleFilterChange('search', e.target.value)}
             className="search-input"
           />
-          <button type="submit" className="search-btn">
-            Search
+          <button type="submit" className="search-btn" aria-label="Search">
+            <Search size={20} />
           </button>
         </div>
 
@@ -81,13 +84,17 @@ const EnhancedSearch = ({ onSearch, categories }: EnhancedSearchProps) => {
           type="button"
           onClick={() => setShowFilters(!showFilters)}
           className={`filter-toggle ${hasActiveFilters ? 'active' : ''}`}
+          aria-expanded={showFilters}
+          aria-controls="filter-panel"
         >
-          <span>🎛️</span>
+          <SlidersHorizontal size={20} />
           <span>Filters</span>
           {hasActiveFilters && <span className="filter-badge">•</span>}
         </button>
 
+        <label htmlFor="sort-select" className="sr-only">Sort by</label>
         <select
+          id="sort-select"
           value={filters.sort}
           onChange={(e) => handleFilterChange('sort', e.target.value)}
           className="sort-select"
@@ -102,9 +109,12 @@ const EnhancedSearch = ({ onSearch, categories }: EnhancedSearchProps) => {
 
       {/* Filter Panel */}
       {showFilters && (
-        <div className="filter-panel">
+        <div id="filter-panel" className="filter-panel">
           <div className="filter-header">
-            <h3>🎛️ Filter Products</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <SlidersHorizontal size={20} />
+              <h3>Filter Products</h3>
+            </div>
             {hasActiveFilters && (
               <button onClick={clearFilters} className="clear-filters-btn">
                 Clear All
@@ -115,7 +125,9 @@ const EnhancedSearch = ({ onSearch, categories }: EnhancedSearchProps) => {
           <div className="filters-grid">
             {/* Category Filter */}
             <div className="filter-group">
-              <label>📂 Category</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Folder size={16} /> Category
+              </label>
               <select
                 value={filters.category_id}
                 onChange={(e) => handleFilterChange('category_id', e.target.value)}
@@ -124,7 +136,7 @@ const EnhancedSearch = ({ onSearch, categories }: EnhancedSearchProps) => {
                 <option value="">All Categories</option>
                 {categories.map((cat) => (
                   <option key={cat.id} value={cat.id}>
-                    {cat.icon} {cat.name}
+                    {cat.name}
                   </option>
                 ))}
               </select>
@@ -132,7 +144,9 @@ const EnhancedSearch = ({ onSearch, categories }: EnhancedSearchProps) => {
 
             {/* Price Range */}
             <div className="filter-group">
-              <label>💰 Price Range</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Banknote size={16} /> Price Range
+              </label>
               <div className="price-range">
                 <input
                   type="number"
@@ -141,6 +155,7 @@ const EnhancedSearch = ({ onSearch, categories }: EnhancedSearchProps) => {
                   onChange={(e) => handleFilterChange('minPrice', e.target.value)}
                   className="price-input"
                   min="0"
+                  aria-label="Minimum price"
                 />
                 <span>to</span>
                 <input
@@ -150,13 +165,16 @@ const EnhancedSearch = ({ onSearch, categories }: EnhancedSearchProps) => {
                   onChange={(e) => handleFilterChange('maxPrice', e.target.value)}
                   className="price-input"
                   min="0"
+                  aria-label="Maximum price"
                 />
               </div>
             </div>
 
             {/* Condition Filter */}
             <div className="filter-group">
-              <label>✨ Condition</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Sparkles size={16} /> Condition
+              </label>
               <select
                 value={filters.condition}
                 onChange={(e) => handleFilterChange('condition', e.target.value)}
@@ -173,7 +191,9 @@ const EnhancedSearch = ({ onSearch, categories }: EnhancedSearchProps) => {
 
             {/* Location Filter */}
             <div className="filter-group">
-              <label>📍 Location</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <MapPin size={16} /> Location
+              </label>
               <input
                 type="text"
                 placeholder="Enter location..."
@@ -190,32 +210,32 @@ const EnhancedSearch = ({ onSearch, categories }: EnhancedSearchProps) => {
               <span className="active-filters-label">Active filters:</span>
               {filters.category_id && (
                 <span className="filter-chip">
-                  📂 {categories.find(c => c.id === filters.category_id)?.name}
-                  <button onClick={() => handleFilterChange('category_id', '')}>✕</button>
+                  <Folder size={14} /> {categories.find(c => c.id === filters.category_id)?.name}
+                  <button onClick={() => handleFilterChange('category_id', '')} aria-label="Remove category filter"><X size={14} /></button>
                 </span>
               )}
               {filters.minPrice && (
                 <span className="filter-chip">
                   Min: ${filters.minPrice}
-                  <button onClick={() => handleFilterChange('minPrice', '')}>✕</button>
+                  <button onClick={() => handleFilterChange('minPrice', '')} aria-label="Remove min price filter"><X size={14} /></button>
                 </span>
               )}
               {filters.maxPrice && (
                 <span className="filter-chip">
                   Max: ${filters.maxPrice}
-                  <button onClick={() => handleFilterChange('maxPrice', '')}>✕</button>
+                  <button onClick={() => handleFilterChange('maxPrice', '')} aria-label="Remove max price filter"><X size={14} /></button>
                 </span>
               )}
               {filters.condition && (
                 <span className="filter-chip">
-                  ✨ {filters.condition}
-                  <button onClick={() => handleFilterChange('condition', '')}>✕</button>
+                  <Sparkles size={14} /> {filters.condition}
+                  <button onClick={() => handleFilterChange('condition', '')} aria-label="Remove condition filter"><X size={14} /></button>
                 </span>
               )}
               {filters.location && (
                 <span className="filter-chip">
-                  📍 {filters.location}
-                  <button onClick={() => handleFilterChange('location', '')}>✕</button>
+                  <MapPin size={14} /> {filters.location}
+                  <button onClick={() => handleFilterChange('location', '')} aria-label="Remove location filter"><X size={14} /></button>
                 </span>
               )}
             </div>

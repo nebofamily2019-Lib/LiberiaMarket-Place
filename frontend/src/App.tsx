@@ -1,54 +1,128 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { Suspense, lazy } from 'react'
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
+import { LanguageProvider } from './context/LanguageContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import ErrorBoundary from './components/ErrorBoundary'
 import { ToastProvider } from './context/ToastContext'
 import ToastContainer from './components/ToastContainer'
+import HamburgerMenu from './components/HamburgerMenu'
+import BottomNav from './components/BottomNav'
 
-// Import all pages
-import Home from './pages/Home'
-import Login from './pages/Login'
-import Register from './pages/Register'
-import Dashboard from './pages/Dashboard'
-import Products from './pages/Products'
-import ProductDetails from './pages/ProductDetails'
-import AddProduct from './pages/AddProduct'
-import EditProduct from './pages/EditProduct'
-import MyProducts from './pages/MyProducts'
-import Categories from './pages/Categories'
-import BuyerInbox from './pages/BuyerInbox'
-import SellerInbox from './pages/SellerInbox'
-import Messages from './pages/Messages'
-import MessageThread from './pages/MessageThread'
+// Lazy load pages for better performance
+const Home = lazy(() => import('./pages/Home'))
+const Login = lazy(() => import('./pages/Login'))
+const Register = lazy(() => import('./pages/Register'))
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Products = lazy(() => import('./pages/Products'))
+const ProductDetails = lazy(() => import('./pages/ProductDetails'))
+const AddProduct = lazy(() => import('./pages/AddProduct'))
+const EditProduct = lazy(() => import('./pages/EditProduct'))
+const MyProducts = lazy(() => import('./pages/MyProducts'))
+const Categories = lazy(() => import('./pages/Categories'))
+const Messages = lazy(() => import('./pages/Messages'))
+const MessageThread = lazy(() => import('./pages/MessageThread'))
+const SellerProfile = lazy(() => import('./pages/SellerProfile'))
+const SavedItems = lazy(() => import('./pages/SavedItems'))
+const Notifications = lazy(() => import('./pages/Notifications'))
+const Wallet = lazy(() => import('./pages/Wallet'))
+const TermsOfService = lazy(() => import('./pages/TermsOfService'))
+const Safety = lazy(() => import('./pages/Safety'))
+const SellerDashboard = lazy(() => import('./pages/SellerDashboard'))
 
-function App() {
+// Loading component
+const PageLoader = () => (
+  <div style={{ 
+    display: 'flex', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    height: '50vh',
+    color: '#666'
+  }}>
+    <div className="page-spinner" />
+    <span style={{ marginLeft: '10px' }}>Loading...</span>
+  </div>
+)
+
+// Inner component to use useLocation hook
+function AppContent() {
+  const location = useLocation()
+
+  // Routes where sidebar should NOT be shown
+  const noSidebarRoutes = ['/', '/login', '/register']
+  const showSidebar = !noSidebarRoutes.includes(location.pathname)
+
   return (
-    <ErrorBoundary>
-      <AuthProvider>
-        <ToastProvider>
-          <Router>
-            <ToastContainer />
-            <Routes>
+    <>
+      {showSidebar && <HamburgerMenu />}
+      {showSidebar && <BottomNav />}
+      <div className={showSidebar ? "app-main-content" : ""}>
+        <ToastContainer />
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
               {/* Public Routes */}
               <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
-              
+
               {/* Public Product Browsing */}
               <Route path="/products" element={<Products />} />
               <Route path="/products/:id" element={<ProductDetails />} />
               <Route path="/categories" element={<Categories />} />
-              
-              {/* Protected Routes */}
-              <Route 
-                path="/dashboard" 
+              <Route path="/seller/:sellerId" element={<SellerProfile />} />
+
+              {/* Protected Routes - Dashboard */}
+              <Route
+                path="/dashboard"
                 element={
                   <ProtectedRoute>
                     <Dashboard />
                   </ProtectedRoute>
-                } 
+                }
               />
-              
+
+              <Route
+                path="/saved-items"
+                element={
+                  <ProtectedRoute>
+                    <SavedItems />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/notifications"
+                element={
+                  <ProtectedRoute>
+                    <Notifications />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/wallet"
+                element={
+                  <ProtectedRoute>
+                    <Wallet />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Legal & Safety */}
+              <Route path="/terms" element={<TermsOfService />} />
+              <Route path="/safety" element={<Safety />} />
+
+              {/* Protected Routes - Seller Financial Dashboard */}
+              <Route
+                path="/seller/financials"
+                element={
+                  <ProtectedRoute allowedRoles={['seller', 'admin']}>
+                    <SellerDashboard />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Protected Routes - Product Management */}
               <Route
                 path="/products/add"
                 element={
@@ -75,41 +149,24 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              
-              <Route 
-                path="/buyer/inbox" 
-                element={
-                  <ProtectedRoute allowedRoles={['buyer', 'admin']}>
-                    <BuyerInbox />
-                  </ProtectedRoute>
-                } 
-              />
-              
-              <Route 
-                path="/seller/inbox" 
-                element={
-                  <ProtectedRoute allowedRoles={['seller', 'admin']}>
-                    <SellerInbox />
-                  </ProtectedRoute>
-                } 
-              />
-              
-              <Route 
-                path="/messages" 
+
+              {/* Protected Routes - Messaging */}
+              <Route
+                path="/messages"
                 element={
                   <ProtectedRoute>
                     <Messages />
                   </ProtectedRoute>
-                } 
+                }
               />
-              
-              <Route 
-                path="/messages/:id" 
+
+              <Route
+                path="/messages/:id"
                 element={
                   <ProtectedRoute>
                     <MessageThread />
                   </ProtectedRoute>
-                } 
+                }
               />
               
               {/* Catch-all route for debugging */}
@@ -126,19 +183,31 @@ function App() {
                     justifyContent: 'center'
                   }}>
                     <h1>404 - Page Not Found</h1>
-                    <p>Current path: {window.location.pathname}</p>
+                    <p>The page you're looking for doesn't exist.</p>
                     <button onClick={() => window.location.href = '/'}>
                       Go Home
-                    </button>
-                    <button onClick={() => window.location.href = '/register'}>
-                      Go to Register
                     </button>
                   </div>
                 } 
               />
-            </Routes>
-          </Router>
-        </ToastProvider>
+        </Routes>
+        </Suspense>
+      </div>
+    </>
+  )
+}
+
+function App() {
+  return (
+    <ErrorBoundary>
+      <AuthProvider>
+        <LanguageProvider>
+          <ToastProvider>
+            <Router>
+              <AppContent />
+            </Router>
+          </ToastProvider>
+        </LanguageProvider>
       </AuthProvider>
     </ErrorBoundary>
   )

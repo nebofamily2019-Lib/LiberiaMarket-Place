@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { Mic, Square, Volume2, X, HelpCircle, Volume1 } from 'lucide-react'
 import { speakPrompt, speakThenListen, stopSpeaking, getDefaultLang, speak } from '../utils/voiceAssistant'
 
 interface VoiceInputProps {
@@ -144,7 +145,7 @@ const VoiceInput = ({
               }}
               aria-label="Help"
             >
-              ❓ Help
+              <HelpCircle size={14} /> Help
             </button>
           )}
         </div>
@@ -202,7 +203,7 @@ const VoiceInput = ({
             title={isListening ? 'Stop listening' : 'Speak to type'}
             aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
           >
-            {isListening ? '🔴' : '🎤'}
+            {isListening ? <Square size={20} fill="white" /> : <Mic size={20} />}
           </button>
 
           {value && (
@@ -226,7 +227,7 @@ const VoiceInput = ({
               title="Read what you typed"
               aria-label="Read back text"
             >
-              🔉
+              <Volume2 size={20} />
             </button>
           )}
         </div>
@@ -245,10 +246,13 @@ const VoiceInput = ({
               border: '1px solid #f5c6cb',
               color: '#721c24',
               borderRadius: 8,
-              cursor: 'pointer'
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
             }}
           >
-            ✖ Cancel
+            <X size={14} /> Cancel
           </button>
         </div>
       )}
@@ -266,7 +270,7 @@ const VoiceInput = ({
           gap: '8px',
           fontSize: '0.95rem'
         }} role="status" aria-live="polite">
-          <span>🗣️</span>
+          <Volume1 size={16} />
           <strong>Speaking...</strong>
         </div>
       )}
@@ -284,7 +288,7 @@ const VoiceInput = ({
           gap: 'var(--space-sm)',
           fontSize: 'var(--font-size-lg)'
         }}>
-          <span style={{ fontSize: '1.5rem' }}>🎤</span>
+          <Mic size={24} />
           <span style={{ fontWeight: 'bold', color: '#2e7d32' }}>
             Listening... Speak now!
           </span>

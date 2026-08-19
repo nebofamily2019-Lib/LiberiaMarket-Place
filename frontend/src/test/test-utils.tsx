@@ -2,6 +2,7 @@ import { ReactElement } from 'react'
 import { render, RenderOptions } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { AuthProvider } from '../context/AuthContext'
+import { LanguageProvider } from '../context/LanguageContext'
 
 /**
  * Custom render function that wraps components with common providers
@@ -14,7 +15,9 @@ interface AllTheProvidersProps {
 const AllTheProviders = ({ children }: AllTheProvidersProps) => {
   return (
     <BrowserRouter>
-      <AuthProvider>{children}</AuthProvider>
+      <LanguageProvider>
+        <AuthProvider>{children}</AuthProvider>
+      </LanguageProvider>
     </BrowserRouter>
   )
 }

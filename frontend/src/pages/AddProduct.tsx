@@ -1,376 +1,481 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../utils/api'
 import HamburgerMenu from '../components/HamburgerMenu'
 import { useToast } from '../context/ToastContext'
-import '../styles/AddProduct.css'
+import { compressImage } from '../utils/imageCompression'
 
 interface Category {
   id: string
   name: string
   icon: string
-  color: string
 }
+
+const CONDITIONS = [
+  { value: 'new', label: 'New' },
+  { value: 'like-new', label: 'Like New' },
+  { value: 'good', label: 'Good' },
+  { value: 'fair', label: 'Fair' },
+]
 
 const AddProduct = () => {
   const navigate = useNavigate()
   const toast = useToast()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    price: '',
-    category_id: '',
-    location: 'Monrovia', // Default location
-    condition: 'good', // Default condition
-    contactPhone: '', // Contact phone for product
-  })
 
-  const [images, setImages] = useState<File[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [title, setTitle] = useState('')
+  const [price, setPrice] = useState('')
+  const [categoryId, setCategoryId] = useState('')
+  const [condition, setCondition] = useState('good')
+  const [location, setLocation] = useState('Monrovia')
+
+  const [images, setImages] = useState<File[]>([])
+  const [previews, setPreviews] = useState<string[]>([])
 
   useEffect(() => {
-    fetchCategories()
+    api.get('/categories')
+      .then(res => { if (res.data.success) setCategories(res.data.data) })
+      .catch(() => toast.error('Could not load categories'))
   }, [])
 
-  const fetchCategories = async () => {
-    try {
-      console.log('📂 Fetching categories...')
-      const response = await api.get('/categories')
-      console.log('📂 Categories response:', response.data)
+  useEffect(() => {
+    return () => { previews.forEach(url => URL.revokeObjectURL(url)) }
+  }, [previews])
 
-      if (response.data.success) {
-        setCategories(response.data.data)
-        console.log(`✅ Loaded ${response.data.data.length} categories`)
-      } else {
-        console.warn('⚠️ No categories found')
-        toast.warning('No categories available')
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const incoming = Array.from(e.target.files || [])
+    const remaining = 5 - images.length
+    if (remaining <= 0) {
+      toast.warning('Maximum 5 photos already added')
+      return
+    }
+
+    const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+    const valid = incoming.slice(0, remaining).filter(f => {
+      if (!allowed.includes(f.type)) {
+        toast.error(`${f.name}: only JPEG, PNG or WebP allowed`)
+        return false
       }
-    } catch (err: any) {
-      console.error('Error fetching categories:', err)
-      const errorMsg = 'Failed to load categories. Please refresh the page.';
-      setError(errorMsg)
-      toast.error(errorMsg)
+      if (f.size > 10 * 1024 * 1024) {
+        toast.error(`${f.name}: max 10 MB`)
+        return false
+      }
+      return true
+    })
+
+    if (!valid.length) return
+    setLoading(true)
+    try {
+      const compressed = await Promise.all(valid.map(f => compressImage(f)))
+      setImages(prev => [...prev, ...compressed])
+      setPreviews(prev => [...prev, ...compressed.map(f => URL.createObjectURL(f))])
+    } catch {
+      toast.error('Failed to process images')
+    } finally {
+      setLoading(false)
+      // Reset so the same file can be re-selected
+      e.target.value = ''
     }
   }
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-
-    // Validate file count
-    if (files.length > 5) {
-      const errorMsg = 'Maximum 5 images allowed';
-      setError(errorMsg);
-      toast.warning(errorMsg);
-      return;
-    }
-
-    // Validate file sizes and types
-    const maxSize = 5 * 1024 * 1024; // 5MB
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
-
-    for (const file of files) {
-      if (file.size > maxSize) {
-        const errorMsg = `File ${file.name} is too large. Maximum size is 5MB.`;
-        setError(errorMsg);
-        toast.error(errorMsg);
-        return;
-      }
-      if (!allowedTypes.includes(file.type)) {
-        const errorMsg = `File ${file.name} has invalid type. Only JPEG, PNG, WebP, and GIF allowed.`;
-        setError(errorMsg);
-        toast.error(errorMsg);
-        return;
-      }
-    }
-
-    setImages(files);
-
-    // Generate previews
-    const previews = files.map(file => URL.createObjectURL(file));
-    setImagePreviews(previews);
-    setError('');
-    toast.success(`${files.length} image(s) added successfully`);
-  };
-  
-  const removeImage = (index: number) => {
-    const newImages = images.filter((_, i) => i !== index);
-    const newPreviews = imagePreviews.filter((_, i) => i !== index);
-    
-    // Revoke old preview URL
-    URL.revokeObjectURL(imagePreviews[index]);
-    
-    setImages(newImages);
-    setImagePreviews(newPreviews);
-  };
+  const removeImage = (i: number) => {
+    URL.revokeObjectURL(previews[i])
+    setImages(prev => prev.filter((_, idx) => idx !== i))
+    setPreviews(prev => prev.filter((_, idx) => idx !== i))
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
+    setError(null)
+
+    if (!title.trim()) return setError('Please enter a product title')
+    if (!price || parseFloat(price) <= 0) return setError('Please enter a valid price')
+    if (!categoryId) return setError('Please select a category')
+
+    const data = new FormData()
+    data.append('title', title.trim())
+    data.append('price', price)
+    data.append('currency', 'USD')
+    data.append('category_id', categoryId)
+    data.append('condition', condition)
+    data.append('location', location.trim() || 'Monrovia')
+    images.forEach(img => data.append('images', img))
+
     setLoading(true)
-
     try {
-     // Validate required fields
-     if (!formData.title.trim()) {
-       throw new Error('Please enter a product title')
-     }
-     if (!formData.price || parseFloat(formData.price) <= 0) {
-       throw new Error('Please enter a valid price')
-     }
-     if (!formData.category_id) {
-       throw new Error('Please select a category')
-     }
-
-     // Create FormData for file upload
-     const data = new FormData();
-     data.append('title', formData.title);
-     data.append('description', formData.description);
-     data.append('price', formData.price);
-     data.append('category_id', formData.category_id);
-     data.append('location', formData.location);
-     data.append('condition', formData.condition);
-     data.append('contactPhone', formData.contactPhone);
-     
-     // Append images
-     images.forEach((image) => {
-       data.append('images', image);
-     });
-     
-     const response = await api.post('/products', data, {
-       headers: {
-         'Content-Type': 'multipart/form-data'
-       }
-     })
-
-      if (response.data.success) {
-        toast.success('Product listed successfully! 🎉')
+      const res = await api.post('/products', data)
+      if (res.data.success) {
+        toast.success('Product listed!')
         navigate('/my-products')
       }
     } catch (err: any) {
-     const errorMsg = err.response?.data?.error || 'Failed to create product'
-     setError(errorMsg)
-     toast.error(errorMsg)
+      const msg = err.response?.data?.error || err.message || 'Failed to post product'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
   }
 
-  // Cleanup preview URLs on unmount
-  useEffect(() => {
-    return () => {
-      imagePreviews.forEach(url => URL.revokeObjectURL(url));
-    };
-  }, [imagePreviews]);
-
   return (
-    <div className="add-product-container">
+    <div style={styles.page}>
       <HamburgerMenu />
-      
-      <div className="add-product-content">
-        <div className="page-header">
-          <h1>📦 List Your Product</h1>
-          <p className="subtitle">Sell to thousands of buyers in Liberia</p>
-        </div>
 
-        {error && (
-          <div className="error-banner">
-            ⚠️ {error}
-            {categories.length === 0 && (
-              <button 
-                onClick={fetchCategories}
-                style={{
-                  marginLeft: '1rem',
-                  padding: '0.5rem 1rem',
-                  background: '#3b82f6',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer'
-                }}
-              >
-                Retry Loading Categories
-              </button>
-            )}
-          </div>
-        )}
+      <div style={styles.content}>
+        <h1 style={styles.heading}>Sell Something</h1>
 
-        <form onSubmit={handleSubmit} className="product-form">
-          {/* Product Title - REQUIRED */}
-          <div className="form-group required">
-            <label htmlFor="title">Product Title *</label>
+        {error && <div style={styles.errorBanner}>{error}</div>}
+
+        <form onSubmit={handleSubmit} style={styles.form}>
+
+          {/* ── Photos ── */}
+          <section style={styles.section}>
+            <label style={styles.label}>Photos</label>
+
+            <div style={styles.photoRow}>
+              {previews.map((src, i) => (
+                <div key={i} style={styles.thumb}>
+                  <img src={src} alt="" style={styles.thumbImg} />
+                  <button
+                    type="button"
+                    onClick={() => removeImage(i)}
+                    style={styles.removeBtn}
+                    aria-label="Remove photo"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+
+              {images.length < 5 && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  style={styles.addPhotoBtn}
+                  disabled={loading}
+                >
+                  <span style={styles.addPhotoIcon}>+</span>
+                  <span style={styles.addPhotoText}>
+                    {images.length === 0 ? 'Add Photo' : 'More'}
+                  </span>
+                </button>
+              )}
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/jpg,image/png,image/webp"
+              multiple
+              onChange={handleImageChange}
+              style={{ display: 'none' }}
+            />
+            <p style={styles.hint}>Up to 5 photos · JPEG, PNG or WebP</p>
+          </section>
+
+          {/* ── Title ── */}
+          <section style={styles.section}>
+            <label htmlFor="title" style={styles.label}>What are you selling? *</label>
             <input
               id="title"
               type="text"
-              placeholder="e.g. iPhone 13 Pro Max 256GB"
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="e.g. Samsung TV 43-inch"
+              style={styles.input}
+              autoComplete="off"
+              maxLength={200}
               required
-              maxLength={100}
             />
-            <span className="helper-text">Be specific and descriptive</span>
-          </div>
+          </section>
 
-          {/* Price - REQUIRED */}
-          <div className="form-group required">
-            <label htmlFor="price">Price (USD) *</label>
-            <input
-              id="price"
-              type="number"
-              placeholder="0.00"
-              value={formData.price}
-              onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-              required
-              min="0"
-              step="0.01"
-            />
-            <span className="helper-text">Enter price in US Dollars</span>
-          </div>
+          {/* ── Price ── */}
+          <section style={styles.section}>
+            <label htmlFor="price" style={styles.label}>Price (USD) *</label>
+            <div style={styles.priceRow}>
+              <span style={styles.currencySymbol}>$</span>
+              <input
+                id="price"
+                type="number"
+                inputMode="decimal"
+                value={price}
+                onChange={e => setPrice(e.target.value)}
+                placeholder="0"
+                min="0"
+                step="0.01"
+                style={{ ...styles.input, paddingLeft: '2.5rem', marginBottom: 0 }}
+                required
+              />
+            </div>
+          </section>
 
-          {/* Category - REQUIRED */}
-          <div className="form-group required">
-            <label htmlFor="category">Category *</label>
+          {/* ── Category ── */}
+          <section style={styles.section}>
+            <label htmlFor="category" style={styles.label}>Category *</label>
             <select
               id="category"
-              value={formData.category_id}
-              onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+              value={categoryId}
+              onChange={e => setCategoryId(e.target.value)}
+              style={styles.input}
               required
             >
-              <option value="">Select a category</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.icon} {category.name}
-                </option>
+              <option value="">Choose a category…</option>
+              {categories.map(c => (
+                <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
               ))}
             </select>
-            {categories.length === 0 && (
-              <span className="helper-text" style={{ color: '#dc2626' }}>
-                ⚠️ No categories available. Please contact support.
-              </span>
-            )}
-          </div>
+          </section>
 
-          {/* Description - OPTIONAL */}
-          <div className="form-group">
-            <label htmlFor="description">Description (Optional)</label>
-            <textarea
-              id="description"
-              placeholder="Describe your product... (optional)"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              rows={4}
-              maxLength={1000}
-            />
-            <span className="helper-text">
-              {formData.description.length}/1000 characters
-            </span>
-          </div>
+          {/* ── Condition ── */}
+          <section style={styles.section}>
+            <label style={styles.label}>Condition</label>
+            <div style={styles.pills}>
+              {CONDITIONS.map(c => (
+                <button
+                  key={c.value}
+                  type="button"
+                  onClick={() => setCondition(c.value)}
+                  style={{
+                    ...styles.pill,
+                    ...(condition === c.value ? styles.pillActive : {})
+                  }}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          </section>
 
-          {/* Location - Pre-filled with Monrovia */}
-          <div className="form-group">
-            <label htmlFor="location">Location</label>
-            <select
-              id="location"
-              value={formData.location}
-              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-            >
-              <option value="Monrovia">Monrovia</option>
-              <option value="Paynesville">Paynesville</option>
-              <option value="Sinkor">Sinkor</option>
-              <option value="Congo Town">Congo Town</option>
-              <option value="Bushrod Island">Bushrod Island</option>
-              <option value="Red Light">Red Light</option>
-              <option value="Duport Road">Duport Road</option>
-              <option value="Other">Other Location</option>
-            </select>
-          </div>
-
-          {/* Condition - Pre-filled with Good */}
-          <div className="form-group">
-            <label htmlFor="condition">Condition</label>
-            <select
-              id="condition"
-              value={formData.condition}
-              onChange={(e) => setFormData({ ...formData, condition: e.target.value })}
-            >
-              <option value="new">New</option>
-              <option value="excellent">Excellent</option>
-              <option value="good">Good</option>
-              <option value="fair">Fair</option>
-            </select>
-          </div>
-
-          {/* Image Upload */}
-          <div className="form-group">
-            <label htmlFor="images">
-              📸 Product Images (Max 5)
-            </label>
+          {/* ── Location ── */}
+          <section style={styles.section}>
+            <label htmlFor="location" style={styles.label}>Location</label>
             <input
-              type="file"
-              id="images"
-              accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
-              multiple
-              onChange={handleImageChange}
-              className="input-file"
+              id="location"
+              type="text"
+              value={location}
+              onChange={e => setLocation(e.target.value)}
+              placeholder="e.g. Monrovia, Paynesville…"
+              style={styles.input}
+              maxLength={100}
             />
-            <p className="input-hint">
-              JPEG, PNG, WebP, or GIF. Max 5MB per image.
-            </p>
-            
-            {/* Image Previews */}
-            {imagePreviews.length > 0 && (
-              <div className="image-previews">
-                {imagePreviews.map((preview, index) => (
-                  <div key={index} className="image-preview">
-                    <img src={preview} alt={`Preview ${index + 1}`} />
-                    <button
-                      type="button"
-                      onClick={() => removeImage(index)}
-                      className="remove-image"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          </section>
 
-          {/* Submit Buttons */}
-          <div className="form-actions">
+          {/* ── Actions ── */}
+          <div style={styles.actions}>
             <button
               type="button"
-              onClick={() => navigate('/my-products')}
-              className="btn-cancel"
+              onClick={() => navigate(-1)}
+              style={styles.cancelBtn}
               disabled={loading}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="btn-submit"
+              style={styles.submitBtn}
               disabled={loading}
             >
-              {loading ? '⏳ Posting...' : '📤 Post Product'}
+              {loading ? 'Posting…' : 'Post Listing'}
             </button>
           </div>
         </form>
-
-        {/* Help Section */}
-        <div className="help-section">
-          <h3>💡 Tips for a Great Listing</h3>
-          <ul>
-            <li>Use a clear, descriptive title</li>
-            <li>Set a fair, competitive price</li>
-            <li>Select the correct category</li>
-            <li>Be honest about the condition</li>
-          </ul>
-        </div>
       </div>
     </div>
   )
+}
+
+const styles: Record<string, React.CSSProperties> = {
+  page: {
+    minHeight: '100vh',
+    background: '#f5f6fa',
+    padding: '5rem 1rem 3rem',
+  },
+  content: {
+    maxWidth: 480,
+    margin: '0 auto',
+  },
+  heading: {
+    fontSize: '1.6rem',
+    fontWeight: 700,
+    color: '#1f2937',
+    marginBottom: '1.25rem',
+    textAlign: 'center',
+  },
+  errorBanner: {
+    background: '#fee2e2',
+    color: '#b91c1c',
+    borderRadius: 10,
+    padding: '0.75rem 1rem',
+    marginBottom: '1rem',
+    fontSize: '0.9rem',
+    textAlign: 'center',
+  },
+  form: {
+    background: '#fff',
+    borderRadius: 16,
+    padding: '1.5rem',
+    boxShadow: '0 2px 16px rgba(0,0,0,0.07)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1.25rem',
+  },
+  section: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.4rem',
+  },
+  label: {
+    fontWeight: 600,
+    fontSize: '0.9rem',
+    color: '#374151',
+  },
+  input: {
+    width: '100%',
+    padding: '0.75rem 1rem',
+    border: '1.5px solid #e5e7eb',
+    borderRadius: 10,
+    fontSize: '1rem',
+    color: '#111827',
+    background: '#fafafa',
+    outline: 'none',
+    boxSizing: 'border-box',
+    transition: 'border-color 0.15s',
+  },
+  hint: {
+    fontSize: '0.78rem',
+    color: '#9ca3af',
+    margin: 0,
+  },
+  /* Photos */
+  photoRow: {
+    display: 'flex',
+    gap: '0.6rem',
+    flexWrap: 'wrap',
+  },
+  thumb: {
+    position: 'relative',
+    width: 80,
+    height: 80,
+    borderRadius: 10,
+    overflow: 'hidden',
+    border: '1.5px solid #e5e7eb',
+    flexShrink: 0,
+  },
+  thumbImg: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+  },
+  removeBtn: {
+    position: 'absolute',
+    top: 3,
+    right: 3,
+    width: 22,
+    height: 22,
+    background: 'rgba(220,38,38,0.88)',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '50%',
+    fontSize: '0.7rem',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    lineHeight: 1,
+  },
+  addPhotoBtn: {
+    width: 80,
+    height: 80,
+    borderRadius: 10,
+    border: '1.5px dashed #d1d5db',
+    background: '#f9fafb',
+    cursor: 'pointer',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    flexShrink: 0,
+    transition: 'border-color 0.15s, background 0.15s',
+  },
+  addPhotoIcon: {
+    fontSize: '1.6rem',
+    color: '#9ca3af',
+    lineHeight: 1,
+  },
+  addPhotoText: {
+    fontSize: '0.7rem',
+    color: '#9ca3af',
+  },
+  /* Price */
+  priceRow: {
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+  },
+  currencySymbol: {
+    position: 'absolute',
+    left: '1rem',
+    fontSize: '1rem',
+    color: '#6b7280',
+    pointerEvents: 'none',
+    zIndex: 1,
+  },
+  /* Condition pills */
+  pills: {
+    display: 'flex',
+    gap: '0.5rem',
+    flexWrap: 'wrap',
+  },
+  pill: {
+    padding: '0.45rem 1rem',
+    borderRadius: 20,
+    border: '1.5px solid #e5e7eb',
+    background: '#f9fafb',
+    color: '#374151',
+    fontSize: '0.88rem',
+    fontWeight: 500,
+    cursor: 'pointer',
+    transition: 'all 0.15s',
+  },
+  pillActive: {
+    background: '#00205B',
+    borderColor: '#00205B',
+    color: '#fff',
+  },
+  /* Actions */
+  actions: {
+    display: 'flex',
+    gap: '0.75rem',
+    marginTop: '0.5rem',
+  },
+  cancelBtn: {
+    flex: 1,
+    padding: '0.85rem',
+    border: '1.5px solid #e5e7eb',
+    borderRadius: 10,
+    background: '#fff',
+    color: '#374151',
+    fontSize: '1rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+  submitBtn: {
+    flex: 2,
+    padding: '0.85rem',
+    border: 'none',
+    borderRadius: 10,
+    background: '#00205B',
+    color: '#fff',
+    fontSize: '1rem',
+    fontWeight: 700,
+    cursor: 'pointer',
+    transition: 'opacity 0.15s',
+  },
 }
 
 export default AddProduct

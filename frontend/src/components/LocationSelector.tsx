@@ -6,6 +6,7 @@ interface LocationSelectorProps {
   selectedCity?: string
   onCountyChange: (countyId: string) => void
   onCityChange: (cityName: string) => void
+  onLocationFound?: (lat: number, lon: number) => void
   required?: boolean
   disabled?: boolean
   showCityType?: boolean
@@ -17,6 +18,7 @@ const LocationSelector = ({
   selectedCity = '',
   onCountyChange,
   onCityChange,
+  onLocationFound,
   required = false,
   disabled = false,
   showCityType = false,
@@ -51,6 +53,11 @@ const LocationSelector = ({
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords
+        
+        // Pass coordinates back to parent if handler provided
+        if (onLocationFound) {
+          onLocationFound(latitude, longitude)
+        }
 
         try {
           // Use OpenStreetMap Nominatim for reverse geocoding (free and reliable)

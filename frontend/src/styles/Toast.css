@@ -15,17 +15,28 @@
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding: 1rem 1.5rem;
+  padding: 1.25rem 1.5rem;
   background: white;
   border-radius: 12px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
-  min-width: 300px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  min-width: 320px;
   max-width: 500px;
   pointer-events: auto;
   animation: slide-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border-left: 4px solid;
+  border-left: 6px solid;
   position: relative;
   overflow: hidden;
+}
+
+.toast-message {
+  font-size: 1.1rem;
+  line-height: 1.5;
+  color: #1f2937;
+  font-weight: 500;
+}
+
+.toast-icon {
+  font-size: 1.5rem;
 }
 
 .toast::before {
@@ -33,7 +44,7 @@
   position: absolute;
   bottom: 0;
   left: 0;
-  height: 3px;
+  height: 4px;
   background: currentColor;
   animation: shrink 5s linear;
 }
@@ -46,6 +57,21 @@
 
 .toast-success::before {
   background: #10b981;
+}
+
+.toast-error {
+  border-left-color: #ef4444;
+  color: #ef4444;
+  background-color: #fef2f2;
+}
+
+.toast-error .toast-message {
+  color: #991b1b;
+  font-weight: 600;
+}
+
+.toast-error::before {
+  background: #ef4444;
 }
 
 .toast-error {

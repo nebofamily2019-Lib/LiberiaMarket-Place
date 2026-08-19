@@ -1,53 +1,47 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import api from '../utils/api'
+import LanguageToggle from './LanguageToggle'
+import useUnreadMessages from '../hooks/useUnreadMessages'
 import '../styles/HamburgerMenu.css'
+import {
+  ShoppingBag,
+  Folder,
+  Package,
+  BarChart3,
+  Heart,
+  Wallet,
+  MessageSquare,
+  LayoutDashboard,
+  User,
+  Lock,
+  Store,
+  ShoppingCart,
+  LogOut,
+  LogIn,
+  UserPlus
+} from 'lucide-react'
 
 const HamburgerMenu = () => {
-  const [isOpen, setIsOpen] = useState(false)
-  const [unreadCount, setUnreadCount] = useState(0)
+  const [isMobileOpen, setIsMobileOpen] = useState(false)
   const { user, isAuthenticated, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchUnreadCount()
-      // Poll every 30 seconds
-      const interval = setInterval(fetchUnreadCount, 30000)
-      return () => clearInterval(interval)
-    }
-  }, [isAuthenticated])
-
-  const fetchUnreadCount = async () => {
-    try {
-      const response = await api.get('/conversations/unread-count')
-      if (response.data.success) {
-        setUnreadCount(response.data.unreadCount)
-      }
-    } catch (err) {
-      console.error('Failed to fetch unread count')
-    }
-  }
-
-  const toggleMenu = () => {
-    setIsOpen(!isOpen)
-  }
-
-  const closeMenu = () => {
-    setIsOpen(false)
-  }
+  const unreadMessages = useUnreadMessages()
 
   const handleLogout = async () => {
     await logout()
-    closeMenu()
+    setIsMobileOpen(false)
     navigate('/login')
   }
 
   const handleNavigation = (path: string) => {
     navigate(path)
-    closeMenu()
+    setIsMobileOpen(false)
+  }
+
+  const toggleMobileMenu = () => {
+    setIsMobileOpen(!isMobileOpen)
   }
 
   const isActive = (path: string) => {
@@ -61,58 +55,57 @@ const HamburgerMenu = () => {
   }
 
   const menuItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: '🏠', roles: ['buyer', 'seller', 'admin'] },
-    { path: '/products', label: 'Browse Products', icon: '🛍️', roles: ['buyer', 'seller', 'admin'] },
-    { path: '/categories', label: 'Browse by Category', icon: '📂', roles: ['buyer', 'seller', 'admin'] },
-    { path: '/buyer/inbox', label: 'My Offers', icon: '📬', roles: ['buyer', 'admin'] },
-    { path: '/my-products', label: 'My Products', icon: '📦', roles: ['seller', 'admin'] },
-    { path: '/seller/inbox', label: 'Received Offers', icon: '💰', roles: ['seller', 'admin'] },
-    { path: '/products/add', label: 'Add Product', icon: '➕', roles: ['seller', 'admin'] },
-    { 
-      path: '/messages', 
-      label: 'Messages', 
-      icon: '💬', 
-      roles: ['buyer', 'seller', 'admin'],
-      badge: unreadCount 
-    },
+    // Dashboard — top of list
+    { path: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: ['buyer', 'seller', 'admin'] },
+
+    { path: '/products', label: 'Browse Products', icon: <ShoppingBag size={20} />, roles: ['buyer', 'seller', 'admin'] },
+    { path: '/categories', label: 'Categories', icon: <Folder size={20} />, roles: ['buyer', 'seller', 'admin'] },
+    { path: '/messages', label: 'Messages', icon: <MessageSquare size={20} />, roles: ['buyer', 'seller', 'admin'], badge: true },
+    { path: '/saved-items', label: 'Saved Items', icon: <Heart size={20} />, roles: ['buyer', 'seller', 'admin'] },
+    { path: '/wallet', label: 'My Wallet', icon: <Wallet size={20} />, roles: ['buyer', 'seller', 'admin'] },
+
+    // Seller Tools
+    { path: '/my-products', label: 'My Products', icon: <Package size={20} />, roles: ['seller', 'admin'] },
+    { path: '/seller/financials', label: 'Sales Dashboard', icon: <BarChart3 size={20} />, roles: ['seller', 'admin'] },
   ]
 
   return (
     <>
-      <div className="hamburger-menu">
-        <div className="menu-bar">
-          <Link to="/" className="menu-logo" onClick={closeMenu}>
-            <div className="logo-icon">🇱🇷</div>
-            <div className="logo-text">
-              <h1>Liberia Marketplace</h1>
-              <span>Buy & Sell Locally</span>
-            </div>
-          </Link>
+      {/* Mobile Menu Toggle Button */}
+      <button
+        className={`mobile-menu-toggle ${isMobileOpen ? 'open' : ''}`}
+        onClick={toggleMobileMenu}
+        aria-label="Toggle menu"
+      >
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
 
-          <button
-            className={`menu-toggle ${isOpen ? 'open' : ''}`}
-            onClick={toggleMenu}
-            aria-label="Toggle menu"
-          >
-            <span></span>
-            <span></span>
-            <span></span>
-          </button>
-        </div>
-      </div>
-
-      {/* Overlay */}
+      {/* Mobile Overlay */}
       <div
-        className={`menu-overlay ${isOpen ? 'open' : ''}`}
-        onClick={closeMenu}
+        className={`mobile-overlay ${isMobileOpen ? 'open' : ''}`}
+        onClick={() => setIsMobileOpen(false)}
+        aria-hidden="true"
       />
 
-      {/* Menu Panel */}
-      <div className={`menu-panel ${isOpen ? 'open' : ''}`}>
-        <div className="menu-header">
-          <button className="menu-close" onClick={closeMenu}>
-            ✕
-          </button>
+      {/* Sidebar */}
+      <aside 
+        className={`sidebar-container ${isMobileOpen ? 'mobile-open' : ''}`}
+        aria-label="Main navigation"
+      >
+        <div className="sidebar-panel">
+        <div className="sidebar-header">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+            <Link to="/" className="sidebar-logo">
+              <div className="logo-icon"><Store size={24} /></div>
+              <div className="logo-text">
+                <h1>Liberia Marketplace</h1>
+                <span>Buy & Sell Locally</span>
+              </div>
+            </Link>
+            <LanguageToggle />
+          </div>
 
           {isAuthenticated && user ? (
             <div className="user-info">
@@ -125,9 +118,9 @@ const HamburgerMenu = () => {
                 <div className="user-role-badges">
                   {user.roles?.map((role) => (
                     <span key={role} className="role-badge-small">
-                      {role === 'admin' && '🔐'}
-                      {role === 'seller' && '🛍️'}
-                      {role === 'buyer' && '🛒'}
+                      {role === 'admin' && <Lock size={12} />}
+                      {role === 'seller' && <Store size={12} />}
+                      {role === 'buyer' && <ShoppingCart size={12} />}
                       {' '}{role}
                     </span>
                   ))}
@@ -135,8 +128,8 @@ const HamburgerMenu = () => {
               </div>
             </div>
           ) : (
-            <div style={{ textAlign: 'center' }}>
-              <div className="guest-icon">👤</div>
+            <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+              <div className="guest-icon"><User size={32} /></div>
               <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.5rem' }}>Welcome!</h3>
               <p style={{ margin: 0, fontSize: '0.95rem', opacity: 0.9 }}>
                 Sign in to buy and sell
@@ -145,7 +138,7 @@ const HamburgerMenu = () => {
           )}
         </div>
 
-        <nav className="menu-nav">
+        <nav className="sidebar-nav">
           <ul className="menu-items">
             {isAuthenticated ? (
               menuItems
@@ -156,11 +149,47 @@ const HamburgerMenu = () => {
                       onClick={() => handleNavigation(item.path)}
                       className={`menu-link ${isActive(item.path) ? 'active' : ''}`}
                     >
-                      <span className="menu-icon">{item.icon}</span>
-                      <span>{item.label}</span>
-                      {item.badge > 0 && (
-                        <span className="notification-badge">{item.badge}</span>
-                      )}
+                      <span className="menu-icon" style={{ position: 'relative' }}>
+                        {item.icon}
+                        {item.badge && unreadMessages > 0 && (
+                          <span style={{
+                            position: 'absolute',
+                            top: '-6px',
+                            right: '-8px',
+                            background: '#EF4444',
+                            color: '#fff',
+                            borderRadius: '50%',
+                            minWidth: '16px',
+                            height: '16px',
+                            fontSize: '0.6rem',
+                            fontWeight: 800,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '0 3px',
+                            lineHeight: 1,
+                            border: '2px solid white',
+                          }}>
+                            {unreadMessages > 99 ? '99+' : unreadMessages}
+                          </span>
+                        )}
+                      </span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        {item.label}
+                        {item.badge && unreadMessages > 0 && (
+                          <span style={{
+                            background: '#EF4444',
+                            color: '#fff',
+                            borderRadius: '10px',
+                            padding: '0.1rem 0.45rem',
+                            fontSize: '0.65rem',
+                            fontWeight: 800,
+                            lineHeight: 1.4,
+                          }}>
+                            {unreadMessages > 99 ? '99+' : unreadMessages}
+                          </span>
+                        )}
+                      </span>
                     </button>
                   </li>
                 ))
@@ -168,13 +197,13 @@ const HamburgerMenu = () => {
               <>
                 <li className="menu-item">
                   <button onClick={() => handleNavigation('/products')} className="menu-link">
-                    <span className="menu-icon">🛍️</span>
+                    <span className="menu-icon"><ShoppingBag size={20} /></span>
                     <span>Browse Products</span>
                   </button>
                 </li>
                 <li className="menu-item">
                   <button onClick={() => handleNavigation('/categories')} className="menu-link">
-                    <span className="menu-icon">📂</span>
+                    <span className="menu-icon"><Folder size={20} /></span>
                     <span>Browse Categories</span>
                   </button>
                 </li>
@@ -183,24 +212,25 @@ const HamburgerMenu = () => {
           </ul>
         </nav>
 
-        <div className="menu-footer">
+        <div className="sidebar-footer">
           {isAuthenticated ? (
             <button onClick={handleLogout} className="logout-btn">
-              <span>🚪</span>
+              <LogOut size={20} />
               <span>Logout</span>
             </button>
           ) : (
             <div className="auth-buttons">
-              <Link to="/login" className="btn-login" onClick={closeMenu}>
-                🔐 Login
+              <Link to="/login" className="btn-login">
+                <LogIn size={18} /> Login
               </Link>
-              <Link to="/register" className="btn-register" onClick={closeMenu}>
-                📝 Create Account
+              <Link to="/register" className="btn-register">
+                <UserPlus size={18} /> Create Account
               </Link>
             </div>
           )}
         </div>
-      </div>
+        </div>
+      </aside>
     </>
   )
 }

@@ -4,26 +4,31 @@ export const designSystem = {
     primary: {
       50: '#eff6ff',   // Very light blue
       100: '#dbeafe',  // Light blue
-      500: '#1e40af',  // Deep blue (Liberian flag blue)
-      600: '#1e3a8a',  // Darker blue
-      700: '#1e3a8a'   // Navy blue
+      500: '#00205B',  // Official Liberian Blue
+      600: '#001a4d',  // Darker blue
+      700: '#00143e'   // Navy blue
     },
     secondary: {
-      500: '#dc2626',  // Liberian red (flag red)
-      600: '#b91c1c'   // Darker red
+      500: '#BF0A30',  // Official Liberian Red
+      600: '#990826'   // Darker red
     },
     accent: {
       orange: '#f97316', // Vibrant orange for highlights
-      red: '#dc2626',    // Liberian red
-      blue: '#1e40af',   // Liberian blue
+      red: '#BF0A30',    // Liberian red
+      blue: '#00205B',   // Liberian blue
       green: '#16a34a',  // Success green
-      gold: '#f59e0b'    // Gold for premium/featured items
+      gold: '#FCD116'    // Official Liberian Gold
     },
     neutral: {
       50: '#fafafa',
       100: '#f5f5f5',
       200: '#e5e5e5',
+      300: '#d4d4d4',
+      400: '#a3a3a3',
       500: '#737373',
+      600: '#525252',
+      700: '#404040',
+      800: '#262626',
       900: '#171717'
     }
   },

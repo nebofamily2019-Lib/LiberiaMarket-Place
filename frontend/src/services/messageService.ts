@@ -1,4 +1,4 @@
-import api from './api'
+import api from '../utils/api'
 import { User } from './authService'
 
 export interface Message {
@@ -51,35 +51,57 @@ const messageService = {
 
   // Get messages in a conversation
   getMessages: async (conversationId: string, page = 1, limit = 50): Promise<MessageListResponse> => {
-    const response = await api.get<MessageListResponse>(`/messages/conversation/${conversationId}`, {
+    const response = await api.get<MessageListResponse>(`/messages/conversations/${conversationId}/messages`, {
       params: { page, limit }
     })
     return response.data
   },
 
-  // Send a message
-  sendMessage: async (recipientId: string, content: string): Promise<Message> => {
-    const response = await api.post<MessageResponse>('/messages', {
-      recipient_id: recipientId,
+  // Send a message to a conversation
+  sendMessage: async (conversationId: string, content: string): Promise<Message> => {
+    const response = await api.post<MessageResponse>(`/messages/conversations/${conversationId}/messages`, {
       content
     })
     return response.data.data
   },
 
+  // Create or get conversation (requires product listing)
+  createConversation: async (listingId: string) => {
+    const response = await api.post('/messages/conversations', {
+      listing_id: listingId
+    })
+    return response.data
+  },
+
   // Mark conversation as read
   markConversationAsRead: async (conversationId: string): Promise<void> => {
-    await api.patch(`/messages/conversation/${conversationId}/read`)
+    await api.patch(`/messages/conversations/${conversationId}/read`)
   },
 
   // Get unread count
   getUnreadCount: async (): Promise<number> => {
-    const response = await api.get<{ success: boolean; count: number }>('/messages/unread-count')
-    return response.data.count
+    const response = await api.get<{ success: boolean; unreadCount: number }>('/messages/unread-count')
+    return response.data.unreadCount
   },
 
   // Delete conversation
   deleteConversation: async (conversationId: string): Promise<void> => {
-    await api.delete(`/messages/conversation/${conversationId}`)
+    await api.delete(`/messages/conversations/${conversationId}`)
+  },
+
+  // Archive conversation
+  archiveConversation: async (conversationId: string): Promise<void> => {
+    await api.patch(`/messages/conversations/${conversationId}/archive`)
+  },
+
+  // Unarchive conversation
+  unarchiveConversation: async (conversationId: string): Promise<void> => {
+    await api.patch(`/messages/conversations/${conversationId}/unarchive`)
+  },
+
+  // Mute conversation
+  muteConversation: async (conversationId: string): Promise<void> => {
+    await api.patch(`/messages/conversations/${conversationId}/mute`)
   }
 }
 

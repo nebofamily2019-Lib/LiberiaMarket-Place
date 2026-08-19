@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
+import { ShieldCheck, ShoppingBag, Banknote, AlertCircle, ArrowRight, Loader2, ArrowLeft } from 'lucide-react'
 import '../styles/Auth.css'
 
 const Login = () => {
@@ -38,9 +39,15 @@ const Login = () => {
     setLoading(true)
 
     try {
-      await login({ phone: formData.phone, password: formData.password })
+      const user = await login({ phone: formData.phone, password: formData.password })
       toast.success('Welcome back! Logged in successfully.')
-      navigate('/dashboard')
+      
+      // Smart Redirect based on role
+      if (user.roles && user.roles.includes('seller')) {
+        navigate('/seller-dashboard');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err: any) {
       const errorMsg = err.message || 'Login failed. Please try again.'
       setError(errorMsg)
@@ -52,129 +59,135 @@ const Login = () => {
 
   return (
     <div className="auth-page">
-      {/* Animated Background */}
-      <div className="blob-container">
-        <div className="blob blob-1"></div>
-        <div className="blob blob-2"></div>
-        <div className="blob blob-3"></div>
-      </div>
-
-      {/* Auth Container */}
       <div className="auth-container">
         {/* Left Side - Branding */}
         <div className="auth-left">
-          <div className="auth-branding bounce-in">
-            <div className="logo-circle-large">
-              <span className="logo-emoji-large">🇱🇷</span>
+          <div className="auth-branding">
+            <div className="brand-header">
+              <div className="logo-circle">
+                <span className="logo-text">LM</span>
+              </div>
+              <h1>Liberia Market</h1>
             </div>
-            <h1 className="gradient-text">Welcome Back!</h1>
+            
+            <h2 className="welcome-text">Welcome Back</h2>
             <p className="auth-tagline">
-              Login to continue buying and selling on Liberia's #1 marketplace
+              The most trusted marketplace for buying and selling in Liberia.
             </p>
             
-            <div className="features-mini">
-              <div className="feature-mini">
-                <span>✅</span>
-                <span>Secure Login</span>
+            <div className="features-list">
+              <div className="feature-item">
+                <div className="feature-icon">
+                  <ShieldCheck size={20} />
+                </div>
+                <span>Secure & Verified Transactions</span>
               </div>
-              <div className="feature-mini">
-                <span>🛍️</span>
-                <span>Easy Shopping</span>
+              <div className="feature-item">
+                <div className="feature-icon">
+                  <ShoppingBag size={20} />
+                </div>
+                <span>Easy Local Shopping</span>
               </div>
-              <div className="feature-mini">
-                <span>💰</span>
-                <span>Best Deals</span>
+              <div className="feature-item">
+                <div className="feature-icon">
+                  <Banknote size={20} />
+                </div>
+                <span>Best Prices Guaranteed</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Right Side - Form */}
-        <div className="auth-right">
-          <div className="auth-form-container glass-card scale-in">
-            <div className="auth-form-header">
+        <div className="auth-right" style={{ position: 'relative' }}>
+          <Link 
+            to="/" 
+            style={{ 
+              position: 'absolute', 
+              top: '2rem', 
+              right: '2rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.5rem', 
+              color: '#6b7280', 
+              textDecoration: 'none',
+              fontWeight: 500
+            }}
+          >
+            <ArrowLeft size={20} />
+            <span>Back to Home</span>
+          </Link>
+
+          <div className="auth-card">
+            <div className="auth-header">
               <h2>Sign In</h2>
-              <p>Enter your credentials to access your account</p>
+              <p>Access your account</p>
             </div>
 
             {error && (
-              <div className="error-message bounce-in">
-                <span>⚠️</span>
+              <div className="error-alert">
+                <AlertCircle size={18} />
                 <span>{error}</span>
               </div>
             )}
 
             <form onSubmit={handleSubmit} className="auth-form">
               <div className="form-group">
-                <label htmlFor="phone">
-                  <span className="label-icon">📱</span>
-                  Phone Number
-                </label>
-                <input
-                  type="tel"
-                  id="phone"
-                  name="phone"
-                  placeholder="e.g. 77012345"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  required
-                  className="input-modern"
-                  autoComplete="tel"
-                />
-                <span className="input-hint">Enter your Liberian phone number</span>
+                <label htmlFor="phone">Phone Number</label>
+                <div className="input-wrapper">
+                  <input
+                    type="tel"
+                    id="phone"
+                    name="phone"
+                    placeholder="e.g. 0770123456"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    required
+                    className="form-input"
+                    autoComplete="tel"
+                    style={{ paddingLeft: '1rem' }}
+                  />
+                </div>
               </div>
 
               <div className="form-group">
-                <label htmlFor="password">
-                  <span className="label-icon">🔒</span>
-                  Password
-                </label>
-                <input
-                  type="password"
-                  id="password"
-                  name="password"
-                  placeholder="Enter your password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                  className="input-modern"
-                  autoComplete="current-password"
-                />
+                <label htmlFor="password">Password</label>
+                <div className="input-wrapper">
+                  <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    placeholder="Enter your password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    required
+                    className="form-input"
+                    autoComplete="current-password"
+                    style={{ paddingLeft: '1rem' }}
+                  />
+                </div>
+                <div className="forgot-password">
+                  <Link to="/forgot-password">Forgot password?</Link>
+                </div>
               </div>
 
-              <button 
-                type="submit" 
-                className="btn-auth ripple-button"
-                disabled={loading}
-              >
+              <button type="submit" className="btn-primary" disabled={loading}>
                 {loading ? (
                   <>
-                    <span className="spinner-small"></span>
-                    <span>Signing In...</span>
+                    <Loader2 className="animate-spin" size={20} />
+                    <span>Signing in...</span>
                   </>
                 ) : (
                   <>
-                    <span>🔐</span>
                     <span>Sign In</span>
+                    <ArrowRight size={20} />
                   </>
                 )}
               </button>
             </form>
 
-            <div className="auth-divider">
-              <span>or</span>
-            </div>
-
-            <div className="auth-links">
-              <p className="auth-link-text">
-                Don't have an account?{' '}
-                <Link to="/register" className="link-primary">
-                  Create Account →
-                </Link>
-              </p>
-              <Link to="/" className="link-secondary">
-                ← Back to Home
-              </Link>
+            <div className="auth-footer">
+              <p>Don't have an account? <Link to="/register">Create Account</Link></p>
             </div>
           </div>
         </div>

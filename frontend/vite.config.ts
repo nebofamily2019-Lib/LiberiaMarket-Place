@@ -15,6 +15,15 @@ export default defineConfig({
   },
   build: {
     sourcemap: false, // Disable sourcemaps to reduce 401 noise
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          ui: ['lucide-react'],
+          utils: ['axios', 'date-fns', 'socket.io-client']
+        }
+      }
+    }
   },
   logLevel: 'warn' // Only show warnings and errors, not every 401
 })

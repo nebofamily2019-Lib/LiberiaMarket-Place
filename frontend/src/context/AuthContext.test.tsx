@@ -26,7 +26,7 @@ describe('AuthContext', () => {
 
   it('initializes with no user when localStorage is empty', async () => {
     vi.mocked(authService.getStoredUser).mockReturnValue(null)
-    vi.mocked(authService.getStoredToken).mockReturnValue(null)
+    vi.mocked(authService.getCurrentUser).mockRejectedValue(new Error('Not authenticated'))
 
     const { result } = renderHook(() => useAuth(), {
       wrapper: AuthProvider,
@@ -42,7 +42,6 @@ describe('AuthContext', () => {
 
   it('initializes with user from localStorage if token is valid', async () => {
     vi.mocked(authService.getStoredUser).mockReturnValue(mockUser)
-    vi.mocked(authService.getStoredToken).mockReturnValue('valid-token')
     vi.mocked(authService.getCurrentUser).mockResolvedValue(mockUser)
 
     const { result } = renderHook(() => useAuth(), {
@@ -59,7 +58,6 @@ describe('AuthContext', () => {
 
   it('clears user if token is invalid on initialization', async () => {
     vi.mocked(authService.getStoredUser).mockReturnValue(mockUser)
-    vi.mocked(authService.getStoredToken).mockReturnValue('invalid-token')
     vi.mocked(authService.getCurrentUser).mockRejectedValue(
       new Error('Unauthorized')
     )
@@ -81,7 +79,6 @@ describe('AuthContext', () => {
   describe('login', () => {
     it('updates user state on successful login', async () => {
       vi.mocked(authService.getStoredUser).mockReturnValue(null)
-      vi.mocked(authService.getStoredToken).mockReturnValue(null)
       vi.mocked(authService.login).mockResolvedValue(mockAuthResponse)
 
       const { result } = renderHook(() => useAuth(), {
@@ -105,7 +102,6 @@ describe('AuthContext', () => {
 
     it('throws error on failed login', async () => {
       vi.mocked(authService.getStoredUser).mockReturnValue(null)
-      vi.mocked(authService.getStoredToken).mockReturnValue(null)
       vi.mocked(authService.login).mockRejectedValue(
         new Error('Invalid credentials')
       )
@@ -135,7 +131,6 @@ describe('AuthContext', () => {
   describe('register', () => {
     it('updates user state on successful registration', async () => {
       vi.mocked(authService.getStoredUser).mockReturnValue(null)
-      vi.mocked(authService.getStoredToken).mockReturnValue(null)
       vi.mocked(authService.register).mockResolvedValue(mockAuthResponse)
 
       const { result } = renderHook(() => useAuth(), {
@@ -160,7 +155,6 @@ describe('AuthContext', () => {
 
     it('throws error on failed registration', async () => {
       vi.mocked(authService.getStoredUser).mockReturnValue(null)
-      vi.mocked(authService.getStoredToken).mockReturnValue(null)
       vi.mocked(authService.register).mockRejectedValue(
         new Error('Phone already exists')
       )
@@ -190,7 +184,6 @@ describe('AuthContext', () => {
   describe('logout', () => {
     it('clears user state on logout', async () => {
       vi.mocked(authService.getStoredUser).mockReturnValue(mockUser)
-      vi.mocked(authService.getStoredToken).mockReturnValue('token')
       vi.mocked(authService.getCurrentUser).mockResolvedValue(mockUser)
       vi.mocked(authService.logout).mockResolvedValue()
 
@@ -212,7 +205,6 @@ describe('AuthContext', () => {
 
     it('clears user state even if API call fails', async () => {
       vi.mocked(authService.getStoredUser).mockReturnValue(mockUser)
-      vi.mocked(authService.getStoredToken).mockReturnValue('token')
       vi.mocked(authService.getCurrentUser).mockResolvedValue(mockUser)
       vi.mocked(authService.logout).mockRejectedValue(new Error('Network error'))
 
@@ -241,7 +233,6 @@ describe('AuthContext', () => {
   describe('refreshUser', () => {
     it('updates user data from API', async () => {
       vi.mocked(authService.getStoredUser).mockReturnValue(mockUser)
-      vi.mocked(authService.getStoredToken).mockReturnValue('token')
       vi.mocked(authService.getCurrentUser).mockResolvedValue(mockUser)
 
       const updatedUser = { ...mockUser, name: 'Updated Name' }
@@ -266,7 +257,6 @@ describe('AuthContext', () => {
 
     it('throws error if refresh fails', async () => {
       vi.mocked(authService.getStoredUser).mockReturnValue(mockUser)
-      vi.mocked(authService.getStoredToken).mockReturnValue('token')
       vi.mocked(authService.getCurrentUser)
         .mockResolvedValueOnce(mockUser)
         .mockRejectedValueOnce(new Error('Unauthorized'))

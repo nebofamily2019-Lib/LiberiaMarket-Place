@@ -4,6 +4,7 @@ import api from '../utils/api'
 import HamburgerMenu from '../components/HamburgerMenu'
 import '../styles/Categories.css'
 import { CategoryListSkeleton } from '../components/LoadingSkeleton'
+import { getCategoryIcon } from '../utils/categoryIcons'
 
 interface Category {
   id: string
@@ -11,6 +12,7 @@ interface Category {
   description: string
   icon: string
   color: string
+  slug: string
   productCount: number
 }
 
@@ -26,16 +28,16 @@ const Categories = () => {
   const fetchCategories = async () => {
     try {
       setLoading(true)
-      console.log('📂 Fetching categories...')
+      console.log('Fetching categories...')
       
       const response = await api.get('/categories')
       
       if (response.data.success) {
-        console.log(`✅ Loaded ${response.data.data.length} categories`)
+        console.log(`Loaded ${response.data.data.length} categories`)
         setCategories(response.data.data)
       }
     } catch (err: any) {
-      console.error('❌ Error fetching categories:', err)
+      console.error('Error fetching categories:', err)
     } finally {
       setLoading(false)
     }
@@ -51,7 +53,7 @@ const Categories = () => {
         <HamburgerMenu />
         <div className="categories-content">
           <div className="page-header">
-            <h1>📂 Browse by Category</h1>
+            <h1>Browse by Category</h1>
             <p className="subtitle">Loading categories...</p>
           </div>
           <CategoryListSkeleton count={8} />
@@ -66,7 +68,7 @@ const Categories = () => {
       
       <div className="categories-content">
         <div className="page-header">
-          <h1>📂 Browse by Category</h1>
+          <h1>Browse by Category</h1>
           <p className="subtitle">Explore {categories.length} product categories</p>
         </div>
 
@@ -79,7 +81,7 @@ const Categories = () => {
               style={{ borderColor: category.color }}
             >
               <div className="category-icon" style={{ background: `${category.color}20` }}>
-                <span style={{ fontSize: '3rem' }}>{category.icon}</span>
+                {getCategoryIcon(category.slug, 48, '', category.color)}
               </div>
               
               <div className="category-info">

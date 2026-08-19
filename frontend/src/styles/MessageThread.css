@@ -18,7 +18,7 @@
 
 /* Header */
 .thread-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--gradient-primary);
   color: white;
   padding: 1.5rem;
   display: flex;
@@ -138,9 +138,9 @@
   gap: 1rem;
   padding: 1rem 1.5rem;
   background: #fee;
-  border: 2px solid #dc2626;
+  border: 2px solid var(--primary-red);
   border-radius: 12px;
-  color: #dc2626;
+  color: var(--primary-red);
   margin-bottom: 1rem;
   animation: slide-down 0.3s ease-out;
 }
@@ -149,7 +149,7 @@
   margin-left: auto;
   background: transparent;
   border: none;
-  color: #dc2626;
+  color: var(--primary-red);
   font-size: 1.2rem;
   cursor: pointer;
   padding: 0.25rem 0.5rem;
@@ -186,7 +186,7 @@
 
 .message-bubble.own {
   align-self: flex-end;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--gradient-primary);
   color: white;
   margin-left: auto;
   border-bottom-right-radius: 4px;
@@ -253,14 +253,14 @@
 
 .input-wrapper textarea:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--primary-blue);
   box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
 }
 
 .send-btn {
   width: 50px;
   height: 50px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--gradient-primary);
   border: none;
   border-radius: 12px;
   color: white;
@@ -344,6 +344,125 @@
 }
 
 .messages-area::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--gradient-primary);
   border-radius: 4px;
+}
+
+/* Online/Offline Indicator */
+.user-avatar-container {
+  position: relative;
+  display: inline-block;
+}
+
+.online-indicator {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  font-size: 0.9rem;
+  background: white;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status-text {
+  color: #10b981;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-left: 0.25rem;
+}
+
+/* Typing Indicator */
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  animation: fade-in 0.3s ease;
+}
+
+.typing-bubble {
+  display: flex;
+  gap: 4px;
+  padding: 0.75rem 1rem;
+  background: rgba(102, 126, 234, 0.1);
+  border-radius: 18px;
+  border-bottom-left-radius: 4px;
+}
+
+.typing-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--primary-blue);
+  border-radius: 50%;
+  animation: typing-bounce 1.4s infinite ease-in-out;
+}
+
+.typing-dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing-bounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  30% {
+    transform: translateY(-8px);
+    opacity: 1;
+  }
+}
+
+.typing-text {
+  font-size: 0.85rem;
+  color: #6b7280;
+  font-style: italic;
+}
+
+/* Connection Status */
+.input-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.connection-status {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.connection-status.online {
+  color: #10b981;
+  background: #d1fae5;
+}
+
+.connection-status.offline {
+  color: #f59e0b;
+  background: #fef3c7;
+}
+
+/* Enhanced input wrapper */
+.input-wrapper textarea:disabled {
+  background: #f3f4f6;
+  cursor: not-allowed;
+  opacity: 0.7;
 }

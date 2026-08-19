@@ -1,29 +1,45 @@
 :root {
-  /* Brand Colors - Inspired by Liberian flag */
-  --primary-blue: #002868;
-  --primary-red: #BF0A30;
+  /* Brand Colors - Professional Liberian Theme */
+  --primary-blue: #00205B; /* Deeper, more official blue */
+  --primary-red: #BF0A30;  /* Official flag red */
   --primary-white: #FFFFFF;
-  --accent-gold: #FFD700;
-  
+  --accent-gold: #FCD116;  /* Official flag gold */
+
   /* Modern Color Palette */
-  --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  --gradient-success: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-  --gradient-warning: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  --gradient-info: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  --color-primary: var(--primary-blue);
+  --color-secondary: var(--primary-red);
+  --color-accent: var(--accent-gold);
   
-  /* Neutral Colors */
-  --color-background: #F8F9FA;
+  /* Backgrounds */
+  --color-background: #F3F4F6;
   --color-surface: #FFFFFF;
+  --color-surface-alt: #F9FAFB;
+  
+  /* Borders */
   --color-border: #E5E7EB;
-  --color-text-primary: #1F2937;
-  --color-text-secondary: #6B7280;
+  --color-border-focus: var(--primary-blue);
+
+  /* Text */
+  --color-text-primary: #111827;
+  --color-text-secondary: #4B5563;
   --color-text-muted: #9CA3AF;
+  --color-text-inverse: #FFFFFF;
   
   /* Semantic Colors */
-  --color-success: #10B981;
-  --color-error: #EF4444;
-  --color-warning: #F59E0B;
-  --color-info: #3B82F6;
+  --color-success: #059669;
+  --color-error: #DC2626;
+  --color-warning: #D97706;
+  --color-info: #2563EB;
+  
+  /* Gradients - Subtle & Professional */
+  --gradient-primary: linear-gradient(180deg, var(--primary-blue) 0%, #1e3a8a 100%);
+  --gradient-liberia: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-red) 100%);
+  --gradient-surface: linear-gradient(180deg, #FFFFFF 0%, #F9FAFB 100%);
+  
+  /* Shadows - Soft & Modern */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   
   /* Spacing Scale */
   --space-1: 0.25rem;
@@ -38,8 +54,8 @@
   --space-16: 4rem;
   
   /* Typography */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-  --font-mono: 'Fira Code', 'Courier New', monospace;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Fira Code', monospace;
   
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;

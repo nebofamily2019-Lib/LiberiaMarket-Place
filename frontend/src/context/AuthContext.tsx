@@ -9,6 +9,7 @@ interface AuthContextType {
   login: (credentials: LoginCredentials) => Promise<User>
   register: (data: RegisterData) => Promise<User>
   logout: () => Promise<void>
+  logoutAll: () => Promise<void>
   checkAuth: () => Promise<void>
   refreshUser: () => Promise<void>
 }
@@ -31,18 +32,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [loading, setLoading] = useState(true)
 
   const checkAuth = async () => {
-    const storedToken = authService.getStoredToken()
-    const storedUser = authService.getStoredUser()
-
-    // If no token, skip auth check
-    if (!storedToken) {
-      setUser(null)
-      setIsAuthenticated(false)
-      setLoading(false)
-      return
-    }
-
-    // If we have a token, verify it with the server
+    // Always try to verify with the server (cookie based)
     try {
       const currentUser = await authService.getCurrentUser()
       setUser(currentUser)
@@ -50,12 +40,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // Sync localStorage
       localStorage.setItem('user', JSON.stringify(currentUser))
     } catch (error: any) {
-      // Token is invalid, clear auth state
-      console.error('Auth check failed:', error.message)
+      // Token is invalid or missing, clear auth state
+      // Only log if it's not a 401 (expected when not logged in)
+      if (error.response?.status !== 401) {
+        console.error('Auth check failed:', error.message)
+      }
       setUser(null)
       setIsAuthenticated(false)
       localStorage.removeItem('user')
-      localStorage.removeItem('token')
     } finally {
       setLoading(false)
     }
@@ -90,6 +82,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   }
 
+  const logoutAll = async () => {
+    try {
+      await authService.logoutAll()
+    } catch (err) {
+      console.error('Logout all error:', err)
+    } finally {
+      setUser(null)
+      setIsAuthenticated(false)
+    }
+  }
+
   const refreshUser = async () => {
     const currentUser = await authService.getCurrentUser()
     setUser(currentUser)
@@ -104,6 +107,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     login,
     register,
     logout,
+    logoutAll,
     checkAuth,
     refreshUser
   }

@@ -17,25 +17,31 @@ export const fetchCsrfToken = async () => {
   try {
     const response = await api.get('/csrf-token')
     csrfToken = response.data.csrfToken
-    console.log('🔒 CSRF token fetched')
+    console.log('CSRF token fetched')
   } catch (error) {
-    console.error('❌ Failed to fetch CSRF token:', error)
+    console.error('Failed to fetch CSRF token:', error)
   }
 }
 
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    console.log('📡 API Request:', config.method?.toUpperCase(), config.url)
-    console.log('🍪 Cookies will be sent:', document.cookie ? 'Yes' : 'No')
+    console.log('API Request:', config.method?.toUpperCase(), config.url)
+    console.log('Cookies will be sent:', document.cookie ? 'Yes' : 'No')
+
+    // When sending FormData, delete Content-Type so the browser can set it
+    // automatically with the correct multipart boundary
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type']
+    }
 
     // Add CSRF token to non-GET requests
     if (config.method && !['get', 'head', 'options'].includes(config.method.toLowerCase())) {
       if (csrfToken) {
         config.headers['X-CSRF-Token'] = csrfToken
-        console.log('🔒 CSRF Token added to request:', csrfToken.substring(0, 10) + '...')
+        console.log('CSRF Token added to request:', csrfToken.substring(0, 10) + '...')
       } else {
-        console.warn('⚠️ No CSRF token available for', config.method, config.url)
+        console.warn('No CSRF token available for', config.method, config.url)
       }
     }
 
@@ -49,7 +55,7 @@ api.interceptors.request.use(
 // Response interceptor
 api.interceptors.response.use(
   (response) => {
-    // console.log('✅ API Response:', response.status, response.config.url);
+    // console.log('API Response:', response.status, response.config.url);
     return response;
   },
   async (error) => {
@@ -59,7 +65,7 @@ api.interceptors.response.use(
 
     // Handle CSRF token errors - retry with fresh token
     if (status === 403 && message.includes('csrf')) {
-      console.warn('⚠️ CSRF token invalid, fetching new token...')
+      console.warn('CSRF token invalid, fetching new token...')
       await fetchCsrfToken()
 
       // Retry the original request with new token
@@ -72,7 +78,7 @@ api.interceptors.response.use(
 
     // Only log non-401 errors (401 is expected when not logged in)
     if (status !== 401) {
-      console.error('❌ API Error:', { status, message, url })
+      console.error('API Error:', { status, message, url })
     }
 
     // Note: We don't automatically redirect to /login on 401 errors

@@ -4,6 +4,8 @@ interface MessageBubbleProps {
   message: {
     id: string
     content: string
+    audioUrl?: string
+    messageType?: 'text' | 'audio' | 'image'
     createdAt: string
     sender: {
       name: string
@@ -37,7 +39,20 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOwn }) => {
         <div className="message-sender">{message.sender.name}</div>
       )}
       <div className="message-content">
-        {message.content}
+        {message.audioUrl ? (
+          <div className="audio-message">
+            <audio 
+              controls 
+              src={`${(import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace('/api', '')}${message.audioUrl}`} 
+              style={{ maxWidth: '200px', height: '40px' }} 
+            />
+            {message.content && message.content !== '[Voice Message]' && (
+              <div style={{ marginTop: '0.5rem' }}>{message.content}</div>
+            )}
+          </div>
+        ) : (
+          message.content
+        )}
       </div>
       <div className="message-meta">
         <span className="message-time">{formatTime(message.createdAt)}</span>

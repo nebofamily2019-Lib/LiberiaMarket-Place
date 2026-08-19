@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { designSystem } from '../styles/designSystem'
 
 interface BottomSheetProps {

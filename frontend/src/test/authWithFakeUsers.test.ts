@@ -316,11 +316,9 @@ describe('Authentication Service with Fake Users', () => {
       })
 
       // Simulate service calls
-      authService.getStoredToken = vi.fn().mockReturnValue(token)
       authService.getStoredUser = vi.fn().mockReturnValue(user)
       authService.isAuthenticated = vi.fn().mockReturnValue(true)
 
-      expect(authService.getStoredToken()).toBe(token)
       expect(authService.getStoredUser()).toEqual(user)
       expect(authService.isAuthenticated()).toBe(true)
     })

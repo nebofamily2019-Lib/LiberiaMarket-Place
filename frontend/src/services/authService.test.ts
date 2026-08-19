@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import authService from './authService'
-import api from './api'
+import api from '../utils/api'
 import { mockUser, mockAuthResponse } from '../test/mockData'
 
 // Mock the api module
-vi.mock('./api')
+vi.mock('../utils/api')
 
 describe('authService', () => {
   beforeEach(() => {
@@ -211,32 +211,16 @@ describe('authService', () => {
     })
   })
 
-  describe('getStoredToken', () => {
-    it('returns token from localStorage', () => {
-      localStorage.setItem('token', 'test-token')
-
-      const result = authService.getStoredToken()
-
-      expect(result).toBe('test-token')
-    })
-
-    it('returns null when no token in localStorage', () => {
-      const result = authService.getStoredToken()
-
-      expect(result).toBeNull()
-    })
-  })
-
   describe('isAuthenticated', () => {
-    it('returns true when token exists', () => {
-      localStorage.setItem('token', 'test-token')
+    it('returns true when user exists', () => {
+      localStorage.setItem('user', JSON.stringify(mockUser))
 
       const result = authService.isAuthenticated()
 
       expect(result).toBe(true)
     })
 
-    it('returns false when no token exists', () => {
+    it('returns false when no user exists', () => {
       const result = authService.isAuthenticated()
 
       expect(result).toBe(false)
