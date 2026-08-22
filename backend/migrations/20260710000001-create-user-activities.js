@@ -2,6 +2,12 @@
 
 module.exports = {
   async up(queryInterface, Sequelize) {
+    const tables = await queryInterface.showAllTables();
+    if (tables.includes('user_activities')) {
+      console.log('ℹ️ user_activities table already exists, skipping');
+      return;
+    }
+
     await queryInterface.createTable('user_activities', {
       id: {
         type: Sequelize.UUID,

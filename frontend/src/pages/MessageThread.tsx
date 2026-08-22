@@ -96,6 +96,14 @@ const MessageThread = () => {
   useEffect(() => {
     const handleNewMessage = (data: { conversationId: string; message: any }) => {
       if (data.conversationId === id) {
+        // Skip our own messages - they're already added via the optimistic
+        // update + API response in handleSendMessage. Without this, our own
+        // sent message shows up twice (once from the optimistic/API flow,
+        // once from this socket echo).
+        if (data.message.sender_id === user?.id) {
+          return
+        }
+
         console.log('📨 New message received via WebSocket:', data.message)
 
         // Only add if not already in messages (prevent duplicates)
@@ -116,7 +124,7 @@ const MessageThread = () => {
     return () => {
       offNewMessage(handleNewMessage)
     }
-  }, [id, onNewMessage, offNewMessage])
+  }, [id, user?.id, onNewMessage, offNewMessage])
 
   // Listen for typing indicators
   useEffect(() => {

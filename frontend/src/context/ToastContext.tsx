@@ -39,7 +39,7 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
         duration
       }
 
-      setToasts((prev) => [...prev, toast])
+      setToasts([toast])
 
       // Auto-remove after duration
       if (duration > 0) {
