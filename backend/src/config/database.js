@@ -88,8 +88,11 @@ const config = {
     username: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
 
-    // Logging: Only log errors in production
-    logging: (msg) => logger.error(msg),
+    // Sequelize's `logging` callback fires on every executed query, success or
+    // failure — routing it to logger.error() mislabeled every routine SELECT
+    // as an error. Real DB errors are already logged where they're caught
+    // (testConnection(), controller error handlers), so just disable query echo.
+    logging: false,
 
     // Connection Pool Settings (Production - higher concurrency)
     pool: {
