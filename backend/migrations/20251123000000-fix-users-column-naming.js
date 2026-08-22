@@ -43,17 +43,17 @@ module.exports = {
     if (hasCamel) {
       await queryInterface.sequelize.query(
         `UPDATE users SET
-          is_active = isActive,
-          is_phone_verified = isPhoneVerified,
-          verification_token = verificationToken,
-          verification_token_expire = verificationTokenExpire,
-          last_login = lastLogin,
-          reset_password_token = resetPasswordToken,
-          reset_password_expire = resetPasswordExpire,
-          login_attempts = loginAttempts,
-          lock_until = lockUntil,
-          created_at = createdAt,
-          updated_at = updatedAt`
+          is_active = "isActive",
+          is_phone_verified = "isPhoneVerified",
+          verification_token = "verificationToken",
+          verification_token_expire = "verificationTokenExpire",
+          last_login = "lastLogin",
+          reset_password_token = "resetPasswordToken",
+          reset_password_expire = "resetPasswordExpire",
+          login_attempts = "loginAttempts",
+          lock_until = "lockUntil",
+          created_at = "createdAt",
+          updated_at = "updatedAt"`
       );
     }
 
@@ -128,17 +128,17 @@ module.exports = {
       // Copy data back
       await queryInterface.sequelize.query(
         `UPDATE users SET
-          isActive = is_active,
-          isPhoneVerified = is_phone_verified,
-          verificationToken = verification_token,
-          verificationTokenExpire = verification_token_expire,
-          lastLogin = last_login,
-          resetPasswordToken = reset_password_token,
-          resetPasswordExpire = reset_password_expire,
-          loginAttempts = login_attempts,
-          lockUntil = lock_until,
-          createdAt = created_at,
-          updatedAt = updated_at`,
+          "isActive" = is_active,
+          "isPhoneVerified" = is_phone_verified,
+          "verificationToken" = verification_token,
+          "verificationTokenExpire" = verification_token_expire,
+          "lastLogin" = last_login,
+          "resetPasswordToken" = reset_password_token,
+          "resetPasswordExpire" = reset_password_expire,
+          "loginAttempts" = login_attempts,
+          "lockUntil" = lock_until,
+          "createdAt" = created_at,
+          "updatedAt" = updated_at`,
         { transaction }
       );
 

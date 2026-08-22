@@ -24,7 +24,7 @@ const getCategories = async (req, res, next) => {
             sequelize.literal(`(
               SELECT COUNT(*)
               FROM products
-              WHERE products.category_id = Category.id
+              WHERE products.category_id = "Category".id
               AND products.deleted_at IS NULL
             )`),
             'productCount'
@@ -72,7 +72,7 @@ const getCategory = async (req, res, next) => {
             // Count active products
             require('sequelize').literal(`(
               SELECT COUNT(*)
-              FROM "Products" AS product
+              FROM products AS product
               WHERE product.category_id = "Category".id
               AND product.status = 'active'
             )`),

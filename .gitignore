@@ -3,6 +3,7 @@
 .env.local
 .env.*.local
 *.env
+.env.prod
 
 # Dependencies
 node_modules/
