@@ -1,0 +1,87 @@
+services:
+  frontend:
+    image: ${REGISTRY:-docker.io}/${FRONTEND_IMAGE:-libmarket-frontend}:${VERSION:-latest}
+    container_name: libmarket-frontend-prod
+    restart: always
+    ports:
+      - "80:80"
+    environment:
+      - REACT_APP_API_URL=${API_URL:-http://localhost:5000}
+    depends_on:
+      - backend
+    networks:
+      - libmarket-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  backend:
+    image: ${REGISTRY:-docker.io}/${BACKEND_IMAGE:-libmarket-backend}:${VERSION:-latest}
+    container_name: libmarket-backend-prod
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - DB_DIALECT=postgres
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${POSTGRES_DB:-libmarket}
+      - DB_USER=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_SSL=false
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRE=${JWT_EXPIRE:-7d}
+      - USE_CLOUD_STORAGE=${USE_CLOUD_STORAGE:-true}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - libmarket-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/health', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    volumes:
+      - backend-uploads:/app/uploads
+
+  db:
+    image: postgres:16-alpine
+    container_name: libmarket-db-prod
+    restart: always
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-libmarket}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - libmarket-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db-data:
+    driver: local
+  backend-uploads:
+    driver: local
+
+networks:
+  libmarket-network:
+    driver: bridge

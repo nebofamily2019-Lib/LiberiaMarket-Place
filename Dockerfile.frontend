@@ -1,29 +1,38 @@
-# Frontend Dockerfile - Multi-stage build
-# Stage 1: Build
-FROM node:18-alpine AS builder
+# Frontend Dockerfile - Multi-stage production build
+ARG NODE_VERSION=22-alpine
+ARG NGINX_VERSION=alpine
 
+FROM node:${NODE_VERSION} AS builder
 WORKDIR /app
-
-# Copy package files
 COPY frontend/package*.json ./
-
-# Install dependencies
-RUN npm ci
-
-# Copy source code
+RUN npm ci --silent
 COPY frontend/ ./
-
-# Build the application
 RUN npm run build
 
-# Stage 2: Production
-FROM nginx:alpine
+# Production stage
+FROM nginx:${NGINX_VERSION}
+
+# nginx:alpine already ships a non-root "nginx" user/group (uid/gid 101)
 
 # Copy built files from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Set proper permissions
+RUN chown -R nginx:nginx /usr/share/nginx/html && \
+    chown -R nginx:nginx /var/cache/nginx && \
+    chown -R nginx:nginx /var/log/nginx && \
+    chown -R nginx:nginx /etc/nginx/conf.d && \
+    touch /var/run/nginx.pid && \
+    chown -R nginx:nginx /var/run/nginx.pid
+
+USER nginx
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD wget --quiet --tries=1 --spider http://127.0.0.1/index.html || exit 1
 
 # Expose port
 EXPOSE 80

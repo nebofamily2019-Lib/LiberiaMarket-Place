@@ -100,9 +100,9 @@ const config = {
       evict: 1000
     },
 
-    // SSL for production PostgreSQL
+    // SSL for production PostgreSQL (disable via DB_SSL=false for self-hosted Postgres without TLS, e.g. docker-compose)
     dialectOptions: {
-      ssl: {
+      ssl: process.env.DB_SSL === 'false' ? false : {
         require: true,
         rejectUnauthorized: false  // For self-signed certs (adjust per hosting provider)
       },
