@@ -131,10 +131,10 @@ const authLimiter = rateLimit({
   }
 })
 
-// Rate limiting configuration - INCREASED for development
+// Rate limiting configuration
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'development' ? 1000 : 100, // 1000 in dev, 100 in prod
+  max: process.env.NODE_ENV === 'development' ? 1000 : 600, // 1000 in dev, 600 in prod
   message: 'Too many requests, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
