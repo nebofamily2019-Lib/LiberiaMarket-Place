@@ -72,7 +72,8 @@
       "Bash(mkdir -p /tmp/libmarket-test)",
       "Read(//tmp/**)",
       "Bash(git ls-remote *)",
-      "Bash(cd *)"
+      "Bash(cd *)",
+      "Bash(git commit *)"
     ],
     "deny": [],
     "ask": []

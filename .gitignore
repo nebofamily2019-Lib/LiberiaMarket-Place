@@ -67,3 +67,6 @@ pnpm-lock.yaml
 
 # Nested repositories
 nebofamily2019-Lib/
+
+# Local-only scripts (never committed)
+START - STOP Both SERVER.txt
