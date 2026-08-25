@@ -25,7 +25,7 @@ interface Product {
   status: string
   contactPhone?: string
   images?: string[]
-  createdAt: string
+  created_at: string
   view_count?: number
   current_bid?: number
   starting_bid?: number
@@ -339,7 +339,7 @@ const ProductDetails = () => {
               <div className="info-item">
                 <span className="info-label">Listed</span>
                 <span className="info-value">
-                  {new Date(product.createdAt).toLocaleDateString('en-US', {
+                  {new Date(product.created_at).toLocaleDateString('en-US', {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric'

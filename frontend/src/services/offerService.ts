@@ -125,6 +125,32 @@ export const counterOffer = async (offerId: string, data: CounterOfferData): Pro
 };
 
 /**
+ * Seller chooses how the item will get to the buyer (Seller only)
+ */
+export const setDeliveryMethod = async (offerId: string, delivery_method: 'delivery' | 'pickup'): Promise<Offer> => {
+  const response = await api.patch(`/offers/${offerId}/delivery-method`, { delivery_method });
+  return response.data.data;
+};
+
+/**
+ * Seller confirms the item has been handed over / delivered (Seller only)
+ * `completed` is true once both parties have confirmed and the sale is finalized.
+ */
+export const sellerConfirmDelivery = async (offerId: string): Promise<{ data: Offer; completed?: boolean }> => {
+  const response = await api.patch(`/offers/${offerId}/seller-confirm`);
+  return response.data;
+};
+
+/**
+ * Buyer confirms they received the item (Buyer only)
+ * `completed` is true once both parties have confirmed and the sale is finalized.
+ */
+export const buyerConfirmReceipt = async (offerId: string): Promise<{ data: Offer; completed?: boolean }> => {
+  const response = await api.patch(`/offers/${offerId}/buyer-confirm`);
+  return response.data;
+};
+
+/**
  * Get offer status badge color
  */
 export const getOfferStatusColor = (status: string): string => {
@@ -139,6 +165,8 @@ export const getOfferStatusColor = (status: string): string => {
       return '#3B82F6'; // Blue
     case 'expired':
       return '#6B7280'; // Gray
+    case 'completed':
+      return '#10B981'; // Green
     default:
       return '#6B7280';
   }
@@ -159,6 +187,8 @@ export const getOfferStatusText = (status: string): string => {
       return 'Counter-Offer';
     case 'expired':
       return 'Expired';
+    case 'completed':
+      return 'Completed';
     default:
       return status;
   }

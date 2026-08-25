@@ -53,13 +53,14 @@ const MakeOfferModal = ({ productId, productTitle, productPrice, productCurrency
     try {
       setLoading(true);
       
-      // Convert to USD for backend consistency
+      // Convert to USD for backend consistency — currency must match, or the
+      // stored amount gets mislabeled and re-converted wrong everywhere it's read.
       const finalAmount = currency === 'USD' ? amount : lrdToUsd(amount);
 
       await createOffer({
         product_id: productId,
         offer_amount: finalAmount,
-        currency: currency,
+        currency: 'USD',
         message: message
       });
       

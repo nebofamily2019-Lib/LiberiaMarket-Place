@@ -1,13 +1,22 @@
 import { useState } from 'react';
 import { Package } from 'lucide-react';
 import { designSystem } from '../styles/designSystem';
-import { Offer, acceptOffer, rejectOffer, counterOffer, getOfferStatusColor, getOfferStatusText } from '../services/offerService';
+import {
+  Offer,
+  acceptOffer,
+  rejectOffer,
+  counterOffer,
+  setDeliveryMethod,
+  sellerConfirmDelivery,
+  buyerConfirmReceipt,
+  getOfferStatusColor,
+  getOfferStatusText
+} from '../services/offerService';
 import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import { formatPriceWithCurrency, lrdToUsd, usdToLrd } from '../utils/currency';
 import { getImageUrl } from '../utils/imageUtils';
 import ConfirmationModal from './ConfirmationModal';
-import PaymentModal from './PaymentModal';
 import '../styles/OfferCard.css';
 
 interface OfferCardProps {
@@ -20,7 +29,7 @@ const OfferCard = ({ offer, viewType, onOfferUpdated }: OfferCardProps) => {
   const [loading, setLoading] = useState(false);
   const [showCounterForm, setShowCounterForm] = useState(false);
   const [imgError, setImgError] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [deliveryActionLoading, setDeliveryActionLoading] = useState(false);
   const [counterAmount, setCounterAmount] = useState<string>('');
   const [counterCurrency, setCounterCurrency] = useState<'LRD' | 'USD'>('LRD');
   const [counterMessage, setCounterMessage] = useState<string>('');
@@ -52,7 +61,6 @@ const OfferCard = ({ offer, viewType, onOfferUpdated }: OfferCardProps) => {
   const canAccept = (isSeller && offer.status === 'pending') || (isBuyer && offer.status === 'countered');
   const canReject = (isSeller && offer.status === 'pending') || (isBuyer && offer.status === 'countered');
   const canCounter = isSeller && offer.status === 'pending';
-  const canPay = isBuyer && offer.status === 'accepted';
 
   const closeConfirmModal = () => {
     setConfirmModal(prev => ({ ...prev, isOpen: false }));
@@ -87,7 +95,7 @@ const OfferCard = ({ offer, viewType, onOfferUpdated }: OfferCardProps) => {
               ({priceDisplay.secondary})
             </span>
           </div>
-          <p>This action cannot be undone. The product will be marked as sold to this buyer.</p>
+          <p>This action cannot be undone. The product will be reserved for this buyer until you both confirm the handover.</p>
         </div>
       ),
       type: 'success',
@@ -178,6 +186,48 @@ const OfferCard = ({ offer, viewType, onOfferUpdated }: OfferCardProps) => {
       toast.error(error.response?.data?.error || 'Failed to send counter-offer');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleChooseDeliveryMethod = async (method: 'delivery' | 'pickup') => {
+    try {
+      setDeliveryActionLoading(true);
+      await setDeliveryMethod(offer.id, method);
+      toast.success(method === 'pickup' ? 'Pickup selected' : 'Delivery selected');
+      if (onOfferUpdated) onOfferUpdated();
+    } catch (error: any) {
+      console.error('Error setting delivery method:', error);
+      toast.error(error.response?.data?.error || 'Failed to set delivery method');
+    } finally {
+      setDeliveryActionLoading(false);
+    }
+  };
+
+  const handleSellerConfirmDelivery = async () => {
+    try {
+      setDeliveryActionLoading(true);
+      const result = await sellerConfirmDelivery(offer.id);
+      toast.success(result.completed ? 'Sale completed! Product marked as sold.' : 'Handover confirmed.');
+      if (onOfferUpdated) onOfferUpdated();
+    } catch (error: any) {
+      console.error('Error confirming delivery:', error);
+      toast.error(error.response?.data?.error || 'Failed to confirm delivery');
+    } finally {
+      setDeliveryActionLoading(false);
+    }
+  };
+
+  const handleBuyerConfirmReceipt = async () => {
+    try {
+      setDeliveryActionLoading(true);
+      const result = await buyerConfirmReceipt(offer.id);
+      toast.success(result.completed ? 'Sale completed! Thanks for confirming.' : 'Receipt confirmed.');
+      if (onOfferUpdated) onOfferUpdated();
+    } catch (error: any) {
+      console.error('Error confirming receipt:', error);
+      toast.error(error.response?.data?.error || 'Failed to confirm receipt');
+    } finally {
+      setDeliveryActionLoading(false);
     }
   };
 
@@ -399,8 +449,8 @@ const OfferCard = ({ offer, viewType, onOfferUpdated }: OfferCardProps) => {
         </form>
       )}
 
-      {/* Payment Reminder for Accepted Offers */}
-      {offer.status === 'accepted' && isBuyer && (
+      {/* Delivery & Payment-on-Delivery flow for Accepted Offers */}
+      {offer.status === 'accepted' && (
         <div className="payment-reminder" style={{
           marginTop: '1rem',
           padding: '1rem',
@@ -413,18 +463,91 @@ const OfferCard = ({ offer, viewType, onOfferUpdated }: OfferCardProps) => {
             Offer Accepted!
           </h4>
           <p style={{ margin: 0, fontSize: '0.95rem' }}>
-            Please contact the seller to arrange payment and collection.
+            Payment happens on delivery — cash or an electronic transfer arranged directly between you two. Contact each other to sort it out.
           </p>
-          {offer.seller && (
+          {isBuyer && offer.seller && (
             <div style={{ marginTop: '0.75rem', fontWeight: 'bold' }}>
               Call Seller: <a href={`tel:${offer.seller.phone}`} style={{ color: '#166534', textDecoration: 'underline' }}>{offer.seller.phone}</a>
+            </div>
+          )}
+          {isSeller && offer.buyer && (
+            <div style={{ marginTop: '0.75rem', fontWeight: 'bold' }}>
+              Call Buyer: <a href={`tel:${offer.buyer.phone}`} style={{ color: '#166534', textDecoration: 'underline' }}>{offer.buyer.phone}</a>
+            </div>
+          )}
+
+          {/* Step 1: seller picks delivery method */}
+          {!offer.delivery_method && (
+            isSeller ? (
+              <div style={{ marginTop: '1rem' }}>
+                <p style={{ margin: '0 0 0.5rem 0', fontWeight: 600 }}>How will the buyer get the item?</p>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleChooseDeliveryMethod('pickup')}
+                    disabled={deliveryActionLoading}
+                    style={{ flex: 1, padding: '0.6rem', borderRadius: '8px', border: '1px solid #166534', background: '#fff', color: '#166534', fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    🤝 Buyer Picks Up
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleChooseDeliveryMethod('delivery')}
+                    disabled={deliveryActionLoading}
+                    style={{ flex: 1, padding: '0.6rem', borderRadius: '8px', border: '1px solid #166534', background: '#fff', color: '#166534', fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    📦 I'll Deliver It
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p style={{ marginTop: '0.75rem', fontStyle: 'italic' }}>Waiting for the seller to choose pickup or delivery.</p>
+            )
+          )}
+
+          {/* Step 2: confirm handover */}
+          {offer.delivery_method && (
+            <div style={{ marginTop: '1rem' }}>
+              <p style={{ margin: '0 0 0.5rem 0', fontWeight: 600 }}>
+                Method: {offer.delivery_method === 'pickup' ? '🤝 Buyer will pick up' : '📦 Seller will deliver'}
+              </p>
+
+              {isSeller && (
+                offer.seller_confirmed
+                  ? <p style={{ margin: 0 }}>✅ You confirmed the handover. Waiting for the buyer to confirm they received it.</p>
+                  : (
+                    <button
+                      type="button"
+                      onClick={handleSellerConfirmDelivery}
+                      disabled={deliveryActionLoading}
+                      style={{ padding: '0.6rem 1rem', borderRadius: '8px', border: 'none', background: '#166534', color: '#fff', fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      ✅ I've Handed Over the Item
+                    </button>
+                  )
+              )}
+
+              {isBuyer && (
+                offer.buyer_confirmed
+                  ? <p style={{ margin: 0 }}>✅ You confirmed receipt. Waiting for the seller to confirm the handover.</p>
+                  : (
+                    <button
+                      type="button"
+                      onClick={handleBuyerConfirmReceipt}
+                      disabled={deliveryActionLoading}
+                      style={{ padding: '0.6rem 1rem', borderRadius: '8px', border: 'none', background: '#166534', color: '#fff', fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      ✅ I've Received the Item
+                    </button>
+                  )
+              )}
             </div>
           )}
         </div>
       )}
 
       {/* Action Buttons */}
-      {(canAccept || canReject || canCounter || canPay) && (
+      {(canAccept || canReject || canCounter) && (
         <div className="offer-actions">
           {canAccept && (
             <button
@@ -436,30 +559,6 @@ const OfferCard = ({ offer, viewType, onOfferUpdated }: OfferCardProps) => {
                 offer.status === 'countered' ? (offer.counter_amount || 0) : offer.offer_amount,
                 offer.status === 'countered' ? (offer.counter_currency || 'USD') : (offer.currency || 'USD')
               ).primary}
-            </button>
-          )}
-
-          {canPay && (
-            <button
-              className="btn-pay-now"
-              onClick={() => setShowPaymentModal(true)}
-              disabled={loading}
-              style={{
-                background: '#10b981',
-                color: 'white',
-                border: 'none',
-                padding: '0.75rem 1.5rem',
-                borderRadius: '8px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                fontSize: '1rem',
-                boxShadow: '0 2px 4px rgba(16, 185, 129, 0.2)'
-              }}
-            >
-              💸 Pay Now
             </button>
           )}
 
@@ -494,15 +593,6 @@ const OfferCard = ({ offer, viewType, onOfferUpdated }: OfferCardProps) => {
         confirmText={confirmModal.confirmText}
         type={confirmModal.type}
         loading={loading}
-      />
-
-      <PaymentModal
-        isOpen={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
-        offer={offer}
-        onSuccess={() => {
-          if (onOfferUpdated) onOfferUpdated();
-        }}
       />
     </div>
   );

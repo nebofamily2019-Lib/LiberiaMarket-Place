@@ -1,7 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const { protect, authorize } = require('../middleware/auth')
-const { User, Product, Category } = require('../models')
+const { User, Product, Category, Offer } = require('../models')
 const { Op } = require('sequelize')
 const { getRecentActivity } = require('../controllers/analyticsController')
 
@@ -164,17 +164,46 @@ router.get('/my-products', protect, async (req, res, next) => {
   }
 })
 
-// @desc    Get user's purchases (for buyers) - Placeholder
+// @desc    Get user's purchases (for buyers)
 // @route   GET /api/dashboard/my-purchases
 // @access  Private
 router.get('/my-purchases', protect, async (req, res, next) => {
   try {
-    // TODO: Implement order/purchase tracking system
-    // For now, return empty array as placeholder
+    const userId = req.user.id
+    const limit = parseInt(req.query.limit) || 20
+
+    const completedOffers = await Offer.findAll({
+      where: { buyer_id: userId, status: 'completed' },
+      limit,
+      order: [['updatedAt', 'DESC']],
+      include: [
+        {
+          model: Product,
+          as: 'offerProduct',
+          attributes: ['id', 'title', 'images', 'sold_price', 'sold_at']
+        },
+        {
+          model: User,
+          as: 'seller',
+          attributes: ['id', 'name', 'phone']
+        }
+      ]
+    })
+
+    const purchases = completedOffers.map(offer => ({
+      id: offer.id,
+      product: offer.offerProduct
+        ? { id: offer.offerProduct.id, title: offer.offerProduct.title, images: offer.offerProduct.images }
+        : null,
+      seller: offer.seller ? { id: offer.seller.id, name: offer.seller.name, phone: offer.seller.phone } : null,
+      amount: offer.offerProduct?.sold_price ?? offer.counter_amount ?? offer.offer_amount,
+      currency: offer.counter_currency || offer.currency,
+      createdAt: offer.offerProduct?.sold_at || offer.updatedAt
+    }))
+
     res.status(200).json({
       success: true,
-      data: [],
-      message: 'Purchase history will be available soon'
+      data: purchases
     })
   } catch (error) {
     console.error('❌ My purchases error:', error)

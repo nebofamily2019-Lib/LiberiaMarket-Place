@@ -16,7 +16,7 @@ interface Product {
   price: number
   status: string
   location: string
-  createdAt: string
+  created_at: string
   condition?: string
   images?: string[]
   category?: {
@@ -351,7 +351,7 @@ const ProductCard = ({ product, onEdit, onView, onDelete, onMarkAsSold }: CardPr
       {/* Meta */}
       <div className="product-meta">
         <span>📍 {product.location}</span>
-        <span>{new Date(product.createdAt).toLocaleDateString()}</span>
+        <span>{new Date(product.created_at).toLocaleDateString()}</span>
       </div>
 
       {/* Actions */}
