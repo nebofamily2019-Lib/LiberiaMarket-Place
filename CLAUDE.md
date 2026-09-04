@@ -90,7 +90,7 @@ Key backend env vars:
 
 **CSRF**: Applied to all non-GET routes except `/api/auth/*`. Frontend fetches a token from `GET /api/csrf-token` on startup and sends it as `X-CSRF-Token` header. CSRF is skipped in the `test` environment.
 
-**Rate limiting**: Auth routes: 5 req / 15 min (production only). API routes: 1000 req / 15 min (dev), 100 (prod). Rate limiting is skipped entirely in `test`.
+**Rate limiting**: Auth routes: scoped per-route in `routes/auth.js` — only `POST /register`, `/login`, `/forgot-password` are limited (50 attempts / 2 min, successful requests don't count against it); `GET /me` and other read/session routes are never rate-limited. API routes (`middleware` in `server.js`): 1000 req / 15 min (dev), 600 (prod). Rate limiting is skipped entirely in `test`.
 
 **Image uploads**: `src/middleware/secureImageUpload.js` / `imageUpload.js` use multer + sharp. Cloudinary is used in production (`USE_CLOUD_STORAGE=true`), local `uploads/` directory in dev.
 
