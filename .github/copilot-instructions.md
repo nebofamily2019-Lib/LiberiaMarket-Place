@@ -6,7 +6,6 @@
   - `frontend/`: React SPA (Vite, Mobile-first, Accessibility-focused)
   - `backend/`: Node.js/Express API (Sequelize ORM)
   - `database/`: SQL schema, migrations, seeds
-  - `docs/`: Architecture, API, and workflow documentation
 
 - **Tech Stack**:
   - **Frontend**: React, Vite, CSS Variables (Design Tokens)
@@ -70,6 +69,5 @@
 ## Reference Files
 
 - **Architecture**: `README.md`, `backend/README.md`
-- **Testing**: `TEST-PLAN.md` (Comprehensive strategy)
-- **Security**: `PRODUCTION-SECURITY-CHECKLIST.md`, `backend/SECURITY.md`
+- **Security**: `backend/SECURITY.md`
 - **Deployment**: `DOCKER-DEPLOYMENT.md`, `MANUAL-RUN.md`
