@@ -35,7 +35,7 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - JWT_EXPIRE=${JWT_EXPIRE:-7d}
       - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost}
-      - USE_CLOUD_STORAGE=${USE_CLOUD_STORAGE:-true}
+      - USE_CLOUD_STORAGE=${USE_CLOUD_STORAGE:-false}
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
@@ -75,10 +75,44 @@ services:
       timeout: 5s
       retries: 5
 
+  backup:
+    image: postgres:16-alpine
+    container_name: libmarket-backup-prod
+    restart: always
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-libmarket}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - PGPASSWORD=${POSTGRES_PASSWORD}
+      - PGHOST=db
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - libmarket-network
+    volumes:
+      - db-backups:/backups
+    entrypoint: >
+      sh -c '
+        while true; do
+          FILE="/backups/libmarket-$$(date +%Y%m%d-%H%M%S).sql";
+          if pg_dump -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -f "$$FILE"; then
+            gzip "$$FILE" && echo "Backup written: $$FILE.gz";
+          else
+            echo "Backup FAILED" >&2;
+            rm -f "$$FILE";
+          fi;
+          find /backups -name "*.sql.gz" -mtime +14 -delete;
+          sleep 86400;
+        done
+      '
+
 volumes:
   db-data:
     driver: local
   backend-uploads:
+    driver: local
+  db-backups:
     driver: local
 
 networks:

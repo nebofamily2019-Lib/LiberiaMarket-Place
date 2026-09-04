@@ -1,189 +1,76 @@
-# LibMarket Docker & CI/CD Setup
+# LibMarket Docker & Go-Live Guide
 
 ## Overview
 
-This project now includes production-ready Docker images with automated CI/CD pipelines for building and publishing versions to Docker Hub.
+LibMarket is deployed as three self-hosted Docker containers (frontend/Nginx, backend/Node, Postgres) via `docker-compose.prod.yml` — no cloud PaaS (Render/Netlify/Railway/Vercel), no Kubernetes. This is the confirmed, single deployment target. CI (`.github/workflows/docker-build-push.yml`) only builds and pushes images to Docker Hub on a tag push — it does not deploy anything. Deploying is a manual step you run yourself, on whichever server you've chosen.
 
-## Quick Start
-
-### Local Development
-For day-to-day development, run the frontend and backend natively (`npm run dev` in each of `frontend/` and `backend/`) — see the root `CLAUDE.md` for details. There is no separate Docker Compose file for local dev; `docker-compose.prod.yml` is the only compose file in this repo and it runs the production images.
-
-### Production Deployment
-```bash
-# Set environment variables
-export DOCKER_USERNAME=your-docker-username
-export VERSION=v1.0.0
-export POSTGRES_PASSWORD=your-postgres-password
-export JWT_SECRET=your-jwt-secret
-
-# Deploy with docker-compose.prod.yml (DB_* vars are derived from POSTGRES_* above)
-docker compose -f docker-compose.prod.yml up -d
-```
+For local day-to-day development (no Docker), see `MANUAL-RUN.md` and the root `CLAUDE.md`.
 
 ## Docker Images
 
 ### Backend (`Dockerfile.backend`)
-- **Base**: Node.js 18-alpine
-- **Features**:
-  - Multi-stage build for optimized layers
-  - Non-root user for security
-  - Health check endpoint
-  - Production environment variables
-- **Build**: `docker build -f Dockerfile.backend -t libmarket-backend:v1.0.0 .`
-- **Run**: `docker run -p 5000:5000 libmarket-backend:v1.0.0`
+- **Base**: `node:22-alpine`
+- Multi-stage build (separate `dependencies` stage for native modules), production `npm install --production`
+- Build: `docker build -f Dockerfile.backend -t libmarket-backend:latest .`
 
 ### Frontend (`Dockerfile.frontend`)
-- **Base**: Node.js 18-alpine (build) → Nginx-alpine (production)
-- **Features**:
-  - Multi-stage build: Node for compilation, Nginx for serving
-  - Optimized Nginx config
-  - Non-root user for security
-  - Health check via HTTP
-- **Build**: `docker build -f Dockerfile.frontend -t libmarket-frontend:v1.0.0 .`
-- **Run**: `docker run -p 80:80 libmarket-frontend:v1.0.0`
+- **Base**: `node:22-alpine` (build) → `nginx:alpine` (serve)
+- Nginx proxies `/api` and `/uploads` to the backend container (see `nginx.conf`)
+- Build: `docker build -f Dockerfile.frontend -t libmarket-frontend:latest .`
 
-## CI/CD Pipeline (GitHub Actions)
+## First-Time Go-Live Steps (on a fresh VPS)
 
-**File**: `.github/workflows/docker-build-push.yml`
-
-### Triggers
-- **On tag push**: `git tag v1.0.0 && git push --tags`
-- **On main branch push**: Automatic build (optional)
-- **Manual trigger**: Use GitHub Actions UI with custom version
-
-### Setup
-
-1. **Create Docker Hub token**:
-   - Log in to [Docker Hub](https://hub.docker.com)
-   - Go to Account Settings → Security → New Access Token
-   - Choose "Read & Write" permissions
-   - Copy the token
-
-2. **Add GitHub Secrets**:
-   - Go to your GitHub repo → Settings → Secrets and variables → Actions
-   - Add:
-     - `DOCKER_USERNAME`: Your Docker Hub username
-     - `DOCKER_PASSWORD`: Your Docker Hub token
-
-3. **Push a release**:
+1. **Provision a server**: any Linux VPS with Docker + Docker Compose installed (DigitalOcean/Hetzner/Linode droplet, ~$6-12/mo — no proprietary lock-in). Point a domain's A record at its IP.
+2. **Harden it**: SSH key-only auth, `ufw` allowing only 22/80/443.
+3. **Clone the repo**, then create a real `.env.prod` (never commit this) with **freshly generated** secrets:
    ```bash
-   git tag v1.0.0
-   git push --tags
+   JWT_SECRET=$(node -e "console.log(require('crypto').randomBytes(64).toString('hex'))")
+   POSTGRES_PASSWORD=<a strong random password>
+   CORS_ORIGIN=https://yourdomain.com
+   ```
+   (`CLOUDINARY_*`/`TWILIO_*` can stay unset — the app already falls back to free local disk storage and no-op SMS logging when they're blank; `USE_CLOUD_STORAGE` defaults to `false`.)
+4. **Build the images** from source (there's no public registry pull in this workflow yet):
+   ```bash
+   docker build -f Dockerfile.backend -t libmarket-backend:latest .
+   docker build -f Dockerfile.frontend -t libmarket-frontend:latest .
+   ```
+5. **TLS**: run `certbot` for your domain, then uncomment/fill in the port-443 server block in `nginx.conf` with the issued cert paths, and rebuild the frontend image.
+6. **Bring up the stack**:
+   ```bash
+   docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
+   ```
+7. **Run migrations** and create the real admin account:
+   ```bash
+   docker exec libmarket-backend-prod npm run migrate
+   docker exec -it libmarket-backend-prod npm run create-admin
+   ```
+8. **Wipe any leftover test data** right before opening up to real users (keeps seeded categories/counties):
+   ```bash
+   docker exec libmarket-backend-prod npm run reset-for-launch -- --yes-really-wipe-prod-data
    ```
 
-### What Happens
-- Builds backend image: `yourusername/libmarket-backend:v1.0.0`
-- Builds frontend image: `yourusername/libmarket-frontend:v1.0.0`
-- Tags both with `:latest`
-- Pushes to Docker Hub
-- Creates GitHub Release with deployment instructions
+## Ongoing Deploys (after the first one)
 
-## Versioning Strategy
-
-Use **semantic versioning**:
-- `v1.0.0` — First release
-- `v1.0.1` — Patch (bug fixes)
-- `v1.1.0` — Minor (new features, backward compatible)
-- `v2.0.0` — Major (breaking changes)
-
-### Release Workflow
 ```bash
-# Increment version in package.json files (optional)
-# Create and push tag
-git tag v1.1.0
-git push origin v1.1.0
-
-# GitHub Actions automatically:
-# - Builds images
-# - Pushes to Docker Hub
-# - Creates release notes
+docker build -f Dockerfile.backend -t libmarket-backend:latest .
+docker build -f Dockerfile.frontend -t libmarket-frontend:latest .
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d db backend frontend
+docker exec libmarket-backend-prod npm run migrate
 ```
 
-## Production Deployment
+## Data Persistence & Backups
 
-### Option 1: Docker Compose (Single Host)
-```bash
-# Create .env.prod file with production secrets
-cat > .env.prod << EOF
-POSTGRES_PASSWORD=your-secure-password
-JWT_SECRET=your-jwt-secret
-CLOUDINARY_CLOUD_NAME=your-cloudinary-name
-CLOUDINARY_API_KEY=your-cloudinary-key
-CLOUDINARY_API_SECRET=your-cloudinary-secret
-TWILIO_ACCOUNT_SID=your-twilio-sid
-TWILIO_AUTH_TOKEN=your-twilio-token
-TWILIO_PHONE_NUMBER=your-twilio-number
-EOF
+`docker-compose.prod.yml` volumes:
+- `db-data` — Postgres data
+- `backend-uploads` — locally-stored product/avatar images (the free Cloudinary alternative)
+- `db-backups` — automated daily `pg_dump` (gzipped, 14-day retention) written by the `backup` service, no extra setup needed
 
-# Deploy
-VERSION=v1.0.0 docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
-```
-
-### Option 2: Kubernetes
-```bash
-# Images are compatible with Kubernetes deployments
-# Use your registry: docker.io/yourusername/libmarket-backend:v1.0.0
-```
-
-### Option 3: Managed Services
-- **Railway**: Connect GitHub repo, auto-deploys on tags
-- **Heroku**: Migrate images to Heroku Container Registry
-- **AWS ECS**: Push images to ECR, create ECS task definitions
-- **Azure Container Instances**: Use Azure Container Registry
-
-## Network & Data Persistence
-
-**docker-compose.prod.yml** includes:
-- **Shared network** (`libmarket-network`): Frontend, backend, and database communicate
-- **Volumes**:
-  - `db-data`: PostgreSQL data persistence
-  - `backend-uploads`: Multer file uploads storage
-- **Health checks**: All services monitor their own health
-
-## Security Features
-
-### Dockerfiles
-- ✅ Non-root users (nodejs, nginx)
-- ✅ Minimal base images (alpine)
-- ✅ Multi-stage builds (reduced attack surface)
-- ✅ Health checks for orchestration
-- ✅ Read-only filesystem where possible
-
-### Environment Secrets
-- Never hardcode secrets in Dockerfiles
-- Use `.env` files with `--env-file` flag
-- GitHub Secrets for CI/CD
-- Production secret management (AWS Secrets Manager, Azure KeyVault, etc.)
-
-## Scaling Considerations
-
-- **Frontend**: Stateless — scale horizontally with load balancer
-- **Backend**: Stateless API — scale horizontally
-- **Database**: Consider managed PostgreSQL (RDS, Azure Database, Cloud SQL)
-- **File storage**: Move uploads to S3/Azure Blob/GCS for distributed deployments
+To restore from a backup: `gunzip -c /var/lib/docker/volumes/<...>/db-backups/<file>.sql.gz | docker exec -i libmarket-db-prod psql -U postgres -d libmarket`
 
 ## Troubleshooting
 
-### Build fails
 ```bash
-docker build --no-cache -f Dockerfile.backend .
+docker logs libmarket-backend-prod
+docker logs libmarket-frontend-prod
+docker exec libmarket-backend-prod curl http://localhost:5000/health
 ```
-
-### Container won't start
-```bash
-docker logs <container-id>
-docker inspect <container-id>
-```
-
-### Health check failing
-```bash
-docker exec <container-id> /bin/sh
-# Inside container, test endpoint manually
-curl http://localhost:5000/health
-```
-
-## References
-- [Docker Best Practices](https://docs.docker.com/develop/dev-best-practices/)
-- [GitHub Actions for Docker](https://github.com/docker/build-push-action)
-- [Semantic Versioning](https://semver.org/)

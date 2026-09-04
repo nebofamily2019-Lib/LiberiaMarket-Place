@@ -72,4 +72,4 @@
 - **Architecture**: `README.md`, `backend/README.md`
 - **Testing**: `TEST-PLAN.md` (Comprehensive strategy)
 - **Security**: `PRODUCTION-SECURITY-CHECKLIST.md`, `backend/SECURITY.md`
-- **Deployment**: `DEPLOYMENT.md`, `MANUAL-RUN.md`
+- **Deployment**: `DOCKER-DEPLOYMENT.md`, `MANUAL-RUN.md`

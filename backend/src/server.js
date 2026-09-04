@@ -37,7 +37,7 @@ app.use(express.urlencoded({
 // CORS Configuration - MUST be before other middleware
 // const cors = require('cors'); // Removed duplicate import
 app.use(cors({
-  origin: 'http://localhost:5173', // Always allow local frontend for POC
+  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
   credentials: true, // Allow cookies
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
@@ -192,6 +192,7 @@ const paymentRoutes = require('./routes/payments');
 const savedItemRoutes = require('./routes/savedItems');
 const notificationRoutes = require('./routes/notifications');
 const reportRoutes = require('./routes/reports');
+const adminRoutes = require('./routes/admin');
 const { protect } = require('./middleware/auth');
 const { getUnreadCount } = require('./controllers/messageController');
 
@@ -243,6 +244,7 @@ app.use('/api/payments', process.env.NODE_ENV === 'production' ? apiLimiter : (r
 app.use('/api/saved-items', process.env.NODE_ENV === 'production' ? apiLimiter : (req, res, next) => next(), savedItemRoutes);
 app.use('/api/notifications', process.env.NODE_ENV === 'production' ? apiLimiter : (req, res, next) => next(), notificationRoutes);
 app.use('/api/reports', process.env.NODE_ENV === 'production' ? apiLimiter : (req, res, next) => next(), reportRoutes);
+app.use('/api/admin', protect, adminRoutes);
 
 // Add missing unread-count route for conversations
 app.get('/api/conversations/unread-count', protect, getUnreadCount);
