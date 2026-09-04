@@ -205,12 +205,12 @@ const SellerDashboard = () => {
             Money Made
           </div>
           <div className="seller-stat-value">
-            {formatPriceWithCurrency(stats?.netRevenue ?? stats?.totalRevenue ?? 0).primary}
+            {formatPriceWithCurrency(stats?.totalRevenue ?? 0).primary}
           </div>
           <div className="seller-stat-secondary">
-            {formatPriceWithCurrency(stats?.netRevenue ?? stats?.totalRevenue ?? 0).secondary}
+            {formatPriceWithCurrency(stats?.totalRevenue ?? 0).secondary}
           </div>
-          <div className="seller-stat-desc">What you keep, after the 1% platform fee</div>
+          <div className="seller-stat-desc">No platform fees — you keep 100%</div>
         </div>
 
         <div className="seller-stat-card accent-red">
@@ -384,9 +384,7 @@ const SellerDashboard = () => {
     }
 
     const totalRevenueUSD = stats?.totalRevenue || 0;
-    const netRevenueUSD = stats?.netRevenue ?? totalRevenueUSD;
-    const totalFeesUSD = stats?.totalPlatformFees ?? 0;
-    const priceFormatted = formatPriceWithCurrency(netRevenueUSD, 'USD');
+    const priceFormatted = formatPriceWithCurrency(totalRevenueUSD, 'USD');
     const recentSales = stats?.recentSales || [];
 
     return (
@@ -397,7 +395,7 @@ const SellerDashboard = () => {
               <div className="wallet-card-title">
                 My Earnings <span className="wallet-badge">Sales Revenue</span>
               </div>
-              <p>What you keep from your sold items, after the 1% platform fee</p>
+              <p>What you've made from your sold items — no platform fees</p>
             </div>
             <button className="btn-cash-out" onClick={() => navigate('/wallet')}>
               My Wallet
@@ -422,9 +420,7 @@ const SellerDashboard = () => {
           <div className="seller-stat-card">
             <div className="seller-stat-label"><DollarSign size={16} /> Total Sales</div>
             <div className="seller-stat-value">{formatPriceWithCurrency(totalRevenueUSD).primary}</div>
-            <div className="seller-stat-desc">
-              All time, before the 1% fee ({formatPriceWithCurrency(totalFeesUSD).primary} total fees)
-            </div>
+            <div className="seller-stat-desc">All time</div>
           </div>
           <div className="seller-stat-card accent-red">
             <div className="seller-stat-label"><Package size={16} /> Items Sold</div>
@@ -520,8 +516,8 @@ const SellerDashboard = () => {
         <details className="help-faq-item">
           <summary>What fees does the platform charge?</summary>
           <p>
-            Listing is free! We only charge a small commission (1%) when you successfully sell an
-            item.
+            Nothing! Listing and selling are both completely free. You and the buyer settle
+            payment directly (cash or mobile money) — the platform never takes a cut.
           </p>
         </details>
       </div>

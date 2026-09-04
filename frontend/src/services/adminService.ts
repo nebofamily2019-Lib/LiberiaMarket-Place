@@ -1,59 +1,5 @@
 import api from '../utils/api';
 
-export interface FeeSummary {
-  totalItemsSold: number;
-  totalSoldValue: number;
-  totalFeesCollected: number;
-  totalPaidToSellers: number;
-  feeRate: number;
-}
-
-export interface FeePerson {
-  id: string;
-  name: string;
-  phone?: string;
-  email?: string;
-}
-
-export interface FeeRecord {
-  product_id: string;
-  title: string;
-  images?: string[];
-  sold_price: number;
-  platform_fee: number;
-  seller_net: number;
-  sold_at: string;
-  seller: FeePerson | null;
-  buyer: FeePerson | null;
-}
-
-export interface FeeCollectionsParams {
-  page?: number;
-  limit?: number;
-  search?: string;
-  startDate?: string;
-  endDate?: string;
-}
-
-export interface FeeCollectionsResponse {
-  success: boolean;
-  count: number;
-  totalPages: number;
-  currentPage: number;
-  feeRate: number;
-  data: FeeRecord[];
-}
-
-export const getFeeSummary = async (): Promise<FeeSummary> => {
-  const response = await api.get('/admin/fees/summary');
-  return response.data.data;
-};
-
-export const getFeeCollections = async (params: FeeCollectionsParams = {}): Promise<FeeCollectionsResponse> => {
-  const response = await api.get('/admin/fees', { params });
-  return response.data;
-};
-
 export type ReportStatus = 'pending' | 'investigating' | 'resolved' | 'dismissed';
 export type ReportReason = 'scam' | 'harassment' | 'inappropriate_content' | 'counterfeit' | 'other';
 

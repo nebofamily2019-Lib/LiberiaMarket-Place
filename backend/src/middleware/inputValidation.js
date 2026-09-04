@@ -227,7 +227,7 @@ const sanitizeObject = (obj, depth = 0) => {
  * Validate product creation/update
  */
 const validateProduct = (req, res, next) => {
-  const { title, description, price, location, condition } = req.body;
+  const { title, description, price, location, district, landmark, condition } = req.body;
 
   const errors = [];
 
@@ -258,6 +258,12 @@ const validateProduct = (req, res, next) => {
   // Location validation
   if (location && location.length > 200) {
     errors.push('Location too long (max 200 characters)');
+  }
+  if (district && district.length > 100) {
+    errors.push('District too long (max 100 characters)');
+  }
+  if (landmark && landmark.length > 200) {
+    errors.push('Landmark too long (max 200 characters)');
   }
 
   // Condition validation

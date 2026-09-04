@@ -203,14 +203,19 @@ describe('OfferCard', () => {
       expect(offerService.acceptOffer).toHaveBeenCalledWith('offer-1')
     })
 
-    it('shows pay now button for accepted offers (buyer view)', () => {
+    it('shows offer-accepted payment-on-delivery reminder with seller phone (buyer view)', () => {
       const acceptedOffer: Offer = {
         ...baseOffer,
         status: 'accepted'
       }
       render(<OfferCard offer={acceptedOffer} viewType="buyer" />)
-      
-      expect(screen.getByRole('button', { name: /Pay Now/i })).toBeInTheDocument()
+
+      expect(screen.getByText('Offer Accepted!')).toBeInTheDocument()
+      expect(screen.getByText(/Payment happens on delivery/i)).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: baseOffer.seller!.phone })).toHaveAttribute(
+        'href',
+        `tel:${baseOffer.seller!.phone}`
+      )
     })
 
     it('validates counter offer amount', async () => {
@@ -230,15 +235,15 @@ describe('OfferCard', () => {
       expect(input).toBeInvalid()
     })
 
-    it('opens payment modal when pay button is clicked', async () => {
+    it('shows offer-accepted payment-on-delivery reminder with buyer phone (seller view)', () => {
       const acceptedOffer: Offer = { ...baseOffer, status: 'accepted' }
-      const user = userEvent.setup()
-      render(<OfferCard offer={acceptedOffer} viewType="buyer" />)
-      
-      const payBtn = screen.getByRole('button', { name: /Pay Now/i })
-      await user.click(payBtn)
-      
-      expect(screen.getByText('Order Summary')).toBeInTheDocument()
+      render(<OfferCard offer={acceptedOffer} viewType="seller" />)
+
+      expect(screen.getByText('Offer Accepted!')).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: baseOffer.buyer!.phone })).toHaveAttribute(
+        'href',
+        `tel:${baseOffer.buyer!.phone}`
+      )
     })
 
     it('handles API errors gracefully', async () => {

@@ -9,11 +9,12 @@ const createReport = async (req, res) => {
     const { reported_user_id, product_id, reason, description } = req.body;
     const reporter_id = req.user.id;
 
-    // Validation: Must report either a user or a product
-    if (!reported_user_id && !product_id) {
+    // A report can target a specific user or product, or — for a general
+    // platform issue not tied to either — must at least explain the problem.
+    if (!reported_user_id && !product_id && !(description && description.trim())) {
       return res.status(400).json({
         success: false,
-        error: 'Must specify either a user or a product to report'
+        error: 'Specify a user or listing to report, or describe the issue'
       });
     }
 

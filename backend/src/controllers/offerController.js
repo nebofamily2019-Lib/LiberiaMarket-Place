@@ -1,15 +1,15 @@
 const { sequelize, Offer, Product, User, Notification, UserActivity } = require('../models');
 const { Op } = require('sequelize');
-const { calculatePlatformFee } = require('../utils/platformFee');
+const { updateTrustScore } = require('../utils/trustScore');
 
-// Finalise a transaction once both parties have confirmed
+// Finalise a transaction once both parties have confirmed (or the 48-hour
+// auto-resolve in the cron job decides it's been long enough)
 const completeTransaction = async (offer) => {
   const product = await Product.findByPk(offer.product_id);
   if (!product) return;
 
   // Use counter_amount if a counter was made, otherwise the original offer_amount
   const acceptedAmount = offer.counter_amount || offer.offer_amount;
-  const { fee: platformFee, netPayout } = calculatePlatformFee(acceptedAmount);
 
   await product.update({
     status: 'sold',
@@ -19,6 +19,9 @@ const completeTransaction = async (offer) => {
 
   await offer.update({ status: 'completed' });
 
+  await User.increment('total_sales', { by: 1, where: { id: offer.seller_id } });
+  await updateTrustScore(User, offer.seller_id);
+
   try {
     await UserActivity.create({
       user_id: offer.seller_id,
@@ -26,8 +29,6 @@ const completeTransaction = async (offer) => {
       entity_id: offer.product_id,
       details: {
         sold_price: acceptedAmount,
-        platform_fee: platformFee,
-        net_payout: netPayout,
         via: 'offer_delivery_confirmed'
       }
     });
@@ -457,5 +458,6 @@ module.exports = {
   rejectOffer,
   setDeliveryMethod,
   sellerConfirmDelivery,
-  buyerConfirmReceipt
+  buyerConfirmReceipt,
+  completeTransaction
 };

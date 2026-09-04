@@ -2,8 +2,6 @@ const express = require('express');
 const router = express.Router();
 const { authorize } = require('../middleware/auth');
 const {
-  getFeeSummary,
-  getFeeCollections,
   getReports,
   updateReportStatus,
   suspendUser,
@@ -13,9 +11,6 @@ const {
 
 // All routes here require the admin role (protect is applied at mount time in server.js)
 router.use(authorize('admin'));
-
-router.get('/fees/summary', getFeeSummary);
-router.get('/fees', getFeeCollections);
 
 router.get('/reports', getReports);
 router.patch('/reports/:id', updateReportStatus);

@@ -4,11 +4,17 @@ import api from '../utils/api'
 import HamburgerMenu from '../components/HamburgerMenu'
 import { useToast } from '../context/ToastContext'
 import { compressImage } from '../utils/imageCompression'
+import { getCountyByName } from '../data/liberianLocations'
 
 interface Category {
   id: string
   name: string
   icon: string
+}
+
+interface CountyOption {
+  id: string
+  name: string
 }
 
 const CONDITIONS = [
@@ -24,14 +30,20 @@ const AddProduct = () => {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [categories, setCategories] = useState<Category[]>([])
+  const [counties, setCounties] = useState<CountyOption[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const [title, setTitle] = useState('')
   const [price, setPrice] = useState('')
+  const [currency, setCurrency] = useState<'USD' | 'LRD'>('USD')
   const [categoryId, setCategoryId] = useState('')
   const [condition, setCondition] = useState('good')
   const [location, setLocation] = useState('Monrovia')
+  const [countyId, setCountyId] = useState('')
+  const [countyName, setCountyName] = useState('')
+  const [district, setDistrict] = useState('')
+  const [landmark, setLandmark] = useState('')
 
   const [images, setImages] = useState<File[]>([])
   const [previews, setPreviews] = useState<string[]>([])
@@ -40,7 +52,14 @@ const AddProduct = () => {
     api.get('/categories')
       .then(res => { if (res.data.success) setCategories(res.data.data) })
       .catch(() => toast.error('Could not load categories'))
+    api.get('/counties')
+      .then(res => { if (res.data.success) setCounties(res.data.data) })
+      .catch(() => toast.error('Could not load counties'))
   }, [])
+
+  // District options come from the static Liberia location data, matched by
+  // county name (the DB only stores counties, not their districts/cities).
+  const districtOptions = countyName ? getCountyByName(countyName)?.cities || [] : []
 
   useEffect(() => {
     return () => { previews.forEach(url => URL.revokeObjectURL(url)) }
@@ -99,10 +118,13 @@ const AddProduct = () => {
     const data = new FormData()
     data.append('title', title.trim())
     data.append('price', price)
-    data.append('currency', 'USD')
+    data.append('currency', currency)
     data.append('category_id', categoryId)
     data.append('condition', condition)
     data.append('location', location.trim() || 'Monrovia')
+    if (countyId) data.append('county_id', countyId)
+    if (district) data.append('district', district)
+    if (landmark.trim()) data.append('landmark', landmark.trim())
     images.forEach(img => data.append('images', img))
 
     setLoading(true)
@@ -195,9 +217,9 @@ const AddProduct = () => {
 
           {/* ── Price ── */}
           <section style={styles.section}>
-            <label htmlFor="price" style={styles.label}>Price (USD) *</label>
+            <label htmlFor="price" style={styles.label}>Price *</label>
             <div style={styles.priceRow}>
-              <span style={styles.currencySymbol}>$</span>
+              <span style={styles.currencySymbol}>{currency === 'USD' ? '$' : 'L$'}</span>
               <input
                 id="price"
                 type="number"
@@ -207,9 +229,21 @@ const AddProduct = () => {
                 placeholder="0"
                 min="0"
                 step="0.01"
-                style={{ ...styles.input, paddingLeft: '2.5rem', marginBottom: 0 }}
+                style={{ ...styles.input, paddingLeft: '2.75rem', marginBottom: 0 }}
                 required
               />
+            </div>
+            <div style={styles.pills}>
+              {(['USD', 'LRD'] as const).map(c => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCurrency(c)}
+                  style={{ ...styles.pill, ...(currency === c ? styles.pillActive : {}) }}
+                >
+                  {c}
+                </button>
+              ))}
             </div>
           </section>
 
@@ -261,6 +295,59 @@ const AddProduct = () => {
               placeholder="e.g. Monrovia, Paynesville…"
               style={styles.input}
               maxLength={100}
+            />
+          </section>
+
+          {/* ── County ── */}
+          <section style={styles.section}>
+            <label htmlFor="county" style={styles.label}>County</label>
+            <select
+              id="county"
+              value={countyId}
+              onChange={e => {
+                const selected = counties.find(c => c.id === e.target.value)
+                setCountyId(e.target.value)
+                setCountyName(selected?.name || '')
+                setDistrict('')
+              }}
+              style={styles.input}
+            >
+              <option value="">Choose a county…</option>
+              {counties.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </section>
+
+          {/* ── District / Area ── */}
+          {districtOptions.length > 0 && (
+            <section style={styles.section}>
+              <label htmlFor="district" style={styles.label}>District / Area</label>
+              <select
+                id="district"
+                value={district}
+                onChange={e => setDistrict(e.target.value)}
+                style={styles.input}
+              >
+                <option value="">Choose a district/area…</option>
+                {districtOptions.map(city => (
+                  <option key={city.name} value={city.name}>{city.name}</option>
+                ))}
+              </select>
+            </section>
+          )}
+
+          {/* ── Landmark ── */}
+          <section style={styles.section}>
+            <label htmlFor="landmark" style={styles.label}>Nearby Landmark</label>
+            <input
+              id="landmark"
+              type="text"
+              value={landmark}
+              onChange={e => setLandmark(e.target.value)}
+              placeholder="e.g. Near Total Gas Station, 12th Street"
+              style={styles.input}
+              maxLength={200}
             />
           </section>
 

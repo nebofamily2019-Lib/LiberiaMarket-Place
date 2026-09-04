@@ -5,6 +5,7 @@ import api from '../utils/api'
 import { usdToLrd } from '../utils/currency'
 import { designSystem } from '../styles/designSystem'
 import HamburgerMenu from '../components/HamburgerMenu'
+import { getCountyByName } from '../data/liberianLocations'
 import '../styles/AddProduct.css'
 
 interface Category {
@@ -14,23 +15,38 @@ interface Category {
   color: string
 }
 
+interface CountyOption {
+  id: string
+  name: string
+}
+
 const EditProduct = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
   const [categories, setCategories] = useState<Category[]>([])
+  const [counties, setCounties] = useState<CountyOption[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     price: '',
+    currency: 'USD' as 'USD' | 'LRD',
     category_id: '',
     location: 'Monrovia',
+    county_id: '',
+    countyName: '',
+    district: '',
+    landmark: '',
     condition: 'good',
   })
+
+  // District options come from the static Liberia location data, matched by
+  // county name (the DB only stores counties, not their districts/cities).
+  const districtOptions = formData.countyName ? getCountyByName(formData.countyName)?.cities || [] : []
 
   const [existingImages, setExistingImages] = useState<string[]>([])
   const [newImages, setNewImages] = useState<File[]>([])
@@ -39,6 +55,7 @@ const EditProduct = () => {
   useEffect(() => {
     fetchProduct()
     fetchCategories()
+    fetchCounties()
   }, [id])
 
   const fetchProduct = async () => {
@@ -61,14 +78,19 @@ const EditProduct = () => {
           return
         }
         
-        setFormData({
+        setFormData(prev => ({
+          ...prev,
           title: product.title,
           description: product.description,
           price: product.price.toString(),
+          currency: product.currency === 'LRD' ? 'LRD' : 'USD',
           category_id: product.category_id || '',
           location: product.location,
+          county_id: product.county_id || '',
+          district: product.district || '',
+          landmark: product.landmark || '',
           condition: product.condition,
-        })
+        }))
 
         // Set existing images
         if (product.images && Array.isArray(product.images)) {
@@ -93,6 +115,27 @@ const EditProduct = () => {
       console.error('Error fetching categories:', err)
     }
   }
+
+  const fetchCounties = async () => {
+    try {
+      const response = await api.get('/counties')
+      if (response.data.success) {
+        setCounties(response.data.data)
+      }
+    } catch (err: any) {
+      console.error('Error fetching counties:', err)
+    }
+  }
+
+  // Once both the product's county_id and the counties list are loaded,
+  // resolve the county's name so the district dropdown can populate.
+  useEffect(() => {
+    if (!formData.county_id || counties.length === 0) return
+    const match = counties.find(c => c.id === formData.county_id)
+    if (match && match.name !== formData.countyName) {
+      setFormData(prev => ({ ...prev, countyName: match.name }))
+    }
+  }, [formData.county_id, counties])
 
   const handleNewImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
@@ -159,8 +202,12 @@ const EditProduct = () => {
       data.append('title', formData.title.trim())
       data.append('description', formData.description.trim())
       data.append('price', formData.price)
+      data.append('currency', formData.currency)
       data.append('category_id', formData.category_id)
       data.append('location', formData.location)
+      data.append('county_id', formData.county_id)
+      data.append('district', formData.district)
+      data.append('landmark', formData.landmark.trim())
       data.append('condition', formData.condition)
 
       // Append existing images as JSON
@@ -230,7 +277,7 @@ const EditProduct = () => {
 
           {/* Price */}
           <div className="form-group required">
-            <label htmlFor="price">Price (USD) *</label>
+            <label htmlFor="price">Price *</label>
             <input
               id="price"
               type="number"
@@ -242,12 +289,25 @@ const EditProduct = () => {
               step="0.01"
             />
             <span className="helper-text">
-              {formData.price && parseFloat(formData.price) > 0 && (
+              {formData.currency === 'USD' && formData.price && parseFloat(formData.price) > 0 && (
                 <span style={{ color: designSystem.colors.accent.green, fontWeight: 600 }}>
                   ≈ L${usdToLrd(parseFloat(formData.price)).toLocaleString()} LRD
                 </span>
               )}
             </span>
+          </div>
+
+          {/* Currency */}
+          <div className="form-group">
+            <label htmlFor="currency">Currency</label>
+            <select
+              id="currency"
+              value={formData.currency}
+              onChange={(e) => setFormData({ ...formData, currency: e.target.value as 'USD' | 'LRD' })}
+            >
+              <option value="USD">USD ($)</option>
+              <option value="LRD">LRD (L$)</option>
+            </select>
           </div>
 
           {/* Category */}
@@ -297,6 +357,54 @@ const EditProduct = () => {
               <option value="Red Light">Red Light</option>
               <option value="Other">Other Location</option>
             </select>
+          </div>
+
+          {/* County */}
+          <div className="form-group">
+            <label htmlFor="county">County</label>
+            <select
+              id="county"
+              value={formData.county_id}
+              onChange={(e) => {
+                const selected = counties.find(c => c.id === e.target.value)
+                setFormData({ ...formData, county_id: e.target.value, countyName: selected?.name || '', district: '' })
+              }}
+            >
+              <option value="">Choose a county…</option>
+              {counties.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* District / Area */}
+          {districtOptions.length > 0 && (
+            <div className="form-group">
+              <label htmlFor="district">District / Area</label>
+              <select
+                id="district"
+                value={formData.district}
+                onChange={(e) => setFormData({ ...formData, district: e.target.value })}
+              >
+                <option value="">Choose a district/area…</option>
+                {districtOptions.map((city) => (
+                  <option key={city.name} value={city.name}>{city.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Landmark */}
+          <div className="form-group">
+            <label htmlFor="landmark">Nearby Landmark</label>
+            <input
+              id="landmark"
+              type="text"
+              placeholder="e.g. Near Total Gas Station, 12th Street"
+              value={formData.landmark}
+              onChange={(e) => setFormData({ ...formData, landmark: e.target.value })}
+              maxLength={200}
+            />
           </div>
 
           {/* Condition */}

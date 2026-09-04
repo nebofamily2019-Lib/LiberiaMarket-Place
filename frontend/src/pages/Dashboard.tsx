@@ -7,6 +7,7 @@ import { getSentOffers, getReceivedOffers, Offer } from '../services/offerServic
 import BuyerOverview from '../components/dashboard/BuyerOverview'
 import SellerOverview from '../components/dashboard/SellerOverview'
 import useUnreadMessages from '../hooks/useUnreadMessages'
+import ReportModal from '../components/ReportModal'
 import '../styles/Dashboard.css'
 
 interface Product {
@@ -59,6 +60,9 @@ const Dashboard = () => {
   const [acceptedReceivedOffers, setAcceptedReceivedOffers] = useState<Offer[]>([])
   const [stats, setStats] = useState<DashboardStats>({})
   const unreadMessages = useUnreadMessages()
+  const [showReportPicker, setShowReportPicker] = useState(false)
+  const [showReportModal, setShowReportModal] = useState(false)
+  const [reportProductId, setReportProductId] = useState<string | undefined>(undefined)
 
   // Re-run whenever user loads so role-gated fetches actually fire
   useEffect(() => {
@@ -237,6 +241,14 @@ const Dashboard = () => {
               </button>
             </>
           )}
+          <button
+            className='quick-nav-btn'
+            onClick={() => setShowReportPicker(true)}
+            title='Report a problem'
+          >
+            <span className='quick-nav-icon'>🚩</span>
+            <span className='quick-nav-label'>Report a Problem</span>
+          </button>
         </div>
 
         {/* Render Role-Specific Overviews */}
@@ -269,6 +281,81 @@ const Dashboard = () => {
         </div>
 
       </div>
+
+      {showReportPicker && (
+        <div
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.5)', display: 'flex',
+            alignItems: 'center', justifyContent: 'center', zIndex: 1000
+          }}
+          onClick={() => setShowReportPicker(false)}
+        >
+          <div
+            style={{ background: 'white', padding: '1.5rem', borderRadius: '12px', width: '90%', maxWidth: '480px', maxHeight: '80vh', overflowY: 'auto' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ marginBottom: '1rem' }}>What do you want to report?</h2>
+
+            <button
+              className='quick-nav-btn'
+              style={{ width: '100%', justifyContent: 'flex-start', marginBottom: '0.75rem' }}
+              onClick={() => { setReportProductId(undefined); setShowReportModal(true); setShowReportPicker(false) }}
+            >
+              <span className='quick-nav-icon'>💬</span>
+              <span className='quick-nav-label'>Something else / general issue</span>
+            </button>
+
+            {hasRole('buyer') && myPurchases.length > 0 && (
+              <>
+                <p style={{ fontWeight: 600, margin: '1rem 0 0.5rem' }}>A recent purchase</p>
+                {myPurchases.slice(0, 5).map((purchase) => (
+                  purchase.product && (
+                    <button
+                      key={purchase.id}
+                      className='quick-nav-btn'
+                      style={{ width: '100%', justifyContent: 'flex-start', marginBottom: '0.5rem' }}
+                      onClick={() => { setReportProductId(purchase.product.id); setShowReportModal(true); setShowReportPicker(false) }}
+                    >
+                      <span className='quick-nav-label'>{purchase.product.title}</span>
+                    </button>
+                  )
+                ))}
+              </>
+            )}
+
+            {hasRole('seller') && [...activeProducts, ...soldProducts].length > 0 && (
+              <>
+                <p style={{ fontWeight: 600, margin: '1rem 0 0.5rem' }}>One of my listings</p>
+                {[...activeProducts, ...soldProducts].slice(0, 5).map((product) => (
+                  <button
+                    key={product.id}
+                    className='quick-nav-btn'
+                    style={{ width: '100%', justifyContent: 'flex-start', marginBottom: '0.5rem' }}
+                    onClick={() => { setReportProductId(product.id); setShowReportModal(true); setShowReportPicker(false) }}
+                  >
+                    <span className='quick-nav-label'>{product.title}</span>
+                  </button>
+                ))}
+              </>
+            )}
+
+            <button
+              className='quick-nav-btn'
+              style={{ width: '100%', justifyContent: 'center', marginTop: '0.5rem' }}
+              onClick={() => setShowReportPicker(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        productId={reportProductId}
+      />
     </div>
   )
 }

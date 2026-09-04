@@ -105,32 +105,6 @@ function requireRole(role) {
 // XSS Protection
 app.use(xss())
 
-// Rate limiting for auth routes (stricter)
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 attempts per window
-  message: 'Too many login/register attempts, please try again after 15 minutes',
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: (req) => process.env.NODE_ENV === 'test',
-  keyGenerator: (req) => {
-    // Rate limit by phone number if provided, otherwise by IP
-    return req.body.phone || req.ip
-  },
-  handler: (req, res, next, options) => {
-    logger.warn('Rate limit exceeded', {
-      path: req.path,
-      ip: req.ip,
-      phone: req.body.phone,
-      limit: options.max
-    });
-    res.status(options.statusCode).json({
-      success: false,
-      error: options.message
-    })
-  }
-})
-
 // Rate limiting configuration
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -188,7 +162,6 @@ const messageRoutes = require('./routes/messageRoutes');
 const countyRoutes = require('./routes/counties');
 const reviewRoutes = require('./routes/reviews');
 const mobileMoneyRoutes = require('./routes/mobileMoney');
-const paymentRoutes = require('./routes/payments');
 const savedItemRoutes = require('./routes/savedItems');
 const notificationRoutes = require('./routes/notifications');
 const reportRoutes = require('./routes/reports');
@@ -225,13 +198,12 @@ app.use((req, res, next) => {
 app.use('/health', healthRoutes);
 app.use('/api/health', healthRoutes); // Also available at /api/health for consistency
 
-// Mount /api/auth/me first, without rate limiter
+// Rate limiting for /api/auth is scoped per-route inside routes/auth.js
+// (only the sensitive POST /register, /login, /forgot-password are limited)
+// rather than here at the router-mount level, so read-only routes like
+// GET /me aren't caught by the same bucket as login attempts.
 const authRoutesRaw = require('./routes/auth');
-const authMeRouter = express.Router();
-authMeRouter.get('/me', require('./middleware/auth').protect, require('./controllers/authController').getMe);
-app.use('/api/auth/me', authMeRouter);
-// Mount other /api/auth routes with rate limiter
-app.use('/api/auth', process.env.NODE_ENV === 'production' ? authLimiter : (req, res, next) => next(), authRoutesRaw);
+app.use('/api/auth', authRoutesRaw);
 app.use('/api/products', process.env.NODE_ENV === 'production' ? apiLimiter : (req, res, next) => next(), productRoutes);
 app.use('/api/categories', process.env.NODE_ENV === 'production' ? apiLimiter : (req, res, next) => next(), categoryRoutes);
 app.use('/api/offers', process.env.NODE_ENV === 'production' ? apiLimiter : (req, res, next) => next(), offerRoutes);
@@ -240,7 +212,6 @@ app.use('/api/messages', process.env.NODE_ENV === 'production' ? apiLimiter : (r
 app.use('/api/counties', process.env.NODE_ENV === 'production' ? apiLimiter : (req, res, next) => next(), countyRoutes);
 app.use('/api/reviews', process.env.NODE_ENV === 'production' ? apiLimiter : (req, res, next) => next(), reviewRoutes);
 app.use('/api/mobile-money', process.env.NODE_ENV === 'production' ? apiLimiter : (req, res, next) => next(), mobileMoneyRoutes);
-app.use('/api/payments', process.env.NODE_ENV === 'production' ? apiLimiter : (req, res, next) => next(), paymentRoutes);
 app.use('/api/saved-items', process.env.NODE_ENV === 'production' ? apiLimiter : (req, res, next) => next(), savedItemRoutes);
 app.use('/api/notifications', process.env.NODE_ENV === 'production' ? apiLimiter : (req, res, next) => next(), notificationRoutes);
 app.use('/api/reports', process.env.NODE_ENV === 'production' ? apiLimiter : (req, res, next) => next(), reportRoutes);
@@ -283,13 +254,12 @@ app.get('/', (req, res) => {
       counties: '/api/counties',
       reviews: '/api/reviews',
       mobileMoney: '/api/mobile-money',
-      payments: '/api/payments',
       health: '/api/health'
     },
     features: {
       location: '15 Liberian counties',
       reviews: '5-star ratings & verified purchases',
-      payments: 'Orange Money, MTN MoMo, Lonestar Money',
+      settlement: 'Zero-fee — buyers and sellers settle offline (cash or direct mobile money)',
       sms: 'SMS notifications ready'
     }
   });

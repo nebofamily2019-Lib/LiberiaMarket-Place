@@ -130,6 +130,12 @@ class User extends Model {
           type: DataTypes.INTEGER,
           defaultValue: 0
         },
+        trust_score: {
+          type: DataTypes.INTEGER,
+          allowNull: false,
+          defaultValue: 0,
+          comment: 'Computed reputation score used for search ranking (rating + completed deals)'
+        },
         response_rate: {
           type: DataTypes.INTEGER,
           defaultValue: null,

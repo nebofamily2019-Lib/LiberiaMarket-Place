@@ -514,7 +514,11 @@ const OfferCard = ({ offer, viewType, onOfferUpdated }: OfferCardProps) => {
 
               {isSeller && (
                 offer.seller_confirmed
-                  ? <p style={{ margin: 0 }}>✅ You confirmed the handover. Waiting for the buyer to confirm they received it.</p>
+                  ? (
+                    <p style={{ margin: 0 }}>
+                      ✅ You marked this done. We've asked {offer.buyer?.name || 'the buyer'} to confirm — if they don't reply within 48 hours, it'll close out automatically in your favor.
+                    </p>
+                  )
                   : (
                     <button
                       type="button"
@@ -522,7 +526,7 @@ const OfferCard = ({ offer, viewType, onOfferUpdated }: OfferCardProps) => {
                       disabled={deliveryActionLoading}
                       style={{ padding: '0.6rem 1rem', borderRadius: '8px', border: 'none', background: '#166534', color: '#fff', fontWeight: 600, cursor: 'pointer' }}
                     >
-                      ✅ I've Handed Over the Item
+                      ✅ Mark as Done / Delivered
                     </button>
                   )
               )}
@@ -530,7 +534,21 @@ const OfferCard = ({ offer, viewType, onOfferUpdated }: OfferCardProps) => {
               {isBuyer && (
                 offer.buyer_confirmed
                   ? <p style={{ margin: 0 }}>✅ You confirmed receipt. Waiting for the seller to confirm the handover.</p>
-                  : (
+                  : offer.seller_confirmed ? (
+                    <div>
+                      <p style={{ margin: '0 0 0.5rem 0', fontWeight: 600 }}>
+                        Did you complete this deal with {offer.seller?.name || 'the seller'}?
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleBuyerConfirmReceipt}
+                        disabled={deliveryActionLoading}
+                        style={{ padding: '0.6rem 1rem', borderRadius: '8px', border: 'none', background: '#166534', color: '#fff', fontWeight: 600, cursor: 'pointer' }}
+                      >
+                        ✅ Yes, Confirm
+                      </button>
+                    </div>
+                  ) : (
                     <button
                       type="button"
                       onClick={handleBuyerConfirmReceipt}

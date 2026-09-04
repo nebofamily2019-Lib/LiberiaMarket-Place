@@ -21,8 +21,14 @@ const ReportModal = ({ isOpen, onClose, productId, userId }: ReportModalProps) =
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setSubmitError(null);
+
+    if (!productId && !userId && !description.trim()) {
+      setSubmitError('Please describe the issue');
+      return;
+    }
+
+    setLoading(true);
 
     try {
       await reportService.createReport({
@@ -63,7 +69,9 @@ const ReportModal = ({ isOpen, onClose, productId, userId }: ReportModalProps) =
         width: '90%',
         maxWidth: '500px'
       }}>
-        <h2 style={{ marginBottom: designSystem.spacing.lg }}>Report {productId ? 'Item' : 'User'}</h2>
+        <h2 style={{ marginBottom: designSystem.spacing.lg }}>
+          {productId ? 'Report Item' : userId ? 'Report User' : 'Report an Issue'}
+        </h2>
         
         {submitError && (
           <div style={{ 

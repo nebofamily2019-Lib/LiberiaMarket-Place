@@ -21,6 +21,8 @@ interface Product {
   price: number
   currency?: string
   location: string
+  district?: string
+  landmark?: string
   condition: string
   status: string
   contactPhone?: string
@@ -42,6 +44,7 @@ interface Product {
     phone: string
     avg_rating?: number
     total_reviews?: number
+    total_sales?: number
     is_verified?: boolean
   }
 }
@@ -334,7 +337,12 @@ const ProductDetails = () => {
               </div>
               <div className="info-item">
                 <span className="info-label">Location</span>
-                <span className="info-value" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}><MapPin size={14} /> {product.location}</span>
+                <span className="info-value" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <MapPin size={14} /> {[product.location, product.district].filter(Boolean).join(', ')}
+                </span>
+                {product.landmark && (
+                  <span className="info-value" style={{ fontSize: '0.85rem', color: '#6b7280' }}>{product.landmark}</span>
+                )}
               </div>
               <div className="info-item">
                 <span className="info-label">Listed</span>
@@ -387,7 +395,31 @@ const ProductDetails = () => {
                           fontSize: '0.7rem',
                           fontWeight: 600
                         }}>
-                          ✓ Verified
+                          ✓ Verified Local Merchant
+                        </span>
+                      )}
+                      {(product.seller.avg_rating || 0) >= 4.5 && (product.seller.total_reviews || 0) >= 3 && (
+                        <span style={{
+                          padding: '0.125rem 0.5rem',
+                          background: '#f59e0b',
+                          color: 'white',
+                          borderRadius: '12px',
+                          fontSize: '0.7rem',
+                          fontWeight: 600
+                        }}>
+                          ⭐ Top Rated
+                        </span>
+                      )}
+                      {(product.seller.total_sales || 0) >= 5 && (
+                        <span style={{
+                          padding: '0.125rem 0.5rem',
+                          background: '#3b82f6',
+                          color: 'white',
+                          borderRadius: '12px',
+                          fontSize: '0.7rem',
+                          fontWeight: 600
+                        }}>
+                          🤝 {product.seller.total_sales}+ Confirmed Deals
                         </span>
                       )}
                     </div>

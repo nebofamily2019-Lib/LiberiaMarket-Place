@@ -2,7 +2,6 @@ const { Product, User, Category, UserActivity } = require('../models')
 const { Op } = require('sequelize')
 const { processAndSaveImage, deleteAllImageSizes } = require('../utils/imageProcessor');
 const logger = require('../utils/logger');
-const { calculatePlatformFee } = require('../utils/platformFee');
 
 // @desc    Get all products (with pagination & filters)
 // @route   GET /api/products
@@ -173,7 +172,7 @@ const getProduct = async (req, res, next) => {
         {
           model: User,
           as: 'seller',
-          attributes: ['id', 'name', 'phone', 'avg_rating', 'total_reviews', 'is_verified']
+          attributes: ['id', 'name', 'phone', 'avg_rating', 'total_reviews', 'total_sales', 'is_verified']
         }
       ]
     })
@@ -211,7 +210,7 @@ const getProduct = async (req, res, next) => {
 // @access  Private
 const createProduct = async (req, res, next) => {
   try {
-    const { title, description, price, currency, category_id, location, latitude, longitude, condition, contactPhone } = req.body
+    const { title, description, price, currency, category_id, location, county_id, district, landmark, latitude, longitude, condition, contactPhone } = req.body
 
     // Use defaults if fields are missing
     const timestamp = Date.now()
@@ -277,6 +276,9 @@ const createProduct = async (req, res, next) => {
       currency: productCurrency,
       category_id: category_id || null,
       location: productLocation.trim ? productLocation.trim() : productLocation,
+      county_id: county_id || null,
+      district: district || null,
+      landmark: landmark || null,
       latitude: productLat,
       longitude: productLon,
       condition: condition || 'good',
@@ -384,6 +386,11 @@ const updateProduct = async (req, res, next) => {
     const updateData = {
       ...req.body,
       images: finalImages.length > 0 ? finalImages : null
+    }
+
+    // Empty string isn't a valid UUID for this FK column — treat as "clear it"
+    if (updateData.county_id === '') {
+      updateData.county_id = null
     }
 
     // Remove existingImages from update data (it's not a product field)
@@ -555,7 +562,6 @@ const markAsSold = async (req, res, next) => {
     }
 
     const finalSoldPrice = soldPrice || product.price;
-    const { fee: platformFee, netPayout } = calculatePlatformFee(finalSoldPrice);
 
     // Update product
     await product.update({
@@ -566,8 +572,7 @@ const markAsSold = async (req, res, next) => {
       payment_method: paymentMethod || null
     });
 
-    // If cash transaction, we could log it to a Payment/Transaction table here
-    // For now, the Product update is sufficient for the dashboard
+    await User.increment('total_sales', { by: 1, where: { id: req.user.id } });
 
     // Log activity (best-effort — don't fail the sale if logging breaks)
     try {
@@ -575,7 +580,7 @@ const markAsSold = async (req, res, next) => {
         user_id: req.user.id,
         activity_type: 'sold_product',
         entity_id: product.id,
-        details: { sold_price: finalSoldPrice, platform_fee: platformFee, net_payout: netPayout }
+        details: { sold_price: finalSoldPrice }
       });
     } catch (logErr) {
       logger.warn('Failed to log sold_product activity:', logErr.message);
@@ -609,7 +614,6 @@ const getSellerStats = async (req, res, next) => {
 
     const totalRevenue = soldProducts.reduce((sum, p) => sum + (parseFloat(p.sold_price) || 0), 0);
     const totalItemsSold = soldProducts.length;
-    const { fee: totalPlatformFees, netPayout: netRevenue } = calculatePlatformFee(totalRevenue);
 
     // 2. Active Listings
     const activeCount = await Product.count({
@@ -631,21 +635,13 @@ const getSellerStats = async (req, res, next) => {
       include: [{ model: Category, as: 'category', attributes: ['name'] }]
     });
 
-    // Attach the per-sale fee/payout breakdown so the UI doesn't have to recompute it
-    const recentSalesWithPayout = recentSales.map((sale) => {
-      const { fee, netPayout } = calculatePlatformFee(sale.sold_price);
-      return { ...sale.toJSON(), platform_fee: fee, net_payout: netPayout };
-    });
-
     res.status(200).json({
       success: true,
       data: {
         totalRevenue,
-        totalPlatformFees,
-        netRevenue,
         totalItemsSold,
         activeListings: activeCount,
-        recentSales: recentSalesWithPayout
+        recentSales: recentSales.map((sale) => sale.toJSON())
       }
     });
   } catch (error) {

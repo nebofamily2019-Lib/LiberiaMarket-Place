@@ -1,5 +1,6 @@
 const { Review, User, Product, Offer } = require('../models');
 const { Op } = require('sequelize');
+const { updateTrustScore } = require('../utils/trustScore');
 
 /**
  * Create a new review
@@ -43,42 +44,61 @@ exports.createReview = async (req, res) => {
       }
     }
 
-    // Verify the transaction exists and user participated
-    let is_verified_purchase = false;
-    if (offer_id) {
-      const offer = await Offer.findByPk(offer_id);
-      if (!offer) {
-        return res.status(404).json({
-          success: false,
-          message: 'Offer not found'
-        });
-      }
+    // Reviews are only allowed for a completed transaction the reviewer
+    // actually took part in — no more open/untethered reviews.
+    if (!offer_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'A completed transaction is required to leave a review'
+      });
+    }
 
-      // Check if user was part of the transaction
-      if (offer.buyer_id === reviewer_id || offer.seller_id === reviewer_id) {
-        is_verified_purchase = offer.status === 'accepted';
-      } else {
-        return res.status(403).json({
-          success: false,
-          message: 'You cannot review this transaction'
-        });
-      }
+    const offer = await Offer.findByPk(offer_id);
+    if (!offer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Offer not found'
+      });
+    }
+
+    if (offer.buyer_id !== reviewer_id && offer.seller_id !== reviewer_id) {
+      return res.status(403).json({
+        success: false,
+        message: 'You cannot review this transaction'
+      });
+    }
+
+    if (offer.status !== 'completed') {
+      return res.status(400).json({
+        success: false,
+        message: 'You can only review a completed transaction'
+      });
+    }
+
+    // The reviewee must be the other party in this same transaction
+    const expectedReviewee = offer.buyer_id === reviewer_id ? offer.seller_id : offer.buyer_id;
+    if (reviewee_id !== expectedReviewee) {
+      return res.status(400).json({
+        success: false,
+        message: 'reviewee_id must be the other party in this transaction'
+      });
     }
 
     // Create review
     const review = await Review.create({
       reviewer_id,
       reviewee_id,
-      product_id: product_id || null,
-      offer_id: offer_id || null,
+      product_id: product_id || offer.product_id || null,
+      offer_id,
       rating,
       comment: comment || null,
       review_type: review_type || 'seller',
-      is_verified_purchase
+      is_verified_purchase: true
     });
 
-    // Update reviewee's average rating
+    // Update reviewee's average rating + trust score
     await updateUserRating(reviewee_id);
+    await updateTrustScore(User, reviewee_id);
 
     // Fetch complete review data
     const completeReview = await Review.findByPk(review.id, {

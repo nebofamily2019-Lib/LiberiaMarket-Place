@@ -104,6 +104,16 @@ class Product extends Model {
         allowNull: true,
         comment: 'Specific area/street within county'
       },
+      district: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        comment: 'District/city/zone within the county (e.g. Sinkor, Paynesville)'
+      },
+      landmark: {
+        type: DataTypes.STRING(200),
+        allowNull: true,
+        comment: 'Free-form nearby landmark (e.g. "Near Total Gas Station, 12th Street")'
+      },
       coordinates: {
         type: DataTypes.JSON,
         allowNull: true,
