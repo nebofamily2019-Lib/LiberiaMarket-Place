@@ -56,6 +56,16 @@ const protect = async (req, res, next) => {
         });
       }
 
+      if (!req.user.isActive) {
+        logger.warn('Authentication failed: Account deactivated', {
+          userId: decoded.id
+        });
+        return res.status(401).json({
+          success: false,
+          error: 'Account is deactivated. Please contact support.'
+        });
+      }
+
       // Check token version for revocation
       if (decoded.v !== undefined && req.user.token_version !== decoded.v) {
         logger.warn('Authentication failed: Token revoked', {

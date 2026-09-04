@@ -38,7 +38,7 @@ async function createAdmin() {
       const update = await prompt('Update to admin role? (yes/no): ');
       
       if (update.toLowerCase() === 'yes') {
-        await existingAdmin.update({ role: 'admin' });
+        await existingAdmin.update({ role: 'admin', roles: ['admin'] });
         console.log('✅ User updated to admin role!');
       }
       

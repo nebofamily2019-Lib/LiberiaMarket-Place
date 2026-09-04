@@ -29,6 +29,9 @@ const Wallet = lazy(() => import('./pages/Wallet'))
 const TermsOfService = lazy(() => import('./pages/TermsOfService'))
 const Safety = lazy(() => import('./pages/Safety'))
 const SellerDashboard = lazy(() => import('./pages/SellerDashboard'))
+const AdminFees = lazy(() => import('./pages/AdminFees'))
+const AdminReports = lazy(() => import('./pages/AdminReports'))
+const AdminListings = lazy(() => import('./pages/AdminListings'))
 
 // Loading component
 const PageLoader = () => (
@@ -118,6 +121,32 @@ function AppContent() {
                 element={
                   <ProtectedRoute allowedRoles={['seller', 'admin']}>
                     <SellerDashboard />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Protected Routes - Admin */}
+              <Route
+                path="/admin/fees"
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminFees />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/reports"
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminReports />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/listings"
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminListings />
                   </ProtectedRoute>
                 }
               />

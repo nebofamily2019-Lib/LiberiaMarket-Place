@@ -132,6 +132,12 @@ const productService = {
   deleteProduct: async (id: string): Promise<void> => {
     const response = await api.delete(`/products/${id}`)
     return response.data
+  },
+
+  // Update product status (e.g. admin deactivating a flagged listing)
+  updateProductStatus: async (id: string, status: Product['status']): Promise<Product> => {
+    const response = await api.patch<ProductResponse>(`/products/${id}/status`, { status })
+    return response.data.data
   }
 }
 

@@ -19,7 +19,10 @@ import {
   ShoppingCart,
   LogOut,
   LogIn,
-  UserPlus
+  UserPlus,
+  Landmark,
+  Flag,
+  ListChecks
 } from 'lucide-react'
 
 const HamburgerMenu = () => {
@@ -67,6 +70,11 @@ const HamburgerMenu = () => {
     // Seller Tools
     { path: '/my-products', label: 'My Products', icon: <Package size={20} />, roles: ['seller', 'admin'] },
     { path: '/seller/financials', label: 'Sales Dashboard', icon: <BarChart3 size={20} />, roles: ['seller', 'admin'] },
+
+    // Admin Tools
+    { path: '/admin/fees', label: 'Fee Collection', icon: <Landmark size={20} />, roles: ['admin'] },
+    { path: '/admin/reports', label: 'Reports', icon: <Flag size={20} />, roles: ['admin'] },
+    { path: '/admin/listings', label: 'Listings', icon: <ListChecks size={20} />, roles: ['admin'] },
   ]
 
   return (
