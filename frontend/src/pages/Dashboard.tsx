@@ -19,6 +19,7 @@ interface Product {
   createdAt: string
   seller_id?: string
   currency?: string
+  images?: string[]
   category?: {
     name: string
     icon: string
@@ -26,15 +27,37 @@ interface Product {
   }
 }
 
+interface DashboardStats {
+  seller?: {
+    myProducts: number
+    activeProducts: number
+    pendingProducts: number
+    soldProducts: number
+    pendingOffers: number
+  }
+  buyer?: {
+    activeOffers: number
+    awaitingYourResponse: number
+    purchases: number
+  }
+}
+
 const Dashboard = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [myProducts, setMyProducts] = useState<Product[]>([])
+  const [activeProducts, setActiveProducts] = useState<Product[]>([])
+  const [soldProducts, setSoldProducts] = useState<Product[]>([])
   const [myPurchases, setMyPurchases] = useState<any[]>([])
   const [recentActivity, setRecentActivity] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [sentOffers, setSentOffers] = useState<Offer[]>([])
-  const [receivedOffers, setReceivedOffers] = useState<Offer[]>([])
+  // Sent offers (buyer), split by what they mean for the buyer right now
+  const [pendingSentOffers, setPendingSentOffers] = useState<Offer[]>([])
+  const [counteredSentOffers, setCounteredSentOffers] = useState<Offer[]>([])
+  const [acceptedSentOffers, setAcceptedSentOffers] = useState<Offer[]>([])
+  // Received offers (seller), split the same way
+  const [pendingReceivedOffers, setPendingReceivedOffers] = useState<Offer[]>([])
+  const [acceptedReceivedOffers, setAcceptedReceivedOffers] = useState<Offer[]>([])
+  const [stats, setStats] = useState<DashboardStats>({})
   const unreadMessages = useUnreadMessages()
 
   // Re-run whenever user loads so role-gated fetches actually fire
@@ -55,14 +78,21 @@ const Dashboard = () => {
       setLoading(true)
 
       // Fetch stats
-      await api.get('/dashboard/stats')
+      const statsRes = await api.get('/dashboard/stats')
+      if (statsRes.data.success) {
+        setStats(statsRes.data.data)
+      }
 
-      // Fetch seller's products if user is a seller
+      // Fetch seller's products if user is a seller — fetched per-status so
+      // each dashboard section only ever shows products matching its own
+      // status, instead of a mixed "5 most recent regardless of status" list.
       if (hasRole('seller')) {
-        const productsRes = await api.get('/dashboard/my-products?limit=5')
-        if (productsRes.data.success) {
-          setMyProducts(productsRes.data.data)
-        }
+        const [activeRes, soldRes] = await Promise.all([
+          api.get('/dashboard/my-products?status=active&limit=5'),
+          api.get('/dashboard/my-products?status=sold&limit=5')
+        ])
+        if (activeRes.data.success) setActiveProducts(activeRes.data.data)
+        if (soldRes.data.success) setSoldProducts(soldRes.data.data)
       }
 
       // Fetch buyer's purchases if user is a buyer
@@ -87,16 +117,28 @@ const Dashboard = () => {
 
   const fetchOffers = async () => {
     try {
-      // Fetch sent offers for buyers
+      // Fetch sent offers for buyers — each bucket fetched by status so the
+      // dashboard sections stay true to their labels (e.g. "awaiting you"
+      // never mixes in offers that are actually done and dusted).
       if (hasRole('buyer')) {
-        const offers = await getSentOffers()
-        setSentOffers(offers.slice(0, 5)) // Show only 5 most recent
+        const [pending, countered, accepted] = await Promise.all([
+          getSentOffers('pending'),
+          getSentOffers('countered'),
+          getSentOffers('accepted')
+        ])
+        setPendingSentOffers(pending)
+        setCounteredSentOffers(countered)
+        setAcceptedSentOffers(accepted)
       }
 
       // Fetch received offers for sellers
       if (hasRole('seller')) {
-        const offers = await getReceivedOffers()
-        setReceivedOffers(offers.slice(0, 5)) // Show only 5 most recent
+        const [pending, accepted] = await Promise.all([
+          getReceivedOffers('pending'),
+          getReceivedOffers('accepted')
+        ])
+        setPendingReceivedOffers(pending)
+        setAcceptedReceivedOffers(accepted)
       }
     } catch (err: any) {
       console.error('Error fetching offers:', err)
@@ -202,20 +244,26 @@ const Dashboard = () => {
           
           {/* Seller Section */}
           {hasRole('seller') && (
-            <SellerOverview 
-              products={myProducts} 
-              receivedOffers={receivedOffers}
+            <SellerOverview
+              activeProducts={activeProducts}
+              soldProducts={soldProducts}
+              pendingOffers={pendingReceivedOffers}
+              activeDealOffers={acceptedReceivedOffers}
               onOfferUpdated={fetchOffers}
+              stats={stats.seller}
             />
           )}
 
           {/* Buyer Section */}
           {hasRole('buyer') && (
-            <BuyerOverview 
-              purchases={myPurchases} 
-              recentActivity={recentActivity} 
-              sentOffers={sentOffers}
+            <BuyerOverview
+              purchases={myPurchases}
+              recentActivity={recentActivity}
+              pendingSentOffers={pendingSentOffers}
+              counteredSentOffers={counteredSentOffers}
+              activeDealOffers={acceptedSentOffers}
               onOfferUpdated={fetchOffers}
+              stats={stats.buyer}
             />
           )}
         </div>

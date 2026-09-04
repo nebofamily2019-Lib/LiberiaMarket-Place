@@ -1,5 +1,6 @@
 const { sequelize, Offer, Product, User, Notification, UserActivity } = require('../models');
 const { Op } = require('sequelize');
+const { calculatePlatformFee } = require('../utils/platformFee');
 
 // Finalise a transaction once both parties have confirmed
 const completeTransaction = async (offer) => {
@@ -8,6 +9,7 @@ const completeTransaction = async (offer) => {
 
   // Use counter_amount if a counter was made, otherwise the original offer_amount
   const acceptedAmount = offer.counter_amount || offer.offer_amount;
+  const { fee: platformFee, netPayout } = calculatePlatformFee(acceptedAmount);
 
   await product.update({
     status: 'sold',
@@ -22,7 +24,12 @@ const completeTransaction = async (offer) => {
       user_id: offer.seller_id,
       activity_type: 'sold_product',
       entity_id: offer.product_id,
-      details: { sold_price: acceptedAmount, via: 'offer_delivery_confirmed' }
+      details: {
+        sold_price: acceptedAmount,
+        platform_fee: platformFee,
+        net_payout: netPayout,
+        via: 'offer_delivery_confirmed'
+      }
     });
   } catch (logErr) {
     console.warn('Failed to log sold_product activity:', logErr.message);
@@ -229,13 +236,28 @@ const rejectOffer = async (req, res, next) => {
   }
 };
 
+const VALID_OFFER_STATUSES = ['pending', 'accepted', 'rejected', 'countered', 'expired', 'completed'];
+
+// Parses a comma-separated ?status= filter into a Sequelize where clause,
+// dropping any values that aren't real offer statuses.
+const parseStatusFilter = (statusParam) => {
+  if (!statusParam) return undefined;
+  const statuses = statusParam.split(',').map(s => s.trim()).filter(s => VALID_OFFER_STATUSES.includes(s));
+  if (statuses.length === 0) return undefined;
+  return statuses.length === 1 ? statuses[0] : { [Op.in]: statuses };
+};
+
 // @desc    Get received offers
 // @route   GET /api/offers/received
 // @access  Private (Seller)
 const getReceivedOffers = async (req, res, next) => {
   try {
+    const where = { seller_id: req.user.id };
+    const statusFilter = parseStatusFilter(req.query.status);
+    if (statusFilter) where.status = statusFilter;
+
     const offers = await Offer.findAll({
-      where: { seller_id: req.user.id },
+      where,
       include: [
         { model: Product, as: 'offerProduct', attributes: ['id', 'title', 'price', 'images', 'status'] },
         { model: User, as: 'buyer', attributes: ['id', 'name', 'phone'] }
@@ -260,8 +282,12 @@ const getReceivedOffers = async (req, res, next) => {
 // @access  Private (Buyer)
 const getSentOffers = async (req, res, next) => {
   try {
+    const where = { buyer_id: req.user.id };
+    const statusFilter = parseStatusFilter(req.query.status);
+    if (statusFilter) where.status = statusFilter;
+
     const offers = await Offer.findAll({
-      where: { buyer_id: req.user.id },
+      where,
       include: [
         { model: Product, as: 'offerProduct', attributes: ['id', 'title', 'price', 'images', 'status'] },
         { model: User, as: 'seller', attributes: ['id', 'name', 'phone'] }

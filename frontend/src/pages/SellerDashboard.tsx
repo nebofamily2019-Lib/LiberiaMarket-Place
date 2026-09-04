@@ -205,12 +205,12 @@ const SellerDashboard = () => {
             Money Made
           </div>
           <div className="seller-stat-value">
-            {formatPriceWithCurrency(stats?.totalRevenue || 0).primary}
+            {formatPriceWithCurrency(stats?.netRevenue ?? stats?.totalRevenue ?? 0).primary}
           </div>
           <div className="seller-stat-secondary">
-            {formatPriceWithCurrency(stats?.totalRevenue || 0).secondary}
+            {formatPriceWithCurrency(stats?.netRevenue ?? stats?.totalRevenue ?? 0).secondary}
           </div>
-          <div className="seller-stat-desc">Total sales from your shop</div>
+          <div className="seller-stat-desc">What you keep, after the 1% platform fee</div>
         </div>
 
         <div className="seller-stat-card accent-red">
@@ -243,7 +243,8 @@ const SellerDashboard = () => {
                 <tr>
                   <th>Product</th>
                   <th>Date</th>
-                  <th>Price</th>
+                  <th>Sale Price</th>
+                  <th>You Receive</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -265,6 +266,11 @@ const SellerDashboard = () => {
                       </div>
                       <div className="price-sub">
                         {formatPriceWithCurrency(sale.sold_price).secondary}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="price-main" style={{ color: '#059669' }}>
+                        {formatPriceWithCurrency(sale.net_payout ?? sale.sold_price).primary}
                       </div>
                     </td>
                     <td>
@@ -378,7 +384,9 @@ const SellerDashboard = () => {
     }
 
     const totalRevenueUSD = stats?.totalRevenue || 0;
-    const priceFormatted = formatPriceWithCurrency(totalRevenueUSD, 'USD');
+    const netRevenueUSD = stats?.netRevenue ?? totalRevenueUSD;
+    const totalFeesUSD = stats?.totalPlatformFees ?? 0;
+    const priceFormatted = formatPriceWithCurrency(netRevenueUSD, 'USD');
     const recentSales = stats?.recentSales || [];
 
     return (
@@ -389,7 +397,7 @@ const SellerDashboard = () => {
               <div className="wallet-card-title">
                 My Earnings <span className="wallet-badge">Sales Revenue</span>
               </div>
-              <p>Total revenue from your sold items</p>
+              <p>What you keep from your sold items, after the 1% platform fee</p>
             </div>
             <button className="btn-cash-out" onClick={() => navigate('/wallet')}>
               My Wallet
@@ -412,9 +420,11 @@ const SellerDashboard = () => {
         {/* Summary cards */}
         <div className="seller-stats-grid" style={{ marginTop: '1.25rem' }}>
           <div className="seller-stat-card">
-            <div className="seller-stat-label"><DollarSign size={16} /> Total Revenue</div>
+            <div className="seller-stat-label"><DollarSign size={16} /> Total Sales</div>
             <div className="seller-stat-value">{formatPriceWithCurrency(totalRevenueUSD).primary}</div>
-            <div className="seller-stat-desc">All time sales earnings</div>
+            <div className="seller-stat-desc">
+              All time, before the 1% fee ({formatPriceWithCurrency(totalFeesUSD).primary} total fees)
+            </div>
           </div>
           <div className="seller-stat-card accent-red">
             <div className="seller-stat-label"><Package size={16} /> Items Sold</div>
@@ -441,6 +451,7 @@ const SellerDashboard = () => {
                     <th>Product</th>
                     <th>Date Sold</th>
                     <th>Sale Price</th>
+                    <th>You Receive</th>
                     <th>Status</th>
                   </tr>
                 </thead>
@@ -462,6 +473,11 @@ const SellerDashboard = () => {
                         </div>
                         <div className="price-sub">
                           {formatPriceWithCurrency(sale.sold_price || sale.price).secondary}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="price-main" style={{ color: '#059669' }}>
+                          {formatPriceWithCurrency(sale.net_payout ?? (sale.sold_price || sale.price)).primary}
                         </div>
                       </td>
                       <td><span className="badge-sold">Sold</span></td>
@@ -504,7 +520,7 @@ const SellerDashboard = () => {
         <details className="help-faq-item">
           <summary>What fees does the platform charge?</summary>
           <p>
-            Listing is free! We only charge a small commission (2%) when you successfully sell an
+            Listing is free! We only charge a small commission (1%) when you successfully sell an
             item.
           </p>
         </details>

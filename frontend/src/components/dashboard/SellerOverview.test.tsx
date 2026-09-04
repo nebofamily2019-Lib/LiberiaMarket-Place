@@ -70,9 +70,11 @@ describe('SellerOverview', () => {
 
   it('groups offers by product', () => {
     render(
-      <SellerOverview 
-        products={mockProducts} 
-        receivedOffers={mockOffers} 
+      <SellerOverview
+        activeProducts={mockProducts}
+        soldProducts={[]}
+        pendingOffers={mockOffers}
+        activeDealOffers={[]}
       />
     )
 
@@ -91,12 +93,14 @@ describe('SellerOverview', () => {
 
   it('renders correctly with no offers', () => {
     render(
-      <SellerOverview 
-        products={mockProducts} 
-        receivedOffers={[]} 
+      <SellerOverview
+        activeProducts={mockProducts}
+        soldProducts={[]}
+        pendingOffers={[]}
+        activeDealOffers={[]}
       />
     )
 
-    expect(screen.queryByText('Received Offers')).not.toBeInTheDocument()
+    expect(screen.queryByText('Offers Awaiting Your Response')).not.toBeInTheDocument()
   })
 })

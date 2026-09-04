@@ -8,6 +8,7 @@ import '../styles/MyProducts.css'
 import { formatPriceWithCurrency } from '../utils/currency'
 import { DollarSign, Package } from 'lucide-react'
 import { getImageUrl } from '../utils/imageUtils'
+import { calculateSellerPayout } from '../utils/platformFee'
 
 interface Product {
   id: string
@@ -385,6 +386,9 @@ const ProductCard = ({ product, onEdit, onView, onDelete, onMarkAsSold }: CardPr
             border: '1px solid #bbf7d0', lineHeight: 1.6,
           }}>
             <div>Sold for: <strong style={{ color: '#059669' }}>{formatPriceWithCurrency(product.sold_price).primary}</strong></div>
+            <div style={{ color: '#6b7280' }}>
+              You receive: <strong>{formatPriceWithCurrency(calculateSellerPayout(product.sold_price).netPayout).primary}</strong> (after 1% platform fee)
+            </div>
             {product.sold_at && (
               <div style={{ color: '#6b7280' }}>{new Date(product.sold_at).toLocaleDateString()}</div>
             )}

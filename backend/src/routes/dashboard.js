@@ -2,7 +2,6 @@ const express = require('express')
 const router = express.Router()
 const { protect, authorize } = require('../middleware/auth')
 const { User, Product, Category, Offer } = require('../models')
-const { Op } = require('sequelize')
 const { getRecentActivity } = require('../controllers/analyticsController')
 
 // @desc    Get recent activity
@@ -16,12 +15,9 @@ router.get('/activity', protect, getRecentActivity)
 router.get('/stats', protect, async (req, res, next) => {
   try {
     const userId = req.user.id
-    const userRole = req.user.role
+    const stats = {}
 
-    let stats = {}
-
-    if (userRole === 'admin') {
-      // Admin sees all stats
+    if (req.user.hasRole('admin')) {
       const [totalUsers, totalProducts, activeProducts, totalCategories] = await Promise.all([
         User.count(),
         Product.count(),
@@ -29,46 +25,32 @@ router.get('/stats', protect, async (req, res, next) => {
         Category.count({ where: { isActive: true } })
       ])
 
-      stats = {
-        totalUsers,
-        totalProducts,
-        activeProducts,
-        totalCategories,
-        recentActivity: `${totalProducts} products listed`
-      }
-    } else if (userRole === 'seller') {
-      // Seller sees their own product stats
-      const [myProducts, activeProducts, pendingProducts, soldProducts] = await Promise.all([
+      stats.admin = { totalUsers, totalProducts, activeProducts, totalCategories }
+    }
+
+    // A user can hold both roles at once, so check independently rather than
+    // branching on a single primary role — otherwise a seller's buyer stats
+    // (or vice versa) silently never load.
+    if (req.user.hasRole('seller')) {
+      const [myProducts, activeProducts, pendingProducts, soldProducts, pendingOffers] = await Promise.all([
         Product.count({ where: { seller_id: userId } }),
         Product.count({ where: { seller_id: userId, status: 'active' } }),
         Product.count({ where: { seller_id: userId, status: 'pending' } }),
-        Product.count({ where: { seller_id: userId, status: 'sold' } })
+        Product.count({ where: { seller_id: userId, status: 'sold' } }),
+        Offer.count({ where: { seller_id: userId, status: 'pending' } })
       ])
 
-      stats = {
-        myProducts,
-        activeProducts,
-        pendingProducts,
-        soldProducts,
-        totalViews: 0 // Placeholder
-      }
-    } else {
-      // Buyer sees general marketplace stats
-      const [totalProducts, totalCategories] = await Promise.all([
-        Product.count({ where: { status: 'active' } }),
-        Category.count({ where: { isActive: true } })
+      stats.seller = { myProducts, activeProducts, pendingProducts, soldProducts, pendingOffers }
+    }
+
+    if (req.user.hasRole('buyer')) {
+      const [activeOffers, awaitingYourResponse, purchases] = await Promise.all([
+        Offer.count({ where: { buyer_id: userId, status: ['pending', 'countered'] } }),
+        Offer.count({ where: { buyer_id: userId, status: 'countered' } }),
+        Offer.count({ where: { buyer_id: userId, status: 'completed' } })
       ])
 
-      stats = {
-        totalProducts,
-        totalCategories,
-        newListings: await Product.count({
-          where: {
-            status: 'active',
-            created_at: { [Op.gte]: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
-          }
-        })
-      }
+      stats.buyer = { activeOffers, awaitingYourResponse, purchases }
     }
 
     res.status(200).json({

@@ -48,10 +48,12 @@ describe('BuyerOverview', () => {
 
   it('groups sent offers by product', () => {
     render(
-      <BuyerOverview 
-        purchases={[]} 
-        recentActivity={[]} 
-        sentOffers={mockOffers} 
+      <BuyerOverview
+        purchases={[]}
+        recentActivity={[]}
+        pendingSentOffers={mockOffers}
+        counteredSentOffers={[]}
+        activeDealOffers={[]}
       />
     )
 
@@ -68,13 +70,15 @@ describe('BuyerOverview', () => {
 
   it('renders correctly with no offers', () => {
     render(
-      <BuyerOverview 
-        purchases={[]} 
-        recentActivity={[]} 
-        sentOffers={[]} 
+      <BuyerOverview
+        purchases={[]}
+        recentActivity={[]}
+        pendingSentOffers={[]}
+        counteredSentOffers={[]}
+        activeDealOffers={[]}
       />
     )
 
-    expect(screen.queryByText('Your Offers')).not.toBeInTheDocument()
+    expect(screen.queryByText('Waiting on Seller')).not.toBeInTheDocument()
   })
 })

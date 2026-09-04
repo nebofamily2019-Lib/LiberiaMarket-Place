@@ -1,13 +1,7 @@
 const { Payment, Offer, Product, User, MobileMoneyAccount } = require('../models');
 const { Op } = require('sequelize');
 const smsService = require('../services/smsService');
-
-/**
- * Calculate platform fee (2% of amount)
- */
-const calculatePlatformFee = (amount) => {
-  return (amount * 0.02).toFixed(2);
-};
+const { calculatePlatformFee } = require('../utils/platformFee');
 
 /**
  * Initiate payment for an accepted offer
@@ -131,7 +125,7 @@ exports.initiatePayment = async (req, res) => {
 
     // Calculate amounts
     const amount = parseFloat(offer.offer_amount);
-    const platformFee = parseFloat(calculatePlatformFee(amount));
+    const { fee: platformFee } = calculatePlatformFee(amount);
 
     // Create payment record
     const payment = await Payment.create({
@@ -362,12 +356,16 @@ exports.releaseEscrow = async (req, res) => {
       });
     }
 
+    // Seller receives the sale amount minus the platform commission
+    const { netPayout } = calculatePlatformFee(payment.amount);
+
     // Release escrow
     await payment.update({
       escrow_status: 'released',
       payment_metadata: {
         ...payment.payment_metadata,
-        escrow_released_at: new Date()
+        escrow_released_at: new Date(),
+        net_payout: netPayout
       }
     });
 
@@ -385,8 +383,9 @@ exports.releaseEscrow = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Escrow released successfully. Funds will be transferred to your mobile money account.',
-      data: payment
+      message: `Escrow released successfully. $${netPayout.toFixed(2)} (after the 1% platform fee) will be transferred to your mobile money account.`,
+      data: payment,
+      netPayout
     });
   } catch (error) {
     console.error('Error releasing escrow:', error);

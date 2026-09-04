@@ -111,7 +111,7 @@ module.exports = (sequelize) => {
       platform_fee: {
         type: DataTypes.DECIMAL(10, 2),
         allowNull: true,
-        comment: 'Platform commission (2%)'
+        comment: 'Platform commission (1%)'
       },
       payment_metadata: {
         type: DataTypes.JSON,

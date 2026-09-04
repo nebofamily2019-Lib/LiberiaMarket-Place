@@ -2,6 +2,7 @@ const { Product, User, Category, UserActivity } = require('../models')
 const { Op } = require('sequelize')
 const { processAndSaveImage, deleteAllImageSizes } = require('../utils/imageProcessor');
 const logger = require('../utils/logger');
+const { calculatePlatformFee } = require('../utils/platformFee');
 
 // @desc    Get all products (with pagination & filters)
 // @route   GET /api/products
@@ -553,11 +554,14 @@ const markAsSold = async (req, res, next) => {
       return res.status(403).json({ success: false, error: 'Not authorized' });
     }
 
+    const finalSoldPrice = soldPrice || product.price;
+    const { fee: platformFee, netPayout } = calculatePlatformFee(finalSoldPrice);
+
     // Update product
     await product.update({
       status: 'sold',
       sold_at: new Date(),
-      sold_price: soldPrice || product.price,
+      sold_price: finalSoldPrice,
       buyer_id: buyerId || null,
       payment_method: paymentMethod || null
     });
@@ -571,7 +575,7 @@ const markAsSold = async (req, res, next) => {
         user_id: req.user.id,
         activity_type: 'sold_product',
         entity_id: product.id,
-        details: { sold_price: soldPrice || product.price }
+        details: { sold_price: finalSoldPrice, platform_fee: platformFee, net_payout: netPayout }
       });
     } catch (logErr) {
       logger.warn('Failed to log sold_product activity:', logErr.message);
@@ -605,6 +609,7 @@ const getSellerStats = async (req, res, next) => {
 
     const totalRevenue = soldProducts.reduce((sum, p) => sum + (parseFloat(p.sold_price) || 0), 0);
     const totalItemsSold = soldProducts.length;
+    const { fee: totalPlatformFees, netPayout: netRevenue } = calculatePlatformFee(totalRevenue);
 
     // 2. Active Listings
     const activeCount = await Product.count({
@@ -626,13 +631,21 @@ const getSellerStats = async (req, res, next) => {
       include: [{ model: Category, as: 'category', attributes: ['name'] }]
     });
 
+    // Attach the per-sale fee/payout breakdown so the UI doesn't have to recompute it
+    const recentSalesWithPayout = recentSales.map((sale) => {
+      const { fee, netPayout } = calculatePlatformFee(sale.sold_price);
+      return { ...sale.toJSON(), platform_fee: fee, net_payout: netPayout };
+    });
+
     res.status(200).json({
       success: true,
       data: {
         totalRevenue,
+        totalPlatformFees,
+        netRevenue,
         totalItemsSold,
         activeListings: activeCount,
-        recentSales
+        recentSales: recentSalesWithPayout
       }
     });
   } catch (error) {
