@@ -23,8 +23,9 @@ COPY backend/package*.json ./
 # Copy application code
 COPY backend/ ./
 
-# Create uploads directory
-RUN mkdir -p uploads
+# Create uploads directory, then drop root before running the app
+RUN mkdir -p uploads && chown -R node:node /app
+USER node
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

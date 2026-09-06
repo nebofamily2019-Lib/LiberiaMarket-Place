@@ -5,12 +5,19 @@ services:
     restart: always
     ports:
       - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+      - ACME_EMAIL=${ACME_EMAIL:-admin@example.com}
     depends_on:
       - backend
     networks:
       - libmarket-network
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/index.html"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:8080/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -20,8 +27,6 @@ services:
     image: ${REGISTRY:-docker.io}/${BACKEND_IMAGE:-libmarket-backend}:${VERSION:-latest}
     container_name: libmarket-backend-prod
     restart: always
-    ports:
-      - "5000:5000"
     environment:
       - NODE_ENV=production
       - PORT=5000
@@ -85,6 +90,13 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - PGPASSWORD=${POSTGRES_PASSWORD}
       - PGHOST=db
+      # Off-site backup (optional — leave RESTIC_REPOSITORY unset to skip
+      # entirely and keep the old local-only behavior). See
+      # DOCKER-DEPLOYMENT.md for how to set these up with Backblaze B2.
+      - RESTIC_REPOSITORY=${RESTIC_REPOSITORY:-}
+      - RESTIC_PASSWORD=${RESTIC_PASSWORD:-}
+      - B2_ACCOUNT_ID=${B2_ACCOUNT_ID:-}
+      - B2_ACCOUNT_KEY=${B2_ACCOUNT_KEY:-}
     depends_on:
       db:
         condition: service_healthy
@@ -92,12 +104,23 @@ services:
       - libmarket-network
     volumes:
       - db-backups:/backups
+      - backend-uploads:/uploads:ro
     entrypoint: >
       sh -c '
+        apk add --no-cache restic >/dev/null 2>&1;
+        if [ -n "$$RESTIC_REPOSITORY" ]; then
+          restic snapshots >/dev/null 2>&1 || restic init;
+        fi;
         while true; do
           FILE="/backups/libmarket-$$(date +%Y%m%d-%H%M%S).sql";
           if pg_dump -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -f "$$FILE"; then
             gzip "$$FILE" && echo "Backup written: $$FILE.gz";
+            if [ -n "$$RESTIC_REPOSITORY" ]; then
+              restic backup /backups /uploads --tag libmarket \
+                && echo "Off-site backup complete" \
+                || echo "Off-site backup FAILED" >&2;
+              restic forget --keep-daily 14 --keep-weekly 8 --prune >/dev/null 2>&1 || true;
+            fi;
           else
             echo "Backup FAILED" >&2;
             rm -f "$$FILE";
@@ -113,6 +136,10 @@ volumes:
   backend-uploads:
     driver: local
   db-backups:
+    driver: local
+  caddy-data:
+    driver: local
+  caddy-config:
     driver: local
 
 networks:

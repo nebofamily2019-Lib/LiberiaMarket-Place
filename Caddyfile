@@ -1,0 +1,49 @@
+{
+	# Registered with Let's Encrypt for renewal/expiry notices — set ACME_EMAIL
+	# in .env.prod. Caddy only attempts real ACME issuance when {$DOMAIN} is an
+	# actual public domain; left at the "localhost" default, it just serves
+	# over plain HTTP with no certificate dance, so this file works unmodified
+	# in any environment.
+	email {$ACME_EMAIL:admin@example.com}
+}
+
+
+# Plain-HTTP-only internal health endpoint, deliberately outside the site
+# block below — a bare ":<port>" address never gets automatic HTTPS, so this
+# stays reachable over plain HTTP regardless of what DOMAIN resolves to
+# (avoids the SNI mismatch/redirect-to-HTTPS trap the main site is under).
+:8080 {
+	respond /healthz "OK" 200
+}
+
+{$DOMAIN:localhost} {
+	root * /srv
+	encode gzip
+
+	@static {
+		path *.js *.css *.png *.jpg *.jpeg *.gif *.ico *.svg *.woff *.woff2 *.ttf *.eot
+	}
+	header @static Cache-Control "public, max-age=31536000, immutable"
+
+	header {
+		X-Frame-Options "SAMEORIGIN"
+		X-Content-Type-Options "nosniff"
+		X-XSS-Protection "1; mode=block"
+	}
+
+	# reverse_proxy handles WebSocket upgrades automatically — no manual
+	# Connection/Upgrade headers needed here, unlike nginx.
+	handle /api/* {
+		reverse_proxy backend:5000
+	}
+
+	handle /uploads/* {
+		reverse_proxy backend:5000
+	}
+
+	# SPA fallback for everything else
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
+}
